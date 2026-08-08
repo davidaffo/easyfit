@@ -1,8 +1,20 @@
-const CACHE = 'easyfit-v3';
+const CACHE = 'easyfit-v4';
 const CORE = ['/', '/index.html', '/manifest.webmanifest', '/icon.svg', '/icon-192.png', '/icon-512.png'];
+const IMAGE_INDEX = '/exercise-images/index.json';
 
 self.addEventListener('install', (event) => {
-  event.waitUntil(caches.open(CACHE).then((cache) => cache.addAll(CORE)));
+  event.waitUntil((async () => {
+    const cache = await caches.open(CACHE);
+    await cache.addAll(CORE);
+    const response = await fetch(IMAGE_INDEX, { cache: 'no-store' });
+    if (response.ok) {
+      await cache.put(IMAGE_INDEX, response.clone());
+      const images = await response.json();
+      for (let index = 0; index < images.length; index += 25) {
+        await cache.addAll(images.slice(index, index + 25));
+      }
+    }
+  })());
   self.skipWaiting();
 });
 
@@ -18,10 +30,14 @@ self.addEventListener('fetch', (event) => {
   event.respondWith(
     fetch(event.request)
       .then((response) => {
+        if (!response.ok) throw new Error(`Request failed with ${response.status}`);
         const copy = response.clone();
         caches.open(CACHE).then((cache) => cache.put(event.request, copy));
         return response;
       })
-      .catch(() => caches.match(event.request).then((cached) => cached || caches.match('/index.html')))
+      .catch(() => caches.match(event.request).then((cached) => {
+        if (cached) return cached;
+        return event.request.mode === 'navigate' ? caches.match('/index.html') : Response.error();
+      }))
   );
 });

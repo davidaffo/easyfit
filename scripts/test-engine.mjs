@@ -1,22 +1,30 @@
 import assert from 'node:assert/strict';
 import { exercises } from '../src/data/exercises.js';
+import { getExerciseDetails } from '../src/data/exerciseDetails.js';
 import {
   estimateOneRepMax,
   generateWorkout,
   getExerciseHistory,
   getExerciseProgress,
   getRecovery,
+  getSimilarExercises,
   getWeeklyMuscleLoad,
   removeExercise,
   replaceExercise,
   suggestFocusExercises,
+  willCompleteExercise,
 } from '../src/engine/generator.js';
 
 const bench = exercises.find((exercise) => exercise.name === 'Bench Press');
 assert(bench, 'The canonical English Bench Press must exist');
 assert.equal(bench.translations.en, 'Bench Press');
+const benchGuide = await getExerciseDetails(bench.wgerId, 'en');
+assert(benchGuide.description.length > 100, 'The lazy wger guide must expose the English instructions');
+assert(benchGuide.image?.startsWith('/exercise-images/'), 'The bundled wger guide must use a local exercise image');
 
 const baseSet = { targetReps: 8, targetWeight: 60, targetRir: 2, weight: 60, done: true };
+assert.equal(willCompleteExercise([{ done: false }, { done: false }, { done: false }], 0), false, 'The first set must not trigger the RIR prompt');
+assert.equal(willCompleteExercise([{ done: true }, { done: true }, { done: false }], 2), true, 'The final completed set must trigger one RIR prompt');
 const hardHistory = [{
   id: 'hard-session',
   completedAt: Date.now() - 36e5,
@@ -41,6 +49,23 @@ const easyHistory = structuredClone(hardHistory);
 easyHistory[0].exercises[0].sets[1].rir = 4;
 easyHistory[0].exercises[0].sets[1].reps = 8;
 assert(getRecovery(hardHistory).chest < getRecovery(easyHistory).chest, 'Failure and extra reps must create more estimated fatigue');
+
+const lastSetRirHistory = [{
+  id: 'last-set-rir',
+  completedAt: Date.now() - 36e5,
+  exercises: [{
+    exerciseId: bench.id,
+    sets: [
+      { ...baseSet, reps: 20, rir: null },
+      { ...baseSet, reps: 8, rir: 2 },
+    ],
+  }],
+}];
+assert.equal(
+  Math.round(getExerciseProgress(lastSetRirHistory, bench.id).latestE1rm),
+  Math.round(estimateOneRepMax(60, 8, 2)),
+  'When RIR is requested once, calibration must prefer the set with an actual RIR instead of inventing one for every set',
+);
 
 const preferences = Object.fromEntries(exercises.map((exercise) => [exercise.id, 'exclude']));
 delete preferences[bench.id];
@@ -80,9 +105,12 @@ assert.equal(withoutExercise.exercises.length, focusWorkout.exercises.length - 1
 assert(!withoutExercise.exercises.some((item) => item.exerciseId === firstNonFocusId), 'The removed exercise must leave the current workout');
 
 const currentFocusExercise = exercises.find((exercise) => exercise.id === focusWorkout.exercises[0].exerciseId);
-const similarWorkout = replaceExercise(focusWorkout, currentFocusExercise.id, focusProfile, []);
+const similarChoices = getSimilarExercises(focusWorkout, currentFocusExercise.id, focusProfile);
+assert(similarChoices.length > 1, 'The replacement picker must receive a list of compatible alternatives');
+const selectedSimilar = similarChoices.find((exercise) => exercise.pattern === currentFocusExercise.pattern);
+const similarWorkout = replaceExercise(focusWorkout, currentFocusExercise.id, focusProfile, [], selectedSimilar.id);
 const similarExercise = exercises.find((exercise) => exercise.id === similarWorkout.exercises[0].exerciseId);
-assert.notEqual(similarExercise.id, currentFocusExercise.id, 'Similar replacement must select a different exercise');
+assert.equal(similarExercise.id, selectedSimilar.id, 'Replacement must use the exercise explicitly selected by the user');
 assert.equal(similarExercise.pattern, currentFocusExercise.pattern, 'Similar replacement must preserve the movement pattern when possible');
 
 const refreshedWorkout = generateWorkout({ ...focusProfile, focusExerciseIds: suggestedFocus }, [], {
@@ -112,4 +140,4 @@ delete bodyPreferences[bodyweight.id];
 const bodyWorkout = generateWorkout({ ...profile, equipment: ['bodyweight'], preferences: bodyPreferences }, bodyweightHistory, { targets: ['quads'], duration: 25 });
 assert(bodyWorkout.exercises[0].sets[0].reps > 8, 'Bodyweight reps must adapt to demonstrated capacity');
 
-console.log('Engine checks passed: catalog, focus, edit/exclude/refresh, exercise history, e1RM, RIR, recovery, weekly volume and progression.');
+console.log('Engine checks passed: catalog/guides, focus, edit/exclude/refresh, exercise history, end-of-exercise RIR, recovery, weekly volume and progression.');

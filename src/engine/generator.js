@@ -26,6 +26,10 @@ export const trainingRules = {
 
 const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
 
+export function willCompleteExercise(sets = [], setIndex) {
+  return sets.length > 0 && sets.every((set, index) => index === setIndex || set.done);
+}
+
 export function estimateOneRepMax(weight, reps, rir = 0) {
   if (!Number.isFinite(Number(weight)) || Number(weight) <= 0 || !Number.isFinite(Number(reps)) || Number(reps) <= 0) return null;
   const recordedRir = rir === null || rir === undefined || rir === '' ? 2 : Number(rir);
@@ -33,6 +37,11 @@ export function estimateOneRepMax(weight, reps, rir = 0) {
   return effectiveReps <= 10
     ? Number(weight) * (36 / (37 - effectiveReps))
     : Number(weight) * (1 + effectiveReps / 30);
+}
+
+function calibrationSets(completedSets) {
+  const withRecordedRir = completedSets.filter((set) => set.rir !== null && set.rir !== undefined && set.rir !== '');
+  return withRecordedRir.length ? withRecordedRir : completedSets;
 }
 
 export function getExerciseProgress(history = [], exerciseId) {
@@ -45,14 +54,15 @@ export function getExerciseProgress(history = [], exerciseId) {
     .filter(({ item }) => item)
     .map(({ completedAt, item }) => {
       const completed = item.sets.filter((set) => set.done);
-      const estimates = completed
+      const calibrated = calibrationSets(completed);
+      const estimates = calibrated
         .map((set) => estimateOneRepMax(set.weight, set.reps, set.rir))
         .filter(Boolean);
       return {
         completedAt,
         e1rm: estimates.length ? Math.max(...estimates) : null,
         lastWeight: [...completed].reverse().find((set) => Number(set.weight) > 0)?.weight ?? null,
-        repCapacity: Math.max(...completed.map((set) => {
+        repCapacity: Math.max(...calibrated.map((set) => {
           const rir = set.rir == null ? 2 : Number(set.rir);
           return Number(set.reps) + (Number.isFinite(rir) ? rir : 2);
         })),
@@ -81,7 +91,7 @@ export function getExerciseHistory(history = [], exerciseId) {
       const item = workout.exercises.find((entry) => entry.exerciseId === exerciseId);
       const sets = item?.sets.filter((set) => set.done) || [];
       if (!sets.length) return null;
-      const estimates = sets
+      const estimates = calibrationSets(sets)
         .map((set) => estimateOneRepMax(set.weight, set.reps, set.rir))
         .filter(Boolean);
       const weightedSets = sets.filter((set) => Number(set.weight) > 0);
@@ -153,7 +163,7 @@ export function getWeeklyMuscleLoad(history = [], now = Date.now()) {
 }
 
 function setEffort(set) {
-  const recordedRir = set.rir === null || set.rir === undefined || set.rir === '' ? 2 : Number(set.rir);
+  const recordedRir = set.rir === null || set.rir === undefined || set.rir === '' ? Number(set.targetRir ?? 2) : Number(set.rir);
   const rir = Number.isFinite(recordedRir) ? recordedRir : 2;
   const effortByRir = rir <= 0 ? 1.25 : rir === 1 ? 1.12 : rir === 2 ? 1 : rir === 3 ? 0.87 : 0.75;
   const targetReps = Number(set.targetReps) || Number(set.reps) || 1;
@@ -402,23 +412,31 @@ export function generateWorkout(profile, history = [], options = {}) {
   };
 }
 
-export function replaceExercise(workout, exerciseId, profile, history = []) {
+export function getSimilarExercises(workout, exerciseId, profile) {
   const current = exercises.find((item) => item.id === exerciseId);
-  if (!current) return workout;
+  if (!current) return [];
   const used = workout.exercises.map((item) => exercises.find((exercise) => exercise.id === item.exerciseId));
-  const candidates = exercises
+  return exercises
     .filter((exercise) => exercise.id !== exerciseId && exercise.primary === current.primary)
     .filter((exercise) => hasAvailableEquipment(exercise, profile))
     .filter((exercise) => !used.some((item) => item?.id === exercise.id || (exercise.variationGroup && item?.variationGroup === exercise.variationGroup)))
-    .filter((exercise) => profile.preferences?.[exercise.id] !== 'exclude');
-  const samePattern = candidates.filter((exercise) => exercise.pattern === current.pattern);
-  const alternatives = (samePattern.length ? samePattern : candidates)
+    .filter((exercise) => profile.preferences?.[exercise.id] !== 'exclude')
     .sort((a, b) => {
+      const patternDifference = Number(b.pattern === current.pattern) - Number(a.pattern === current.pattern);
       const compoundDifference = Number(b.compound === current.compound) - Number(a.compound === current.compound);
-      return compoundDifference || b.selectionPriority - a.selectionPriority;
+      return patternDifference || compoundDifference || b.selectionPriority - a.selectionPriority || a.name.localeCompare(b.name);
     });
+}
+
+export function replaceExercise(workout, exerciseId, profile, history = [], replacementId = null) {
+  const current = exercises.find((item) => item.id === exerciseId);
+  if (!current) return workout;
+  const alternatives = getSimilarExercises(workout, exerciseId, profile);
   if (!alternatives.length) return workout;
-  const replacement = alternatives[Math.floor(Math.random() * Math.min(5, alternatives.length))];
+  const replacement = replacementId
+    ? alternatives.find((exercise) => exercise.id === replacementId)
+    : alternatives[0];
+  if (!replacement) return workout;
   const replacingFocus = workout.focusExerciseId === exerciseId;
   return {
     ...workout,

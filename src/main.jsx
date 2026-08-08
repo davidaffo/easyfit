@@ -1,15 +1,18 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { equipmentLabels, exerciseCatalogMeta, exercises, getExerciseName, muscles } from './data/exercises.js';
+import { getExerciseDetails } from './data/exerciseDetails.js';
 import {
   generateWorkout,
   getExerciseHistory,
   getNextFocusExercise,
   getRecovery,
+  getSimilarExercises,
   hasAvailableEquipment,
   removeExercise,
   replaceExercise,
   suggestFocusExercises,
+  willCompleteExercise,
 } from './engine/generator.js';
 import './styles.css';
 
@@ -59,12 +62,25 @@ function Icon({ name, size = 22 }) {
     trash: <><path d="M4 7h16M9 7V4h6v3M7 7l1 14h8l1-14M10 11v6m4-6v6"/></>,
     ban: <><circle cx="12" cy="12" r="9"/><path d="m5.6 5.6 12.8 12.8"/></>,
     refresh: <><path d="M20 7v5h-5M4 17v-5h5"/><path d="M18.2 9A7 7 0 0 0 6.1 6.1L4 9m2 6a7 7 0 0 0 11.9 2.9L20 15"/></>,
+    guide: <><path d="M4 5.5A3.5 3.5 0 0 1 7.5 2H11v17H7.5A3.5 3.5 0 0 0 4 22V5.5ZM20 5.5A3.5 3.5 0 0 0 16.5 2H13v17h3.5A3.5 3.5 0 0 1 20 22V5.5Z"/></>,
   };
   return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{paths[name]}</svg>;
 }
 
 function Brand() {
   return <div className="brand"><span className="brand-mark"><i/><i/><i/></span><span>easyfit</span></div>;
+}
+
+function useExerciseDetails(wgerId, language = 'en') {
+  const [details, setDetails] = useState(null);
+  useEffect(() => {
+    let active = true;
+    setDetails(null);
+    getExerciseDetails(wgerId, language)
+      .then((value) => { if (active) setDetails(value); });
+    return () => { active = false; };
+  }, [wgerId, language]);
+  return details;
 }
 
 function Onboarding({ onDone }) {
@@ -277,7 +293,9 @@ function WorkoutView({ workout, setWorkout, profile, setProfile, history, showTo
   const [rest, setRest] = useState(0);
   const [pendingSet, setPendingSet] = useState(null);
   const [historyExerciseId, setHistoryExerciseId] = useState(null);
+  const [guideExerciseId, setGuideExerciseId] = useState(null);
   const [optionsExerciseId, setOptionsExerciseId] = useState(null);
+  const [replacementExerciseId, setReplacementExerciseId] = useState(null);
   const [startedAt, setStartedAt] = useState(Date.now());
   const totalSets = workout.exercises.reduce((sum, item) => sum + item.sets.length, 0);
   const doneSets = workout.exercises.reduce((sum, item) => sum + item.sets.filter((set) => set.done).length, 0);
@@ -309,7 +327,13 @@ function WorkoutView({ workout, setWorkout, profile, setProfile, history, showTo
       setRest(item.rest);
       return;
     }
-    setPendingSet({ exerciseIndex, setIndex, item, wasDone: false });
+    const completesExercise = willCompleteExercise(item.sets, setIndex);
+    if (completesExercise) {
+      setPendingSet({ exerciseIndex, setIndex, item, wasDone: false });
+      return;
+    }
+    updateSet(exerciseIndex, setIndex, { done: true });
+    setRest(item.rest);
   };
   const chooseRir = (rir) => {
     if (!pendingSet) return;
@@ -321,15 +345,19 @@ function WorkoutView({ workout, setWorkout, profile, setProfile, history, showTo
     const item = workout.exercises.find((entry) => entry.exerciseId === exerciseId);
     return !item?.sets.some((set) => set.done) || window.confirm('Questo esercizio contiene serie registrate. Vuoi eliminarle?');
   };
-  const replaceCurrentExercise = (exerciseId) => {
+  const openReplacementPicker = (exerciseId) => {
+    setOptionsExerciseId(null);
+    setReplacementExerciseId(exerciseId);
+  };
+  const replaceCurrentExercise = (exerciseId, selectedExerciseId) => {
     if (!canDiscardExercise(exerciseId)) return;
-    const replacement = replaceExercise(workout, exerciseId, profile, history);
+    const replacement = replaceExercise(workout, exerciseId, profile, history, selectedExerciseId);
     if (replacement === workout) {
-      setOptionsExerciseId(null);
+      setReplacementExerciseId(null);
       return showToast('Nessuna alternativa compatibile disponibile');
     }
     setWorkout(replacement);
-    setOptionsExerciseId(null);
+    setReplacementExerciseId(null);
     showToast('Esercizio sostituito con uno simile');
   };
   const removeCurrentExercise = (exerciseId) => {
@@ -371,18 +399,28 @@ function WorkoutView({ workout, setWorkout, profile, setProfile, history, showTo
     <div className="workout-progress"><i style={{ width: `${(doneSets / totalSets) * 100}%` }}/></div>
     <section className="workout-title"><span className="eyebrow">CREATO SUL TUO RECUPERO</span><h1>{workout.targetMuscles.slice(0, 2).map((item) => muscles[item]).join(' + ')}</h1><p>{doneSets} di {totalSets} serie completate</p></section>
     <div className="exercise-list">
-      {workout.exercises.map((item, exerciseIndex) => <ExerciseCard key={item.exerciseId} item={item} exerciseIndex={exerciseIndex} language={profile.exerciseLanguage} updateSet={updateSet} setInitialLoad={setInitialLoad} toggleSet={toggleSet} onRir={(setIndex) => setPendingSet({ exerciseIndex, setIndex, item, wasDone: item.sets[setIndex].done })} onHistory={() => setHistoryExerciseId(item.exerciseId)} onOptions={() => setOptionsExerciseId(item.exerciseId)}/>)}
+      {workout.exercises.map((item, exerciseIndex) => <ExerciseCard key={item.exerciseId} item={item} exerciseIndex={exerciseIndex} language={profile.exerciseLanguage} updateSet={updateSet} setInitialLoad={setInitialLoad} toggleSet={toggleSet} onRir={(setIndex) => setPendingSet({ exerciseIndex, setIndex, item, wasDone: item.sets[setIndex].done })} onGuide={() => setGuideExerciseId(item.exerciseId)} onHistory={() => setHistoryExerciseId(item.exerciseId)} onOptions={() => setOptionsExerciseId(item.exerciseId)}/>)}
     </div>
     <div className="finish-panel"><div><span>{Math.round(doneSets / totalSets * 100)}%</span><small>completato</small></div><button className="button acid" disabled={!doneSets} onClick={complete}><Icon name="trophy"/>Termina workout</button></div>
     {rest > 0 && <div className="rest-timer"><button onClick={() => setRest(0)}><Icon name="close" size={18}/></button><span>RECUPERO</span><strong>{Math.floor(rest / 60)}:{String(rest % 60).padStart(2, '0')}</strong><small>Prossima serie quando sei pronto</small><button className="skip-rest" onClick={() => setRest(0)}>Salta recupero</button></div>}
-    {pendingSet && <RirSheet item={pendingSet.item} setIndex={pendingSet.setIndex} language={profile.exerciseLanguage} onChoose={chooseRir} onClose={() => setPendingSet(null)}/>} 
+    {pendingSet && <RirSheet item={pendingSet.item} language={profile.exerciseLanguage} onChoose={chooseRir} onClose={() => setPendingSet(null)}/>} 
+    {guideExerciseId && <ExerciseGuideSheet exerciseId={guideExerciseId} language={profile.exerciseLanguage} onClose={() => setGuideExerciseId(null)}/>} 
     {historyExerciseId && <ExerciseHistorySheet exerciseId={historyExerciseId} history={history} language={profile.exerciseLanguage} onClose={() => setHistoryExerciseId(null)}/>} 
-    {optionsExerciseId && <ExerciseActionsSheet exerciseId={optionsExerciseId} language={profile.exerciseLanguage} onReplace={() => replaceCurrentExercise(optionsExerciseId)} onRemove={() => removeCurrentExercise(optionsExerciseId)} onExclude={() => excludeExercise(optionsExerciseId)} onClose={() => setOptionsExerciseId(null)}/>} 
+    {optionsExerciseId && <ExerciseActionsSheet exerciseId={optionsExerciseId} language={profile.exerciseLanguage} onReplace={() => openReplacementPicker(optionsExerciseId)} onRemove={() => removeCurrentExercise(optionsExerciseId)} onExclude={() => excludeExercise(optionsExerciseId)} onClose={() => setOptionsExerciseId(null)}/>} 
+    {replacementExerciseId && <SimilarExerciseSheet workout={workout} exerciseId={replacementExerciseId} profile={profile} language={profile.exerciseLanguage} onChoose={(selectedId) => replaceCurrentExercise(replacementExerciseId, selectedId)} onClose={() => setReplacementExerciseId(null)}/>} 
   </main>;
 }
 
-function ExerciseCard({ item, exerciseIndex, language, updateSet, setInitialLoad, toggleSet, onRir, onHistory, onOptions }) {
+function ExercisePreview({ source, name, onOpen }) {
+  const [failed, setFailed] = useState(false);
+  useEffect(() => { setFailed(false); }, [source]);
+  if (!source || failed) return null;
+  return <button className="exercise-preview" onClick={onOpen} aria-label={`Apri guida ${name}`}><img src={source} alt={`Esecuzione di ${name}`} loading="lazy" onError={() => setFailed(true)}/><span><Icon name="guide" size={15}/> Apri guida</span></button>;
+}
+
+function ExerciseCard({ item, exerciseIndex, language, updateSet, setInitialLoad, toggleSet, onRir, onGuide, onHistory, onOptions }) {
   const exercise = exercises.find((candidate) => candidate.id === item.exerciseId);
+  const details = useExerciseDetails(exercise.wgerId, 'en');
   const [initialLoad, setInitialLoadValue] = useState('');
   const usesWeight = ['external', 'per-dumbbell'].includes(exercise.loadType);
   const needsInitialLoad = usesWeight && item.sets.every((set) => set.weight == null);
@@ -394,6 +432,7 @@ function ExerciseCard({ item, exerciseIndex, language, updateSet, setInitialLoad
 
   return <article className="exercise-card">
     <header><span className="exercise-index">{String(exerciseIndex + 1).padStart(2, '0')}</span><div><div className="exercise-name-row"><h2>{getExerciseName(exercise, language)}</h2>{item.isFocus && <span className="focus-badge">FOCUS</span>}</div><p>{muscles[exercise.primary]} · {item.sets.length} × {item.sets[0].targetReps || item.sets[0].reps} · RIR {item.targetRir}</p></div><button className="icon-button" onClick={onOptions} aria-label={`Opzioni per ${getExerciseName(exercise, language)}`}><Icon name="more" size={20}/></button></header>
+    <ExercisePreview source={details?.image} name={getExerciseName(exercise, language)} onOpen={onGuide}/>
     {needsInitialLoad ? <form className="initial-load" onSubmit={submitInitialLoad}>
       <div><span>PRIMA VOLTA</span><strong>Che carico vuoi usare?</strong><small>Scegli un peso con cui pensi di chiudere le serie a RIR {item.targetRir}.</small></div>
       <label><input autoFocus inputMode="decimal" type="number" min="0.5" step="0.5" placeholder="0" value={initialLoad} onChange={(event) => setInitialLoadValue(event.target.value)}/><span>kg {exercise.loadType === 'per-dumbbell' ? 'per manubrio' : ''}</span></label>
@@ -408,21 +447,41 @@ function ExerciseCard({ item, exerciseIndex, language, updateSet, setInitialLoad
         <button className="set-check" onClick={() => toggleSet(exerciseIndex, setIndex, item)}><Icon name="check" size={18}/></button>
       </div>)}</div>
     </>}
-    <footer><span><Icon name="clock" size={16}/> {item.rest >= 60 ? `${Math.floor(item.rest / 60)}:${String(item.rest % 60).padStart(2, '0')}` : `${item.rest}s`} recupero{item.estimatedOneRepMax ? ` · e1RM ${Math.round(item.estimatedOneRepMax)} kg` : ''}</span><div className="exercise-actions"><button onClick={onHistory}><Icon name="history" size={15}/> Storico</button><button onClick={onOptions}>Opzioni <Icon name="more" size={15}/></button></div></footer>
+    <footer><span><Icon name="clock" size={16}/> {item.rest >= 60 ? `${Math.floor(item.rest / 60)}:${String(item.rest % 60).padStart(2, '0')}` : `${item.rest}s`} recupero{item.estimatedOneRepMax ? ` · e1RM ${Math.round(item.estimatedOneRepMax)} kg` : ''}</span><div className="exercise-actions"><button onClick={onGuide}><Icon name="guide" size={15}/> Guida</button><button onClick={onHistory}><Icon name="history" size={15}/> Storico</button><button onClick={onOptions} aria-label="Opzioni"><Icon name="more" size={15}/></button></div></footer>
   </article>;
 }
 
-function RirSheet({ item, setIndex, language, onChoose, onClose }) {
+function RirSheet({ item, language, onChoose, onClose }) {
   const exercise = exercises.find((candidate) => candidate.id === item.exerciseId);
   return <div className="sheet-backdrop" onMouseDown={(event) => event.target === event.currentTarget && onClose()}>
     <section className="rir-sheet" role="dialog" aria-modal="true" aria-label="Registra RIR">
       <button className="sheet-close" onClick={onClose}><Icon name="close" size={19}/></button>
-      <span className="eyebrow">SERIE {setIndex + 1} · {getExerciseName(exercise, language).toUpperCase()}</span>
-      <h2>Quante ripetizioni<br/>avevi ancora?</h2>
-      <p>Il RIR ricalibra il prossimo carico insieme alle ripetizioni realmente completate.</p>
+      <span className="eyebrow">FINE ESERCIZIO · {getExerciseName(exercise, language).toUpperCase()}</span>
+      <h2>Quante ripetizioni avevi<br/>ancora nell’ultima serie?</h2>
+      <p>Lo chiediamo una sola volta per ricalibrare il prossimo carico insieme alle ripetizioni realmente completate. Puoi sempre correggere il RIR di una singola serie.</p>
       <div className="rir-options">
         {[[0, 'Cedimento'], [1, 'Una'], [2, 'Due'], [3, 'Tre'], [4, 'Quattro+']].map(([value, label]) => <button key={value} className={value === item.targetRir ? 'target' : ''} onClick={() => onChoose(value)}><strong>{value === 4 ? '4+' : value}</strong><small>{label}</small>{value === item.targetRir && <i>target</i>}</button>)}
       </div>
+    </section>
+  </div>;
+}
+
+function ExerciseGuideSheet({ exerciseId, language, onClose }) {
+  const exercise = exercises.find((candidate) => candidate.id === exerciseId);
+  const details = useExerciseDetails(exercise.wgerId, 'en');
+  const [imageFailed, setImageFailed] = useState(false);
+  useEffect(() => { setImageFailed(false); }, [details?.image]);
+  const equipment = exercise.equipment.map((id) => equipmentLabels[id] || id).join(' · ');
+
+  return <div className="sheet-backdrop" onMouseDown={(event) => event.target === event.currentTarget && onClose()}>
+    <section className="guide-sheet" role="dialog" aria-modal="true" aria-label={`Guida ${getExerciseName(exercise, language)}`}>
+      <button className="sheet-close" onClick={onClose}><Icon name="close" size={19}/></button>
+      <span className="eyebrow">GUIDA ESERCIZIO</span>
+      <h2>{getExerciseName(exercise, language)}</h2>
+      <p>{muscles[exercise.primary]} · {equipment}</p>
+      {details?.image && !imageFailed ? <div className="guide-image"><img src={details.image} alt={`Esecuzione di ${getExerciseName(exercise, language)}`} onError={() => setImageFailed(true)}/></div> : <div className="guide-image-placeholder"><Icon name="guide" size={31}/><span>Immagine non disponibile</span></div>}
+      <section className="guide-copy"><span className="section-kicker">ESECUZIONE · FONTE INGLESE</span>{details ? (details.description ? <p>{details.description}</p> : <p className="guide-missing">Wger non contiene ancora una spiegazione per questo esercizio.</p>) : <p className="guide-missing">Caricamento della guida…</p>}</section>
+      <footer className="guide-source"><span>Fonte: <a href="https://wger.de" target="_blank" rel="noreferrer">wger</a></span>{exercise.license && <span>{exercise.license.name}{exercise.license.author ? ` · ${exercise.license.author}` : ''}</span>}</footer>
     </section>
   </div>;
 }
@@ -440,6 +499,39 @@ function ExerciseActionsSheet({ exerciseId, language, onReplace, onRemove, onExc
         <button onClick={onRemove}><span><Icon name="trash"/></span><div><strong>Rimuovi da questo workout</strong><small>Potrà ricomparire nei prossimi allenamenti</small></div><Icon name="chevron" size={18}/></button>
         <button className="danger" onClick={onExclude}><span><Icon name="ban"/></span><div><strong>Non proporre più</strong><small>Lo esclude anche dai workout futuri</small></div><Icon name="chevron" size={18}/></button>
       </div>
+    </section>
+  </div>;
+}
+
+function SimilarExerciseSheet({ workout, exerciseId, profile, language, onChoose, onClose }) {
+  const [query, setQuery] = useState('');
+  const current = exercises.find((candidate) => candidate.id === exerciseId);
+  const alternatives = useMemo(() => getSimilarExercises(workout, exerciseId, profile), [workout, exerciseId, profile]);
+  const normalizedQuery = query.trim().toLocaleLowerCase();
+  const filtered = alternatives.filter((exercise) => {
+    if (!normalizedQuery) return true;
+    const equipment = exercise.equipment.map((id) => equipmentLabels[id] || id).join(' ');
+    return `${exercise.name} ${getExerciseName(exercise, language)} ${equipment}`.toLocaleLowerCase().includes(normalizedQuery);
+  });
+  const exact = filtered.filter((exercise) => exercise.pattern === current.pattern);
+  const related = filtered.filter((exercise) => exercise.pattern !== current.pattern);
+  const renderGroup = (title, items) => items.length > 0 && <section className="similar-group">
+    <h3>{title}<span>{items.length}</span></h3>
+    <div className="similar-list">{items.map((exercise) => <button key={exercise.id} onClick={() => onChoose(exercise.id)}>
+      <span className="similar-glyph"><Icon name="swap" size={16}/></span>
+      <div><strong>{getExerciseName(exercise, language)}</strong><small>{muscles[exercise.primary]} · {exercise.equipment.map((id) => equipmentLabels[id] || id).join(' + ')}</small></div>
+      <Icon name="chevron" size={17}/>
+    </button>)}</div>
+  </section>;
+
+  return <div className="sheet-backdrop" onMouseDown={(event) => event.target === event.currentTarget && onClose()}>
+    <section className="similar-sheet" role="dialog" aria-modal="true" aria-label={`Sostituisci ${getExerciseName(current, language)}`}>
+      <button className="sheet-close" onClick={onClose}><Icon name="close" size={19}/></button>
+      <span className="eyebrow">SOSTITUISCI ESERCIZIO</span>
+      <h2>Scegli l’alternativa</h2>
+      <p>Al posto di <strong>{getExerciseName(current, language)}</strong></p>
+      <label className="similar-search"><span>CERCA</span><input type="search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Nome o attrezzatura"/></label>
+      {filtered.length ? <div className="similar-results">{renderGroup('Stesso movimento', exact)}{renderGroup('Stesso gruppo muscolare', related)}</div> : <div className="similar-empty"><Icon name="swap" size={27}/><strong>Nessuna alternativa trovata</strong><span>Prova un’altra ricerca o modifica l’attrezzatura.</span></div>}
     </section>
   </div>;
 }

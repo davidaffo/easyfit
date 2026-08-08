@@ -36,7 +36,8 @@ I riferimenti di programmazione sono il [position stand ACSM 2026](https://pubme
 ## Carico, ripetizioni e RIR
 
 - La prima volta che compare un esercizio con carico esterno, Easyfit chiede il peso all’utente: non esistono kg iniziali predefiniti.
-- Ogni serie conserva separatamente ripetizioni e peso prescritti, valori realmente eseguiti e RIR registrato.
+- Ogni serie conserva separatamente ripetizioni e peso prescritti e valori realmente eseguiti. Il RIR viene chiesto una sola volta, al completamento dell’esercizio, ma resta modificabile su qualsiasi serie.
+- La calibrazione privilegia le serie con un RIR realmente inserito; non inventa un RIR per tutte le altre serie.
 - La capacità della serie è stimata come `ripetizioni + RIR`.
 - L’e1RM usa Brzycki fino a 10 ripetizioni equivalenti ed Epley oltre 10, dove Brzycki diventa instabile.
 - Il carico successivo deriva dall’e1RM e dall’intensità dell’obiettivo, con variazione limitata a circa ±7,5% per sessione e arrotondamento all’incremento utilizzabile.
@@ -45,16 +46,21 @@ I riferimenti di programmazione sono il [position stand ACSM 2026](https://pubme
 
 ## Catalogo esercizi
 
-Il catalogo canonico viene sincronizzato dall’API inglese di [wger](https://wger.de). Gli ID e i nomi inglesi restano stabili; l’eventuale traduzione italiana viene conservata separatamente e l’app torna automaticamente all’inglese quando manca.
+Il catalogo è uno snapshot normalizzato dell’API inglese di [wger](https://wger.de), aggiornato manualmente durante lo sviluppo. L’app non sincronizza dati a runtime e non effettua chiamate all’API wger. Gli ID e i nomi inglesi restano stabili; l’eventuale traduzione italiana viene conservata separatamente e l’app torna automaticamente all’inglese quando manca.
+
+Per aggiornare manualmente gli snapshot durante lo sviluppo:
 
 ```bash
 npm run sync:wger
 ```
 
-La sincronizzazione genera:
+Il comando è solo uno strumento di sviluppo e non viene incluso nel bundle della PWA. Al termine ricostruisce automaticamente anche il `dist`; con un server di sviluppo o una PWA già aperta basta quindi ricaricare la pagina.
+
+Gli snapshot inclusi sono:
 
 - `src/generated/wger-exercises.json`: indice leggero usato dal generatore;
-- `src/generated/wger-exercise-details.json`: descrizioni e immagini, tenute fuori dal bundle iniziale.
+- `src/generated/wger-exercise-details.json`: descrizioni incorporate nell’app;
+- `public/exercise-images/`: immagini scaricate localmente durante la sync e precaricate dalla PWA per l’uso offline.
 
 Il ranking favorisce i movimenti fondamentali, ma mantiene le varianti wger disponibili per l’evoluzione della ricerca e della sostituzione esercizi. Licenza e autore vengono conservati per ciascuna voce.
 
@@ -64,12 +70,13 @@ Il ranking favorisce i movimenti fondamentali, ma mantiene le varianti wger disp
 - generazione per recupero, split, durata e attrezzatura;
 - calibrazione del primo carico ed e1RM progressivo;
 - sostituzione di un esercizio con uno compatibile;
-- menu esercizio con sostituzione per pattern, rimozione dal workout o esclusione permanente ripristinabile;
+- menu esercizio con lista ricercabile di sostituzioni compatibili, rimozione dal workout o esclusione permanente ripristinabile;
 - refresh dell’intero workout mantenendo durata, muscoli target e focus compatibile;
 - Focus exercises persistenti, modificabili e senza fasi artificiali;
 - registrazione modificabile di serie, ripetizioni, peso e RIR;
 - volume e frequenza settimanali per gruppo muscolare;
 - nomi inglesi canonici con traduzione italiana opzionale;
+- immagine visibile nel workout quando disponibile e guida wger apribile con istruzioni inglesi e attribuzione;
 - timer di recupero;
 - cronologia generale, storico del singolo esercizio con trend e stato di recupero;
 - menu Impostazioni completo e reset confermato di profilo, storico, workout e preferenze locali;
