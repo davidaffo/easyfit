@@ -17,7 +17,7 @@ export const trainingRules = {
     targetRir: 2,
   },
   fitness: {
-    weeklySets: 4,
+    weeklySets: 6,
     compound: { sets: 2, reps: 12, intensity: 0.60, rest: 75 },
     accessory: { sets: 2, reps: 15, intensity: 0.55, rest: 60 },
     targetRir: 3,
@@ -25,6 +25,37 @@ export const trainingRules = {
 };
 
 const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
+
+const levelVolumeMultiplier = { beginner: 0.7, intermediate: 1, advanced: 1.2 };
+
+function plannedWeeklyFrequency(profile, weeklyDays) {
+  if (profile.split === 'full') return weeklyDays;
+  if (profile.split === 'upper-lower') return Math.max(1, Math.round(weeklyDays / 2));
+  if (profile.split === 'ppl') return Math.max(1, Math.round(weeklyDays / 3));
+  if (weeklyDays <= 3) return weeklyDays;
+  return weeklyDays === 4 ? 2 : 3;
+}
+
+export function getWeeklyTargets(profile) {
+  const rule = trainingRules[profile.goal] || trainingRules.muscle;
+  const weeklyDays = clamp(Number(profile.weeklyDays) || 3, 2, 6);
+  return {
+    sets: clamp(Math.round(rule.weeklySets * (levelVolumeMultiplier[profile.level] || 1)), 4, 14),
+    frequency: plannedWeeklyFrequency(profile, weeklyDays),
+    weeklyDays,
+  };
+}
+
+export const movementFamilies = [
+  { id: 'push', patterns: ['horizontal-push', 'vertical-push'], muscles: ['chest', 'shoulders', 'triceps'] },
+  { id: 'pull', patterns: ['horizontal-pull', 'vertical-pull'], muscles: ['back', 'biceps'] },
+  { id: 'knee', patterns: ['squat', 'single-leg', 'knee-extension'], muscles: ['quads'] },
+  { id: 'hip', patterns: ['hinge', 'hip-extension', 'knee-flexion'], muscles: ['hamstrings', 'glutes'] },
+];
+
+export function getMovementFamily(exercise) {
+  return movementFamilies.find((family) => family.patterns.includes(exercise?.pattern))?.id || null;
+}
 
 export function willCompleteExercise(sets = [], setIndex) {
   return sets.length > 0 && sets.every((set, index) => index === setIndex || set.done);
@@ -140,26 +171,40 @@ export function getWeeklyMuscleLoad(history = [], now = Date.now()) {
   const frequency = Object.fromEntries(allMuscles.map((muscle) => [muscle, 0]));
 
   history.filter((workout) => workout.completedAt && now - workout.completedAt <= 7 * DAY).forEach((workout) => {
-    const touched = new Set();
+    const workoutStimulus = Object.fromEntries(allMuscles.map((muscle) => [muscle, 0]));
     workout.exercises.forEach((item) => {
       const exercise = exercises.find((candidate) => candidate.id === item.exerciseId);
       if (!exercise) return;
       const completedSets = item.sets.filter((set) => set.done).length;
       if (!completedSets) return;
-      volume[exercise.primary] += completedSets;
-      touched.add(exercise.primary);
-      exercise.secondary.forEach((muscle) => {
-        volume[muscle] += completedSets * 0.5;
-        touched.add(muscle);
-      });
+      workoutStimulus[exercise.primary] += completedSets;
+      exercise.secondary.forEach((muscle) => { workoutStimulus[muscle] += completedSets * 0.5; });
     });
-    touched.forEach((muscle) => { frequency[muscle] += 1; });
+    allMuscles.forEach((muscle) => {
+      volume[muscle] += workoutStimulus[muscle];
+      if (workoutStimulus[muscle] >= 1) frequency[muscle] += 1;
+    });
   });
 
   return {
     volume: Object.fromEntries(allMuscles.map((muscle) => [muscle, Math.round(volume[muscle] * 10) / 10])),
     frequency,
   };
+}
+
+export function getWeeklyMovementFrequency(history = [], now = Date.now()) {
+  const frequency = Object.fromEntries(movementFamilies.map((family) => [family.id, 0]));
+  history.filter((workout) => workout.completedAt && now - workout.completedAt <= 7 * DAY).forEach((workout) => {
+    const covered = new Set();
+    workout.exercises.forEach((item) => {
+      if (!item.sets.some((set) => set.done)) return;
+      const exercise = exercises.find((candidate) => candidate.id === item.exerciseId);
+      const family = getMovementFamily(exercise);
+      if (family) covered.add(family);
+    });
+    covered.forEach((family) => { frequency[family] += 1; });
+  });
+  return frequency;
 }
 
 function setEffort(set) {
@@ -196,8 +241,9 @@ export function getRecovery(history = [], now = Date.now()) {
 
 function targetMuscles(profile, recovery, history, weeklyLoad) {
   const workoutCount = history.length;
-  if (profile.split === 'adaptive' && workoutCount === 0) return ['chest', 'back', 'quads', 'hamstrings', 'shoulders', 'core'];
-  if (profile.split === 'full') return ['chest', 'back', 'quads', 'hamstrings', 'shoulders', 'core'];
+  if (profile.split === 'adaptive' || profile.split === 'full') {
+    return ['chest', 'back', 'shoulders', 'biceps', 'triceps', 'quads', 'hamstrings', 'glutes', 'calves', 'core'];
+  }
   if (profile.split === 'upper-lower') {
     return workoutCount % 2 === 0
       ? ['chest', 'back', 'shoulders', 'biceps', 'triceps']
@@ -212,23 +258,7 @@ function targetMuscles(profile, recovery, history, weeklyLoad) {
     return days[workoutCount % days.length];
   }
 
-  const weeklyTarget = trainingRules[profile.goal]?.weeklySets || 6;
-  const groups = [
-    ['chest', 'shoulders', 'triceps'],
-    ['back', 'biceps'],
-    ['quads', 'hamstrings', 'glutes'],
-  ];
-  const selected = groups
-    .map((group) => ({
-      group,
-      score: group.reduce((sum, muscle) => {
-        const volumeNeed = clamp((weeklyTarget - weeklyLoad.volume[muscle]) / weeklyTarget, 0, 1) * 100;
-        const frequencyNeed = clamp((2 - weeklyLoad.frequency[muscle]) / 2, 0, 1) * 100;
-        return sum + recovery[muscle] * 0.5 + volumeNeed * 0.35 + frequencyNeed * 0.15;
-      }, 0) / group.length,
-    }))
-    .sort((a, b) => b.score - a.score)[0].group;
-  return [...selected, 'core'];
+  return ['chest', 'back', 'quads', 'hamstrings', 'shoulders', 'core'];
 }
 
 function roundLoad(value, exercise) {
@@ -247,34 +277,61 @@ function prescribedWeight(exercise, progress, intensity) {
   return recommendation;
 }
 
-function prescription(exercise, profile, history) {
+function prescribedSetCount(exercise, profile, context) {
+  const targets = getWeeklyTargets(profile);
+  const volumeDone = context.weeklyLoad?.volume?.[exercise.primary] || 0;
+  const frequencyDone = context.weeklyLoad?.frequency?.[exercise.primary] || 0;
+  const volumeGap = Math.max(0, targets.sets - volumeDone);
+  const remainingExposures = Math.max(1, targets.frequency - frequencyDone);
+  const distributedSets = volumeGap > 0 ? Math.ceil(volumeGap / remainingExposures) : 2;
+  const readiness = context.recovery?.[exercise.primary] ?? 100;
+  let maximum = context.targetMinutes <= 30 ? 2 : context.targetMinutes <= 45 ? 3 : exercise.compound ? 4 : 3;
+  if (profile.level === 'beginner' || readiness < 50) maximum = 2;
+  else if (readiness < 65) maximum = Math.min(maximum, 3);
+  if (profile.level === 'advanced' && context.targetMinutes >= 40 && readiness >= 65) maximum = Math.max(maximum, 4);
+  const minimum = targets.frequency >= 5 ? 1 : 2;
+  return clamp(distributedSets, minimum, maximum);
+}
+
+function prescription(exercise, profile, history, context = {}) {
   const goal = trainingRules[profile.goal] || trainingRules.muscle;
   const rule = exercise.compound ? goal.compound : goal.accessory;
-  const sets = profile.level === 'beginner' ? Math.min(2, rule.sets) : rule.sets;
+  const targetMinutes = context.targetMinutes || profile.duration || 45;
+  const enrichedContext = { ...context, targetMinutes };
+  const sets = prescribedSetCount(exercise, profile, enrichedContext);
+  const readiness = context.recovery?.[exercise.primary] ?? 100;
+  const targetRir = clamp(goal.targetRir + (readiness < 55 ? 1 : 0), 1, 4);
   const progress = getExerciseProgress(history, exercise.id);
-  const weight = prescribedWeight(exercise, progress, rule.intensity);
+  const adjustedIntensity = rule.intensity - Math.max(0, targetRir - goal.targetRir) * 0.03;
+  const weight = prescribedWeight(exercise, progress, adjustedIntensity);
   const isRepOnly = !['external', 'per-dumbbell'].includes(exercise.loadType);
   const learnedReps = progress.latestRepCapacity == null
     ? rule.reps
-    : Math.round((rule.reps + Math.max(3, progress.latestRepCapacity - goal.targetRir)) / 2);
+    : Math.round((rule.reps + Math.max(3, progress.latestRepCapacity - targetRir)) / 2);
   const reps = isRepOnly ? clamp(learnedReps, 3, 30) : rule.reps;
 
   return {
     exerciseId: exercise.id,
     rest: rule.rest,
-    targetRir: goal.targetRir,
+    targetRir,
     estimatedOneRepMax: progress.latestE1rm,
     needsInitialLoad: ['external', 'per-dumbbell'].includes(exercise.loadType) && weight == null,
     sets: Array.from({ length: sets }, () => ({
       targetReps: reps,
       targetWeight: weight,
-      targetRir: goal.targetRir,
+      targetRir,
       reps,
       weight,
       rir: null,
       done: false,
     })),
   };
+}
+
+function estimateExerciseMinutes(exercise, profile, history, context) {
+  const item = prescription(exercise, profile, history, context);
+  const workSeconds = exercise.compound ? 42 : 35;
+  return 1 + item.sets.length * workSeconds / 60 + Math.max(0, item.sets.length - 1) * item.rest / 60;
 }
 
 export function hasAvailableEquipment(exercise, profile) {
@@ -343,16 +400,18 @@ function scoreExercise(exercise, targets, profile, recovery, weeklyLoad, recentI
   if (chosen.some((item) => item.pattern === exercise.pattern)) return -500;
   if (exercise.variationGroup && chosen.some((item) => item.variationGroup === exercise.variationGroup)) return -500;
 
-  const weeklyTarget = trainingRules[profile.goal]?.weeklySets || 6;
-  const volumeNeed = clamp((weeklyTarget - weeklyLoad.volume[exercise.primary]) / weeklyTarget, 0, 1);
-  const frequencyNeed = clamp((2 - weeklyLoad.frequency[exercise.primary]) / 2, 0, 1);
-  let score = recovery[exercise.primary] * 0.35;
-  score += volumeNeed * 30;
-  score += frequencyNeed * 15;
+  const weeklyTargets = getWeeklyTargets(profile);
+  const volumeNeed = clamp((weeklyTargets.sets - weeklyLoad.volume[exercise.primary]) / weeklyTargets.sets, 0, 1);
+  const frequencyNeed = clamp((weeklyTargets.frequency - weeklyLoad.frequency[exercise.primary]) / weeklyTargets.frequency, 0, 1);
+  const readiness = recovery[exercise.primary];
+  let score = readiness * 0.25;
+  score += volumeNeed * 35;
+  score += frequencyNeed * 25;
   score += exercise.compound && chosen.length < 3 ? 12 : 6;
   score += exercise.selectionPriority;
   score -= chosen.filter((item) => item.primary === exercise.primary).length * 18;
-  score += recentIds.includes(exercise.id) ? -8 : 4;
+  score += recentIds.includes(exercise.id) ? -10 : 4;
+  if (readiness < 45) score -= (45 - readiness) * 1.5;
   score += profile.preferences?.[exercise.id] === 'more' ? 12 : 0;
   score += profile.preferences?.[exercise.id] === 'less' ? -15 : 0;
   score += random() * 4;
@@ -367,31 +426,80 @@ function seededRandom(seed) {
   };
 }
 
+function adaptiveFamilyCount(weeklyDays) {
+  if (weeklyDays <= 3) return movementFamilies.length;
+  if (weeklyDays === 5) return 3;
+  return 2;
+}
+
+function movementFamilyNeed(family, profile, recovery, weeklyLoad, movementFrequency) {
+  const weeklyTargets = getWeeklyTargets(profile);
+  const relevantMuscles = family.muscles.filter((muscle) => allMuscles.includes(muscle));
+  const average = (selector) => relevantMuscles.reduce((sum, muscle) => sum + selector(muscle), 0) / relevantMuscles.length;
+  return {
+    frequencyGap: Math.max(0, weeklyTargets.frequency - movementFrequency[family.id]),
+    volumeGap: average((muscle) => clamp((weeklyTargets.sets - weeklyLoad.volume[muscle]) / weeklyTargets.sets, 0, 1)),
+    readiness: average((muscle) => recovery[muscle] / 100),
+  };
+}
+
+function compareMovementFamilyNeed(a, b, profile, recovery, weeklyLoad, movementFrequency) {
+  const needA = movementFamilyNeed(a, profile, recovery, weeklyLoad, movementFrequency);
+  const needB = movementFamilyNeed(b, profile, recovery, weeklyLoad, movementFrequency);
+  return needB.frequencyGap - needA.frequencyGap
+    || needB.volumeGap - needA.volumeGap
+    || needB.readiness - needA.readiness;
+}
+
 export function generateWorkout(profile, history = [], options = {}) {
   const recovery = getRecovery(history);
   const weeklyLoad = getWeeklyMuscleLoad(history);
-  const targets = options.targets || targetMuscles(profile, recovery, history, weeklyLoad);
+  const weeklyMovementFrequency = getWeeklyMovementFrequency(history);
+  let targets = options.targets || targetMuscles(profile, recovery, history, weeklyLoad);
   const recentIds = history.slice(-3).flatMap((workout) => workout.exercises.map((item) => item.exerciseId));
   const avoidIds = new Set(options.avoidExerciseIds || []);
+  const targetMinutes = options.duration || profile.duration || 45;
+  const prescriptionContext = { weeklyLoad, recovery, targetMinutes };
   const focus = selectWorkoutFocus(profile, history, targets);
   const chosen = focus ? [focus] : [];
-  const targetMinutes = options.duration || profile.duration || 45;
   const random = seededRandom(Date.now() + (options.variation || 0));
-  let usedMinutes = 5 + (focus?.minutes || 0);
+  let usedMinutes = 5 + (focus ? estimateExerciseMinutes(focus, profile, history, prescriptionContext) : 0);
+
+  const rankCandidates = (patterns = null) => exercises
+    .filter((exercise) => profile.preferences?.[exercise.id] !== 'exclude' && !chosen.some((item) => item.id === exercise.id))
+    .filter((exercise) => !avoidIds.has(exercise.id))
+    .filter((exercise) => !patterns || patterns.includes(exercise.pattern))
+    .map((exercise) => ({ exercise, score: scoreExercise(exercise, targets, profile, recovery, weeklyLoad, recentIds, chosen, random) }))
+    .filter((item) => item.score > -100)
+    .sort((a, b) => b.score - a.score);
+
+  let requiredFamilies = movementFamilies.filter((family) => family.muscles.some((muscle) => targets.includes(muscle)));
+  if (profile.split === 'adaptive' && !options.targets) {
+    requiredFamilies = [...requiredFamilies]
+      .sort((a, b) => compareMovementFamilyNeed(a, b, profile, recovery, weeklyLoad, weeklyMovementFrequency))
+      .slice(0, adaptiveFamilyCount(getWeeklyTargets(profile).weeklyDays));
+    targets = [...new Set([...requiredFamilies.flatMap((family) => family.muscles), 'calves', 'core'])];
+  }
+  requiredFamilies.forEach((family) => {
+    if (chosen.some((exercise) => getMovementFamily(exercise) === family.id)) return;
+    const next = rankCandidates(family.patterns)[0]?.exercise;
+    if (!next) return;
+    chosen.push(next);
+    usedMinutes += estimateExerciseMinutes(next, profile, history, prescriptionContext);
+  });
 
   while (usedMinutes < targetMinutes - 4 && chosen.length < 8) {
-    const ranked = exercises
-      .filter((exercise) => profile.preferences?.[exercise.id] !== 'exclude' && !chosen.some((item) => item.id === exercise.id))
-      .filter((exercise) => !avoidIds.has(exercise.id))
-      .map((exercise) => ({ exercise, score: scoreExercise(exercise, targets, profile, recovery, weeklyLoad, recentIds, chosen, random) }))
-      .filter((item) => item.score > -100)
-      .sort((a, b) => b.score - a.score);
+    const ranked = rankCandidates();
     if (!ranked.length) break;
     const next = ranked[0].exercise;
-    if (chosen.length >= 4 && usedMinutes + next.minutes > targetMinutes + 3) break;
+    const nextMinutes = estimateExerciseMinutes(next, profile, history, prescriptionContext);
+    if (chosen.length >= requiredFamilies.length && usedMinutes + nextMinutes > targetMinutes + 2) break;
     chosen.push(next);
-    usedMinutes += next.minutes;
+    usedMinutes += nextMinutes;
   }
+
+  const weeklyTargets = getWeeklyTargets(profile);
+  const coveredMovementFamilies = [...new Set(chosen.map((exercise) => getMovementFamily(exercise)).filter(Boolean))];
 
   return {
     id: `workout-${Date.now()}`,
@@ -400,14 +508,21 @@ export function generateWorkout(profile, history = [], options = {}) {
     targetMuscles: [...new Set(chosen.map((exercise) => exercise.primary))],
     focusExerciseId: focus?.id || null,
     exercises: chosen.map((exercise) => ({
-      ...prescription(exercise, profile, history),
+      ...prescription(exercise, profile, history, prescriptionContext),
       isFocus: exercise.id === focus?.id,
     })),
     engine: {
-      version: 3,
+      version: 4,
       weeklyVolumeBeforeWorkout: weeklyLoad.volume,
+      weeklyFrequencyBeforeWorkout: weeklyLoad.frequency,
+      weeklyMovementFrequencyBeforeWorkout: weeklyMovementFrequency,
+      weeklyTargets,
       recoveryAtGeneration: recovery,
-      evidenceProfile: 'ACSM-2026-IUSCA-RIR',
+      movementFamilies: requiredFamilies.map((family) => family.id),
+      unavailableMovementFamilies: requiredFamilies
+        .map((family) => family.id)
+        .filter((family) => !coveredMovementFamilies.includes(family)),
+      evidenceProfile: 'ACSM-2026-PELLAND-2026-RIR',
     },
   };
 }
@@ -438,9 +553,20 @@ export function replaceExercise(workout, exerciseId, profile, history = [], repl
     : alternatives[0];
   if (!replacement) return workout;
   const replacingFocus = workout.focusExerciseId === exerciseId;
+  const measuredWeeklyLoad = getWeeklyMuscleLoad(history);
+  const prescriptionContext = {
+    targetMinutes: workout.duration || profile.duration || 45,
+    weeklyLoad: {
+      volume: workout.engine?.weeklyVolumeBeforeWorkout || measuredWeeklyLoad.volume,
+      frequency: workout.engine?.weeklyFrequencyBeforeWorkout || measuredWeeklyLoad.frequency,
+    },
+    recovery: workout.engine?.recoveryAtGeneration || getRecovery(history),
+  };
   return {
     ...workout,
-    exercises: workout.exercises.map((item) => item.exerciseId === exerciseId ? prescription(replacement, profile, history) : item),
+    exercises: workout.exercises.map((item) => item.exerciseId === exerciseId
+      ? prescription(replacement, profile, history, prescriptionContext)
+      : item),
     focusExerciseId: replacingFocus ? null : workout.focusExerciseId,
     targetMuscles: [...new Set(workout.exercises
       .map((item) => item.exerciseId === exerciseId ? replacement.primary : exercises.find((exercise) => exercise.id === item.exerciseId)?.primary)

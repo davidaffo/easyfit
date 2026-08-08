@@ -21,6 +21,7 @@ const defaultProfile = {
   level: 'intermediate',
   equipment: ['bodyweight', 'dumbbells', 'bench'],
   duration: 45,
+  weeklyDays: 3,
   split: 'adaptive',
   exerciseLanguage: 'en',
   focusEnabled: true,
@@ -29,7 +30,7 @@ const defaultProfile = {
 };
 
 const goalLabels = { muscle: 'Massa muscolare', strength: 'Forza', fitness: 'Forma fisica' };
-const splitLabels = { adaptive: 'Recupero', full: 'Full body', 'upper-lower': 'Upper / Lower', ppl: 'Push / Pull / Legs' };
+const splitLabels = { adaptive: 'Multifrequenza adattiva', full: 'Full body', 'upper-lower': 'Upper / Lower', ppl: 'Push / Pull / Legs' };
 
 function load(key, fallback) {
   try {
@@ -155,10 +156,15 @@ function Onboarding({ onDone }) {
       <div className="range-scale"><span>25 min</span><span>75 min</span></div>
     </section>
     <section className="form-section">
+      <div className="range-label"><label>Allenamenti a settimana</label><strong>{profile.weeklyDays}</strong></div>
+      <input type="range" min="2" max="6" step="1" value={profile.weeklyDays} onChange={(event) => setProfile({ ...profile, weeklyDays: Number(event.target.value) })}/>
+      <div className="range-scale"><span>2 giorni</span><span>6 giorni</span></div>
+    </section>
+    <section className="form-section">
       <label>Organizzazione</label>
       <div className="select-wrap">
         <select value={profile.split} onChange={(event) => setProfile({ ...profile, split: event.target.value })}>
-          <option value="adaptive">In base al recupero</option><option value="full">Full body</option><option value="upper-lower">Upper / Lower</option><option value="ppl">Push / Pull / Legs</option>
+          <option value="adaptive">Multifrequenza adattiva</option><option value="full">Full body</option><option value="upper-lower">Upper / Lower</option><option value="ppl">Push / Pull / Legs</option>
         </select><Icon name="chevron"/>
       </div>
     </section>
@@ -686,6 +692,7 @@ function Profile({ profile, setProfile, installPrompt, onInstalled, showToast, o
     {installPrompt && <button className="install-card" onClick={install}><span><Icon name="download"/></span><div><strong>Installa Easyfit</strong><small>Usala come un’app, anche offline</small></div><Icon name="chevron"/></button>}
     <SettingsGroup title="Obiettivo"><div className="settings-options">{Object.entries(goalLabels).map(([id, label]) => <button className={profile.goal === id ? 'selected' : ''} onClick={() => update({ goal: id })} key={id}>{label}<span><Icon name="check" size={14}/></span></button>)}</div></SettingsGroup>
     <SettingsGroup title="Esperienza"><div className="settings-options">{[['beginner', 'Principiante'], ['intermediate', 'Intermedio'], ['advanced', 'Esperto']].map(([id, label]) => <button className={profile.level === id ? 'selected' : ''} onClick={() => update({ level: id })} key={id}>{label}<span><Icon name="check" size={14}/></span></button>)}</div></SettingsGroup>
+    <SettingsGroup title="Frequenza settimanale"><div className="range-label"><span>Allenamenti previsti</span><strong>{profile.weeklyDays}</strong></div><input type="range" min="2" max="6" step="1" value={profile.weeklyDays} onChange={(event) => setProfile({ ...profile, weeklyDays: Number(event.target.value) })} onPointerUp={() => showToast('Frequenza aggiornata')}/><p className="setting-help">In modalità adattiva distribuisce ogni gruppo su 2–3 esposizioni, senza trasformare sei giorni in sei full body.</p></SettingsGroup>
     <SettingsGroup title="Durata"><div className="range-label"><span>Tempo per workout</span><strong>{profile.duration} min</strong></div><input type="range" min="25" max="75" step="5" value={profile.duration} onChange={(event) => setProfile({ ...profile, duration: Number(event.target.value) })} onPointerUp={() => showToast('Durata aggiornata')}/></SettingsGroup>
     <SettingsGroup title="Split"><div className="select-wrap"><select value={profile.split} onChange={(event) => update({ split: event.target.value })}>{Object.entries(splitLabels).map(([id, label]) => <option value={id} key={id}>{label}</option>)}</select><Icon name="chevron"/></div></SettingsGroup>
     <FocusSettings profile={profile} update={update}/>
@@ -697,7 +704,7 @@ function Profile({ profile, setProfile, installPrompt, onInstalled, showToast, o
     <ExcludedExercises profile={profile} update={update}/>
     <section className="settings-group danger-zone"><h2>Dati dell’app</h2><p>Cancella tutti i dati salvati su questo dispositivo e riapre la configurazione iniziale.</p><button onClick={() => setResetOpen(true)}><Icon name="trash" size={18}/><span><strong>Cancella tutti i dati</strong><small>Profilo, storico, carichi e preferenze</small></span><Icon name="chevron" size={17}/></button></section>
     <div className="catalog-credit">Catalogo: <a href="https://wger.de" target="_blank" rel="noreferrer">wger</a> · {exerciseCatalogMeta.eligible} esercizi compatibili · licenze indicate nei dati sorgente.</div>
-    <div className="version">Easyfit MVP · Motore locale v0.2</div>
+    <div className="version">Easyfit MVP · Motore locale v0.4</div>
     {resetOpen && <ResetDataSheet onConfirm={onReset} onClose={() => setResetOpen(false)}/>} 
   </main>;
 }

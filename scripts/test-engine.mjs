@@ -5,10 +5,13 @@ import {
   estimateOneRepMax,
   generateWorkout,
   getExerciseHistory,
+  getMovementFamily,
   getExerciseProgress,
   getRecovery,
   getSimilarExercises,
   getWeeklyMuscleLoad,
+  getWeeklyMovementFrequency,
+  getWeeklyTargets,
   removeExercise,
   replaceExercise,
   suggestFocusExercises,
@@ -44,6 +47,14 @@ assert.equal(benchHistory.sessionCount, 1, 'Exercise history must count complete
 assert.equal(benchHistory.totalSets, 2, 'Exercise history must expose the completed sets');
 assert(benchHistory.bestE1rm > 80, 'Exercise history must expose the best estimated 1RM');
 assert.equal(getWeeklyMuscleLoad(hardHistory).volume.chest, 2, 'Completed sets must count toward weekly primary volume');
+assert.equal(getWeeklyMuscleLoad(hardHistory).volume.shoulders, 1, 'Indirect sets must count as half a set');
+assert.equal(getWeeklyMuscleLoad(hardHistory).frequency.shoulders, 1, 'Two indirect sets must count as one meaningful exposure');
+
+const oneSetHistory = structuredClone(hardHistory);
+oneSetHistory[0].exercises[0].sets = oneSetHistory[0].exercises[0].sets.slice(0, 1);
+assert.equal(getWeeklyMuscleLoad(oneSetHistory).volume.shoulders, 0.5, 'A single indirect set must retain fractional volume');
+assert.equal(getWeeklyMuscleLoad(oneSetHistory).frequency.shoulders, 0, 'A token half-set must not inflate weekly frequency');
+assert.equal(getWeeklyMovementFrequency(oneSetHistory).push, 1, 'A completed push movement must count as one structural exposure');
 
 const easyHistory = structuredClone(hardHistory);
 easyHistory[0].exercises[0].sets[1].rir = 4;
@@ -72,12 +83,16 @@ delete preferences[bench.id];
 const profile = {
   goal: 'muscle',
   level: 'intermediate',
+  weeklyDays: 3,
   equipment: ['barbell', 'bench'],
   duration: 25,
   split: 'full',
   exerciseLanguage: 'en',
   preferences,
 };
+assert.deepEqual(getWeeklyTargets(profile), { sets: 10, frequency: 3, weeklyDays: 3 }, 'Intermediate hypertrophy targets must distribute ten fractional sets over three exposures');
+assert.equal(getWeeklyTargets({ ...profile, level: 'beginner' }).sets, 7, 'Beginner volume must start conservatively');
+assert.equal(getWeeklyTargets({ ...profile, level: 'advanced' }).sets, 12, 'Advanced volume must rise without using an extreme target');
 const recalibrated = generateWorkout(profile, hardHistory, { targets: ['chest'], duration: 25 });
 assert.equal(recalibrated.exercises[0].exerciseId, bench.id);
 assert(recalibrated.exercises[0].sets[0].weight > 60, 'Strong over-performance must raise the next prescribed load');
@@ -89,6 +104,60 @@ const focusProfile = {
   focusEnabled: true,
   focusExerciseIds: [],
 };
+
+const adaptiveWorkout = generateWorkout({
+  ...focusProfile,
+  split: 'adaptive',
+  focusEnabled: false,
+  duration: 25,
+}, [], { variation: 41 });
+const adaptiveFamilies = new Set(adaptiveWorkout.exercises.map((item) => {
+  const exercise = exercises.find((candidate) => candidate.id === item.exerciseId);
+  return getMovementFamily(exercise);
+}));
+assert.deepEqual(
+  [...adaptiveFamilies].filter(Boolean).sort(),
+  ['hip', 'knee', 'pull', 'push'],
+  'Even a 25-minute adaptive workout must train push, pull, knee and hip patterns',
+);
+assert(adaptiveWorkout.exercises.every((item) => item.sets.length === 2), 'Short sessions must spread volume instead of overloading one exercise');
+assert.equal(adaptiveWorkout.engine.version, 4, 'The workout must preserve the evidence model version');
+assert.deepEqual(adaptiveWorkout.engine.movementFamilies, ['push', 'pull', 'knee', 'hip'], 'The workout must expose its structural constraints');
+
+const sixDayAdaptive = generateWorkout({
+  ...focusProfile,
+  split: 'adaptive',
+  focusEnabled: false,
+  weeklyDays: 6,
+  duration: 45,
+}, [], { variation: 42 });
+assert.equal(getWeeklyTargets({ ...focusProfile, split: 'adaptive', weeklyDays: 6 }).frequency, 3, 'Six adaptive days must plan three weekly exposures per group');
+assert.equal(sixDayAdaptive.engine.movementFamilies.length, 2, 'Six training days must rotate two pattern families instead of forcing six full-body sessions');
+assert.equal(getWeeklyTargets({ ...profile, split: 'ppl', weeklyDays: 3 }).frequency, 1, 'A three-day PPL must prescribe its weekly volume in the single planned exposure');
+
+const sixDayHistory = [];
+const sixDayFamilyCounts = { push: 0, pull: 0, knee: 0, hip: 0 };
+for (let day = 0; day < 6; day += 1) {
+  const generated = generateWorkout({ ...focusProfile, split: 'adaptive', focusEnabled: false, weeklyDays: 6 }, sixDayHistory, { variation: 100 + day });
+  generated.engine.movementFamilies.forEach((family) => { sixDayFamilyCounts[family] += 1; });
+  generated.completedAt = Date.now() - (6 - day) * 36e5;
+  generated.exercises.forEach((item) => item.sets.forEach((set) => { set.done = true; set.rir = 2; }));
+  sixDayHistory.push(generated);
+}
+assert.deepEqual(sixDayFamilyCounts, { push: 3, pull: 3, knee: 3, hip: 3 }, 'A six-day adaptive week must expose every movement family three times');
+
+const highFatigueHistory = [{
+  id: 'high-fatigue',
+  completedAt: Date.now() - 36e5,
+  exercises: [{
+    exerciseId: bench.id,
+    sets: Array.from({ length: 6 }, () => ({ ...baseSet, reps: 10, rir: 0 })),
+  }],
+}];
+const fatigueAdjusted = generateWorkout(profile, highFatigueHistory, { targets: ['chest'], duration: 25 });
+assert.equal(fatigueAdjusted.exercises[0].targetRir, 3, 'Low readiness must raise the target RIR instead of prescribing failure');
+assert.equal(fatigueAdjusted.exercises[0].sets.length, 2, 'Low readiness must cap per-exercise sets');
+
 const suggestedFocus = suggestFocusExercises(focusProfile);
 assert.equal(suggestedFocus.length, 3, 'A compatible push, pull and lower-body focus should be suggested');
 const focusWorkout = generateWorkout({ ...focusProfile, focusExerciseIds: suggestedFocus }, [], {
@@ -140,4 +209,4 @@ delete bodyPreferences[bodyweight.id];
 const bodyWorkout = generateWorkout({ ...profile, equipment: ['bodyweight'], preferences: bodyPreferences }, bodyweightHistory, { targets: ['quads'], duration: 25 });
 assert(bodyWorkout.exercises[0].sets[0].reps > 8, 'Bodyweight reps must adapt to demonstrated capacity');
 
-console.log('Engine checks passed: catalog/guides, focus, edit/exclude/refresh, exercise history, end-of-exercise RIR, recovery, weekly volume and progression.');
+console.log('Engine checks passed: guides, multifrequency structure, fractional volume, readiness, focus, edit/exclude/refresh, RIR and progression.');

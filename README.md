@@ -24,14 +24,18 @@ npm test
 
 ## Come viene generato un workout
 
-Il motore locale separa due decisioni:
+Il motore locale v4 separa due decisioni:
 
-1. **Exercise selector** — filtra per attrezzatura e split, poi combina recupero stimato, volume e frequenza degli ultimi sette giorni, equilibrio dei pattern, familiarità, preferenze e storico recente.
-2. **Prescription** — sceglie serie, ripetizioni, RIR target, recupero e carico usando obiettivo, livello ed e1RM personale.
+1. **Exercise selector** — filtra per attrezzatura e split. In modalità adattiva usa tutti e quattro i pattern — spinta, tirata, dominante di ginocchio e dominante d’anca — nelle routine da 2–3 giorni; con 4–6 giorni li ruota in base ai deficit settimanali per evitare volume ridondante. Gli slot restanti dipendono da volume e frequenza degli ultimi sette giorni, prontezza stimata, preferenze e storico recente.
+2. **Prescription** — distribuisce il volume settimanale sulle esposizioni ancora necessarie e sceglie serie, ripetizioni, RIR target, recupero e carico usando obiettivo, livello, durata ed e1RM personale.
+
+Il volume usa un conteggio frazionario: una serie vale `1` per il muscolo primario e `0,5` per i muscoli secondari. Un contatto indiretto conta come esposizione solo quando raggiunge almeno una serie equivalente nella stessa sessione. I target non sono massimali: per l’ipertrofia partono da 7, 10 o 12 serie equivalenti settimanali per principianti, intermedi ed esperti e vengono distribuiti sulle esposizioni realmente previste dallo split. Le sessioni brevi riducono le serie per esercizio prima di eliminare un pattern fondamentale; la modalità adattiva mantiene 2–3 esposizioni per gruppo anche quando gli allenamenti settimanali sono di più.
+
+La prontezza stimata non pretende di misurare il recupero biologico. È un indicatore interno che decresce con volume, vicinanza al cedimento e sovraperformance nelle ripetizioni; quando è bassa limita le serie per esercizio, aumenta di uno il RIR target e riduce leggermente il carico, senza trasformare automaticamente il programma in una bro split.
 
 I **Focus exercises** sono tre movimenti principali persistenti (spinta, tirata e parte inferiore). Quando uno è compatibile con i muscoli del giorno viene messo per primo. Non esistono fasi “tecnica/incremento/test”: la progressione è continua e usa lo stesso calcolo basato sulle serie realmente registrate.
 
-I riferimenti di programmazione sono il [position stand ACSM 2026](https://pubmed.ncbi.nlm.nih.gov/41843416/) e le [raccomandazioni IUSCA per l’ipertrofia](https://doi.org/10.47206/ijsc.v1i1.81). Il recupero resta una stima orientativa, non una misura fisiologica o medica.
+Le regole derivano dal [position stand ACSM 2026](https://pubmed.ncbi.nlm.nih.gov/41843416/), dalla [meta-regressione dose-risposta su volume e frequenza](https://pubmed.ncbi.nlm.nih.gov/41343037/), dalla [meta-analisi full body vs split](https://pubmed.ncbi.nlm.nih.gov/38595233/) e dalle [meta-regressioni sulla prossimità al cedimento](https://pubmed.ncbi.nlm.nih.gov/38970765/). La letteratura non dimostra che una split sia intrinsecamente superiore a parità di volume: Easyfit usa la multifrequenza per distribuire meglio il lavoro, mantenere alta la qualità delle serie e non lasciare un gruppo scoperto per un’intera settimana.
 
 ## Carico, ripetizioni e RIR
 
@@ -66,8 +70,9 @@ Il ranking favorisce i movimenti fondamentali, ma mantiene le varianti wger disp
 
 ## Funzioni incluse
 
-- onboarding in tre passaggi;
-- generazione per recupero, split, durata e attrezzatura;
+- onboarding in tre passaggi, inclusa la frequenza settimanale prevista;
+- generazione per prontezza stimata, volume frazionario, frequenza, split, durata e attrezzatura;
+- multifrequenza adattiva strutturale: full body a 2–3 giorni, rotazione dei pattern a 4–6 giorni;
 - calibrazione del primo carico ed e1RM progressivo;
 - sostituzione di un esercizio con uno compatibile;
 - menu esercizio con lista ricercabile di sostituzioni compatibili, rimozione dal workout o esclusione permanente ripristinabile;
