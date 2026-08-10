@@ -1,12 +1,24 @@
 import assert from 'node:assert/strict';
 import { exercises } from '../src/data/exercises.js';
+import {
+  BACKUP_FILENAME,
+  buildWebDavFileUrl,
+  downloadWebDavBackup,
+  parseBackup,
+  serializeBackup,
+  uploadWebDavBackup,
+} from '../src/data/backup.js';
 import { getExerciseDetails } from '../src/data/exerciseDetails.js';
 import {
+  advanceFocusCycles,
   estimateOneRepMax,
   generateWorkout,
   getExerciseHistory,
+  getFocusAnalytics,
+  getFocusCycleProgress,
   getMovementFamily,
   getExerciseProgress,
+  getExercisePrescription,
   getRecovery,
   getSimilarExercises,
   getWeeklyMuscleLoad,
@@ -90,6 +102,60 @@ const profile = {
   exerciseLanguage: 'en',
   preferences,
 };
+
+const backupState = {
+  profile: { ...profile, cloud: { webDavUrl: 'https://cloud.example.test/remote.php/dav/files/user/Easyfit', webDavUsername: 'user', webDavPassword: 'app-password' } },
+  history: hardHistory,
+  workout: null,
+};
+const serializedBackup = serializeBackup(backupState);
+const parsedBackup = parseBackup(serializedBackup);
+assert.equal(parsedBackup.profile.cloud.webDavUrl, backupState.profile.cloud.webDavUrl, 'Backup round-trip must preserve the WebDAV URL');
+assert.equal(parsedBackup.profile.cloud.webDavUsername, 'user', 'Backup round-trip must preserve the WebDAV username');
+assert.equal(parsedBackup.profile.cloud.webDavPassword, undefined, 'Backup serialization must strip cloud password fields');
+assert.deepEqual(parsedBackup.history[0].exercises, hardHistory[0].exercises, 'Backup round-trip must preserve completed exercises and sets');
+assert.equal(parsedBackup.history[0].completedAt, hardHistory[0].completedAt, 'Backup round-trip must preserve workout dates');
+assert.equal(parsedBackup.workout, null, 'Backup round-trip must preserve an empty active workout');
+assert(!serializedBackup.includes('app-password'), 'Serialized backups must never invent or include a cloud password');
+assert.throws(() => parseBackup('{broken'), /JSON valido/, 'Malformed JSON must be rejected');
+assert.throws(() => parseBackup(JSON.stringify({ format: 'another-app', schemaVersion: 1 })), /backup Easyfit/, 'Foreign backup formats must be rejected');
+assert.throws(() => parseBackup(JSON.stringify({ format: 'easyfit-backup', schemaVersion: 99, payload: {} })), /versione più recente/, 'Future schemas must not be imported silently');
+assert.throws(() => parseBackup(JSON.stringify({ format: 'easyfit-backup', schemaVersion: 1, payload: { profile: {}, history: [42], workout: null } })), /workout non validi/, 'Malformed history records must be rejected');
+assert.equal(
+  buildWebDavFileUrl('https://cloud.example.test/remote.php/dav/files/user/Easyfit/'),
+  `https://cloud.example.test/remote.php/dav/files/user/Easyfit/${BACKUP_FILENAME}`,
+  'The fixed backup filename must be appended to the WebDAV folder',
+);
+
+let uploadRequest;
+await uploadWebDavBackup({
+  folderUrl: 'https://cloud.example.test/remote.php/dav/files/user/Easyfit',
+  username: 'user',
+  password: 'app-password',
+  serialized: serializedBackup,
+  fetcher: async (url, options) => {
+    uploadRequest = { url, options };
+    return { ok: true, status: 201 };
+  },
+});
+assert.equal(uploadRequest.options.method, 'PUT', 'Nextcloud upload must use WebDAV PUT');
+assert.equal(uploadRequest.options.body, serializedBackup, 'Nextcloud upload must send the serialized backup unchanged');
+assert(uploadRequest.options.headers.Authorization.startsWith('Basic '), 'Authenticated WebDAV must send Basic authorization');
+assert.equal(uploadRequest.options.headers['X-Requested-With'], 'XMLHttpRequest', 'Writable public shares require the XMLHttpRequest header');
+
+let downloadMethod;
+const downloadedBackup = await downloadWebDavBackup({
+  folderUrl: 'https://cloud.example.test/remote.php/dav/files/user/Easyfit',
+  username: 'user',
+  password: 'app-password',
+  fetcher: async (_url, options) => {
+    downloadMethod = options.method;
+    return { ok: true, status: 200, text: async () => serializedBackup };
+  },
+});
+assert.equal(downloadMethod, 'GET', 'Nextcloud restore must use WebDAV GET');
+assert.deepEqual(parseBackup(downloadedBackup).history[0].exercises, hardHistory[0].exercises, 'A cloud download must remain a valid Easyfit backup');
+
 assert.deepEqual(getWeeklyTargets(profile), { sets: 10, frequency: 3, weeklyDays: 3 }, 'Intermediate hypertrophy targets must distribute ten fractional sets over three exposures');
 assert.equal(getWeeklyTargets({ ...profile, level: 'beginner' }).sets, 7, 'Beginner volume must start conservatively');
 assert.equal(getWeeklyTargets({ ...profile, level: 'advanced' }).sets, 12, 'Advanced volume must rise without using an extreme target');
@@ -121,7 +187,7 @@ assert.deepEqual(
   'Even a 25-minute adaptive workout must train push, pull, knee and hip patterns',
 );
 assert(adaptiveWorkout.exercises.every((item) => item.sets.length === 2), 'Short sessions must spread volume instead of overloading one exercise');
-assert.equal(adaptiveWorkout.engine.version, 4, 'The workout must preserve the evidence model version');
+assert.equal(adaptiveWorkout.engine.version, 5, 'The workout must preserve the evidence model version');
 assert.deepEqual(adaptiveWorkout.engine.movementFamilies, ['push', 'pull', 'knee', 'hip'], 'The workout must expose its structural constraints');
 
 const sixDayAdaptive = generateWorkout({
@@ -155,8 +221,54 @@ const highFatigueHistory = [{
   }],
 }];
 const fatigueAdjusted = generateWorkout(profile, highFatigueHistory, { targets: ['chest'], duration: 25 });
-assert.equal(fatigueAdjusted.exercises[0].targetRir, 3, 'Low readiness must raise the target RIR instead of prescribing failure');
+assert.equal(fatigueAdjusted.exercises[0].targetRir, 2, 'Readiness must not silently change the RIR explicitly chosen by the user');
 assert.equal(fatigueAdjusted.exercises[0].sets.length, 2, 'Low readiness must cap per-exercise sets');
+
+const gradualProgressHistory = [{
+  id: 'gradual-progress',
+  completedAt: Date.now() - 36e5,
+  exercises: [{ exerciseId: bench.id, sets: [{ ...baseSet, targetReps: 8, reps: 8, rir: 2 }] }],
+}];
+const gradualProgress = generateWorkout(profile, gradualProgressHistory, { targets: ['chest'], duration: 25 }).exercises[0];
+assert.equal(gradualProgress.sets[0].weight, 60, 'Double progression must keep load while the top of the rep range is not reached');
+assert.equal(gradualProgress.sets[0].reps, 9, 'Double progression must add exactly one target repetition');
+assert.equal(gradualProgress.progressionStep, 'reps');
+
+const loadProgressHistory = [{
+  id: 'load-progress',
+  completedAt: Date.now() - 36e5,
+  exercises: [{ exerciseId: bench.id, sets: [{ ...baseSet, targetReps: 12, reps: 12, rir: 2 }] }],
+}];
+const loadProgress = generateWorkout(profile, loadProgressHistory, { targets: ['chest'], duration: 25 }).exercises[0];
+assert.equal(loadProgress.sets[0].weight, 62.5, 'Reaching the top of the range at target RIR must add the smallest barbell increment');
+assert.equal(loadProgress.sets[0].reps, 8, 'A load increase must restart from the bottom of the rep range');
+assert.equal(loadProgress.progressionStep, 'load');
+
+const customProfile = {
+  ...profile,
+  targetRir: 0,
+  setCaps: { compound: 4, accessory: 3 },
+  exerciseOverrides: { [bench.id]: { minReps: 5, maxReps: 7, maxSets: 1, targetRir: 1 } },
+};
+assert.deepEqual(
+  getExercisePrescription(customProfile, bench),
+  { minReps: 5, maxReps: 7, maxSets: 1, targetRir: 1, customRir: 1 },
+  'Per-exercise limits must override the global prescription',
+);
+assert.equal(
+  getExercisePrescription({ ...profile, setCaps: { compound: 2, accessory: 1 } }, bench).maxSets,
+  2,
+  'The global compound set cap must apply when an exercise has no override',
+);
+const customWorkout = generateWorkout(customProfile, [], { targets: ['chest'], duration: 60 }).exercises[0];
+assert.equal(customWorkout.sets.length, 1, 'The per-exercise set cap must be enforced');
+assert.deepEqual(customWorkout.repRange, { min: 5, max: 7 }, 'The custom rep range must be stored in the workout');
+assert.equal(customWorkout.targetRir, 1, 'The exercise-specific RIR must override global RIR 0');
+
+const failureProfile = { ...profile, targetRir: 0 };
+const failureWorkout = generateWorkout(failureProfile, highFatigueHistory, { targets: ['chest'], duration: 25 }).exercises[0];
+assert.equal(failureWorkout.targetRir, 0, 'RIR 0 must remain available even when readiness is low');
+assert(failureWorkout.sets.every((set) => set.targetRir === 0), 'Every prescribed set must expose the selected RIR target');
 
 const suggestedFocus = suggestFocusExercises(focusProfile);
 assert.equal(suggestedFocus.length, 3, 'A compatible push, pull and lower-body focus should be suggested');
@@ -166,6 +278,38 @@ const focusWorkout = generateWorkout({ ...focusProfile, focusExerciseIds: sugges
 });
 assert.equal(focusWorkout.exercises[0].isFocus, true, 'The compatible focus must be first in the workout');
 assert(suggestedFocus.includes(focusWorkout.exercises[0].exerciseId), 'The workout focus must come from the persistent selection');
+
+const focusCycleHistory = Array.from({ length: 4 }, (_, index) => ({
+  id: `focus-cycle-${index}`,
+  completedAt: Date.now() - (4 - index) * 864e5,
+  exercises: [{
+    exerciseId: suggestedFocus[0],
+    isFocus: true,
+    sets: [{ targetReps: 8, reps: 8 + index, weight: 20, rir: 2, done: true }],
+  }],
+}));
+assert.deepEqual(
+  getFocusCycleProgress(focusCycleHistory, suggestedFocus[0], 0, 4),
+  { completed: 4, target: 4, remaining: 0 },
+  'A focus cycle must complete after four actual focus exposures',
+);
+const focusRotation = advanceFocusCycles(
+  { ...focusProfile, focusExerciseIds: suggestedFocus, focusCycleLength: 4 },
+  focusCycleHistory,
+  focusCycleHistory.at(-1),
+);
+assert.equal(focusRotation.rotated.length, 1, 'The completed focus family must rotate after its fourth exposure');
+assert.notEqual(focusRotation.profile.focusExerciseIds[0], suggestedFocus[0], 'Focus rotation must choose another compatible exercise');
+
+const analyticsNow = Date.now();
+const analyticsHistory = [
+  { id: 'previous-week', completedAt: analyticsNow - 9 * 864e5, exercises: [{ exerciseId: bench.id, isFocus: true, sets: [{ ...baseSet, weight: 60, reps: 8, rir: 2 }] }] },
+  { id: 'current-week', completedAt: analyticsNow - 2 * 864e5, exercises: [{ exerciseId: bench.id, isFocus: true, sets: [{ ...baseSet, weight: 62.5, reps: 8, rir: 2 }] }] },
+];
+const focusAnalytics = getFocusAnalytics(analyticsHistory, [bench.id], { now: analyticsNow, cycleLength: 4 });
+assert.equal(focusAnalytics.week.focusSessions, 1, 'The weekly summary must count current-week focus sessions');
+assert(focusAnalytics.week.strengthChange > 0, 'The weekly summary must compare estimated strength with the previous week');
+assert(focusAnalytics.week.volumeChange > 0, 'The weekly summary must compare completed training volume');
 
 const firstNonFocusId = focusWorkout.exercises.find((item) => !item.isFocus)?.exerciseId;
 assert(firstNonFocusId, 'The focus workout must contain another exercise for edit checks');
@@ -209,4 +353,4 @@ delete bodyPreferences[bodyweight.id];
 const bodyWorkout = generateWorkout({ ...profile, equipment: ['bodyweight'], preferences: bodyPreferences }, bodyweightHistory, { targets: ['quads'], duration: 25 });
 assert(bodyWorkout.exercises[0].sets[0].reps > 8, 'Bodyweight reps must adapt to demonstrated capacity');
 
-console.log('Engine checks passed: guides, multifrequency structure, fractional volume, readiness, focus, edit/exclude/refresh, RIR and progression.');
+console.log('Checks passed: backup/WebDAV, guides, multifrequency, focus cycles and analytics, fractional volume, double progression, custom limits, exact RIR and workout editing.');

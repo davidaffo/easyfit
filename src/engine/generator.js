@@ -6,20 +6,20 @@ const DAY = 864e5;
 export const trainingRules = {
   strength: {
     weeklySets: 6,
-    compound: { sets: 3, reps: 5, intensity: 0.82, rest: 180 },
-    accessory: { sets: 2, reps: 8, intensity: 0.72, rest: 90 },
+    compound: { sets: 3, reps: 3, maxReps: 6, intensity: 0.82, rest: 180 },
+    accessory: { sets: 2, reps: 6, maxReps: 10, intensity: 0.72, rest: 90 },
     targetRir: 2,
   },
   muscle: {
     weeklySets: 10,
-    compound: { sets: 3, reps: 8, intensity: 0.72, rest: 120 },
-    accessory: { sets: 3, reps: 12, intensity: 0.65, rest: 75 },
+    compound: { sets: 3, reps: 8, maxReps: 12, intensity: 0.72, rest: 120 },
+    accessory: { sets: 3, reps: 10, maxReps: 15, intensity: 0.65, rest: 75 },
     targetRir: 2,
   },
   fitness: {
     weeklySets: 6,
-    compound: { sets: 2, reps: 12, intensity: 0.60, rest: 75 },
-    accessory: { sets: 2, reps: 15, intensity: 0.55, rest: 60 },
+    compound: { sets: 2, reps: 10, maxReps: 15, intensity: 0.60, rest: 75 },
+    accessory: { sets: 2, reps: 12, maxReps: 20, intensity: 0.55, rest: 60 },
     targetRir: 3,
   },
 };
@@ -86,17 +86,18 @@ export function getExerciseProgress(history = [], exerciseId) {
     .map(({ completedAt, item }) => {
       const completed = item.sets.filter((set) => set.done);
       const calibrated = calibrationSets(completed);
+      const progressionSet = calibrated.at(-1);
       const estimates = calibrated
         .map((set) => estimateOneRepMax(set.weight, set.reps, set.rir))
         .filter(Boolean);
       return {
         completedAt,
         e1rm: estimates.length ? Math.max(...estimates) : null,
-        lastWeight: [...completed].reverse().find((set) => Number(set.weight) > 0)?.weight ?? null,
-        repCapacity: Math.max(...calibrated.map((set) => {
-          const rir = set.rir == null ? 2 : Number(set.rir);
-          return Number(set.reps) + (Number.isFinite(rir) ? rir : 2);
-        })),
+        lastWeight: Number(progressionSet?.weight) > 0
+          ? progressionSet.weight
+          : [...completed].reverse().find((set) => Number(set.weight) > 0)?.weight ?? null,
+        targetReps: Number(progressionSet?.targetReps) > 0 ? progressionSet.targetReps : null,
+        repCapacity: Number(progressionSet?.reps) + Number(progressionSet?.rir ?? 2),
         completedSets: completed.length,
       };
     })
@@ -110,6 +111,7 @@ export function getExerciseProgress(history = [], exerciseId) {
     latestE1rm: latest?.e1rm ?? null,
     bestE1rm: Math.max(0, ...sessions.map((session) => session.e1rm || 0)) || null,
     lastWeight: latest?.lastWeight ?? null,
+    latestTargetReps: latest?.targetReps ?? null,
     latestRepCapacity: latest?.repCapacity ?? null,
     trend: latest?.e1rm && previous?.e1rm ? (latest.e1rm - previous.e1rm) / previous.e1rm : null,
   };
@@ -261,23 +263,66 @@ function targetMuscles(profile, recovery, history, weeklyLoad) {
   return ['chest', 'back', 'quads', 'hamstrings', 'shoulders', 'core'];
 }
 
+function loadIncrement(exercise) {
+  return exercise.loadType === 'per-dumbbell' || exercise.equipment.includes('kettlebell') ? 1 : 2.5;
+}
+
 function roundLoad(value, exercise) {
-  const increment = exercise.loadType === 'per-dumbbell' || exercise.equipment.includes('kettlebell') ? 1 : 2.5;
+  const increment = loadIncrement(exercise);
   return Math.max(increment, Math.round(value / increment) * increment);
 }
 
-function prescribedWeight(exercise, progress, intensity) {
-  if (!['external', 'per-dumbbell'].includes(exercise.loadType)) return 0;
-  if (!progress.latestE1rm) return null;
-  let recommendation = roundLoad(progress.latestE1rm * intensity, exercise);
-  if (progress.lastWeight) {
-    recommendation = clamp(recommendation, progress.lastWeight * 0.925, progress.lastWeight * 1.075);
-    recommendation = roundLoad(recommendation, exercise);
-  }
-  return recommendation;
+export function getExercisePrescription(profile, exercise) {
+  const goal = trainingRules[profile.goal] || trainingRules.muscle;
+  const rule = exercise.compound ? goal.compound : goal.accessory;
+  const override = profile.exerciseOverrides?.[exercise.id] || {};
+  const typeCap = exercise.compound ? profile.setCaps?.compound : profile.setCaps?.accessory;
+  const minReps = clamp(Number(override.minReps) || rule.reps, 1, 50);
+  const maxReps = clamp(Number(override.maxReps) || rule.maxReps, minReps, 50);
+  return {
+    minReps,
+    maxReps,
+    maxSets: clamp(Number(override.maxSets) || Number(typeCap) || (exercise.compound ? 3 : 4), 1, 6),
+    targetRir: clamp(override.targetRir ?? profile.targetRir ?? goal.targetRir, 0, 4),
+    customRir: override.targetRir ?? null,
+  };
 }
 
-function prescribedSetCount(exercise, profile, context) {
+function doubleProgression(exercise, progress, limits, intensity) {
+  const usesWeight = ['external', 'per-dumbbell'].includes(exercise.loadType);
+  const previousTarget = clamp(Number(progress.latestTargetReps) || limits.minReps, limits.minReps, limits.maxReps);
+  const supportedReps = progress.latestRepCapacity == null
+    ? null
+    : Math.max(0, progress.latestRepCapacity - limits.targetRir);
+  const reachedTop = supportedReps != null && supportedReps >= limits.maxReps;
+  const canAddRep = supportedReps != null && supportedReps >= previousTarget;
+
+  if (!usesWeight) {
+    return {
+      weight: 0,
+      reps: reachedTop ? limits.maxReps : canAddRep ? Math.min(limits.maxReps, previousTarget + 1) : previousTarget,
+      step: reachedTop ? 'top' : canAddRep ? 'reps' : progress.sessions ? 'hold' : 'start',
+    };
+  }
+
+  if (progress.lastWeight && reachedTop) {
+    return {
+      weight: roundLoad(Number(progress.lastWeight) + loadIncrement(exercise), exercise),
+      reps: limits.minReps,
+      step: 'load',
+    };
+  }
+
+  let weight = progress.lastWeight;
+  if (!weight && progress.latestE1rm) weight = roundLoad(progress.latestE1rm * intensity, exercise);
+  return {
+    weight: weight ?? null,
+    reps: canAddRep ? Math.min(limits.maxReps, previousTarget + 1) : previousTarget,
+    step: canAddRep ? 'reps' : progress.sessions ? 'hold' : 'start',
+  };
+}
+
+function prescribedSetCount(exercise, profile, context, limits) {
   const targets = getWeeklyTargets(profile);
   const volumeDone = context.weeklyLoad?.volume?.[exercise.primary] || 0;
   const frequencyDone = context.weeklyLoad?.frequency?.[exercise.primary] || 0;
@@ -285,12 +330,15 @@ function prescribedSetCount(exercise, profile, context) {
   const remainingExposures = Math.max(1, targets.frequency - frequencyDone);
   const distributedSets = volumeGap > 0 ? Math.ceil(volumeGap / remainingExposures) : 2;
   const readiness = context.recovery?.[exercise.primary] ?? 100;
-  let maximum = context.targetMinutes <= 30 ? 2 : context.targetMinutes <= 45 ? 3 : exercise.compound ? 4 : 3;
-  if (profile.level === 'beginner' || readiness < 50) maximum = 2;
+  let maximum = context.targetMinutes <= 30 ? 2 : context.targetMinutes <= 45 ? 3 : exercise.compound ? 3 : 4;
+  maximum = Math.min(maximum, limits.maxSets);
+  if (profile.level === 'beginner' || readiness < 50) maximum = Math.min(maximum, 2);
   else if (readiness < 65) maximum = Math.min(maximum, 3);
-  if (profile.level === 'advanced' && context.targetMinutes >= 40 && readiness >= 65) maximum = Math.max(maximum, 4);
+  if (profile.level === 'advanced' && context.targetMinutes >= 40 && readiness >= 65) {
+    maximum = Math.min(limits.maxSets, Math.max(maximum, 4));
+  }
   const minimum = targets.frequency >= 5 ? 1 : 2;
-  return clamp(distributedSets, minimum, maximum);
+  return clamp(distributedSets, Math.min(minimum, maximum), maximum);
 }
 
 function prescription(exercise, profile, history, context = {}) {
@@ -298,30 +346,27 @@ function prescription(exercise, profile, history, context = {}) {
   const rule = exercise.compound ? goal.compound : goal.accessory;
   const targetMinutes = context.targetMinutes || profile.duration || 45;
   const enrichedContext = { ...context, targetMinutes };
-  const sets = prescribedSetCount(exercise, profile, enrichedContext);
-  const readiness = context.recovery?.[exercise.primary] ?? 100;
-  const targetRir = clamp(goal.targetRir + (readiness < 55 ? 1 : 0), 1, 4);
+  const limits = getExercisePrescription(profile, exercise);
+  const sets = prescribedSetCount(exercise, profile, enrichedContext, limits);
+  const targetRir = limits.targetRir;
   const progress = getExerciseProgress(history, exercise.id);
   const adjustedIntensity = rule.intensity - Math.max(0, targetRir - goal.targetRir) * 0.03;
-  const weight = prescribedWeight(exercise, progress, adjustedIntensity);
-  const isRepOnly = !['external', 'per-dumbbell'].includes(exercise.loadType);
-  const learnedReps = progress.latestRepCapacity == null
-    ? rule.reps
-    : Math.round((rule.reps + Math.max(3, progress.latestRepCapacity - targetRir)) / 2);
-  const reps = isRepOnly ? clamp(learnedReps, 3, 30) : rule.reps;
+  const progression = doubleProgression(exercise, progress, limits, adjustedIntensity);
 
   return {
     exerciseId: exercise.id,
     rest: rule.rest,
     targetRir,
+    repRange: { min: limits.minReps, max: limits.maxReps },
+    progressionStep: progression.step,
     estimatedOneRepMax: progress.latestE1rm,
-    needsInitialLoad: ['external', 'per-dumbbell'].includes(exercise.loadType) && weight == null,
+    needsInitialLoad: ['external', 'per-dumbbell'].includes(exercise.loadType) && progression.weight == null,
     sets: Array.from({ length: sets }, () => ({
-      targetReps: reps,
-      targetWeight: weight,
+      targetReps: progression.reps,
+      targetWeight: progression.weight,
       targetRir,
-      reps,
-      weight,
+      reps: progression.reps,
+      weight: progression.weight,
       rir: null,
       done: false,
     })),
@@ -378,6 +423,118 @@ export function getNextFocusExercise(profile, currentId, selectedIds = []) {
   if (!candidates.length) return currentId;
   const currentIndex = Math.max(0, getFocusCandidates(profile, family >= 0 ? family : null).findIndex((exercise) => exercise.id === currentId));
   return candidates[currentIndex % candidates.length].id;
+}
+
+function focusFamilyIndex(exerciseId) {
+  const exercise = exercises.find((candidate) => candidate.id === exerciseId);
+  return focusFamilies.findIndex((patterns) => patterns.includes(exercise?.pattern));
+}
+
+export function getFocusCycleProgress(history = [], exerciseId, startedAt = 0, cycleLength = 4) {
+  const family = focusFamilyIndex(exerciseId);
+  let completed = 0;
+  [...history]
+    .filter((workout) => workout.completedAt && workout.completedAt >= Number(startedAt || 0))
+    .sort((a, b) => a.completedAt - b.completedAt)
+    .forEach((workout) => {
+      const focusItem = workout.exercises?.find((item) => item.isFocus && item.sets?.some((set) => set.done));
+      if (!focusItem || focusFamilyIndex(focusItem.exerciseId) !== family) return;
+      completed = focusItem.exerciseId === exerciseId ? completed + 1 : 0;
+    });
+  const target = clamp(Number(cycleLength) || 4, 2, 8);
+  return { completed: Math.min(completed, target), target, remaining: Math.max(0, target - completed) };
+}
+
+function percentChange(current, previous) {
+  return Number(current) > 0 && Number(previous) > 0 ? (current - previous) / previous : null;
+}
+
+function summarizeSessions(sessions = []) {
+  return {
+    sessions: sessions.length,
+    sets: sessions.reduce((sum, session) => sum + session.sets.length, 0),
+    volume: sessions.reduce((sum, session) => sum + session.volume, 0),
+    bestE1rm: Math.max(0, ...sessions.map((session) => session.bestE1rm || 0)) || null,
+    maxReps: Math.max(0, ...sessions.map((session) => session.maxReps || 0)) || null,
+  };
+}
+
+export function getFocusAnalytics(history = [], exerciseIds = [], options = {}) {
+  const now = Number(options.now) || Date.now();
+  const currentWeekStart = now - 7 * DAY;
+  const previousWeekStart = now - 14 * DAY;
+  const cycleLength = clamp(Number(options.cycleLength) || 4, 2, 8);
+  const cycleStartedAt = options.cycleStartedAt || {};
+  const uniqueIds = [...new Set(exerciseIds)].filter((id) => exercises.some((exercise) => exercise.id === id));
+
+  const items = uniqueIds.map((exerciseId) => {
+    const exercise = exercises.find((candidate) => candidate.id === exerciseId);
+    const stats = getExerciseHistory(history, exerciseId);
+    const current = summarizeSessions(stats.sessions.filter((session) => session.completedAt >= currentWeekStart && session.completedAt <= now));
+    const previous = summarizeSessions(stats.sessions.filter((session) => session.completedAt >= previousWeekStart && session.completedAt < currentWeekStart));
+    const currentStrength = stats.metric === 'e1rm' ? current.bestE1rm : current.maxReps;
+    const previousStrength = stats.metric === 'e1rm' ? previous.bestE1rm : previous.maxReps;
+    const first = stats.points[0]?.value ?? null;
+    const latest = stats.points.at(-1)?.value ?? null;
+    return {
+      exerciseId,
+      metric: stats.metric,
+      stats,
+      currentWeek: current,
+      previousWeek: previous,
+      weeklyStrengthChange: percentChange(currentStrength, previousStrength),
+      overallStrengthChange: percentChange(latest, first),
+      volumeChange: percentChange(current.volume, previous.volume),
+      bestSessionVolume: Math.max(0, ...stats.sessions.map((session) => session.volume || 0)),
+      cycle: getFocusCycleProgress(history, exerciseId, cycleStartedAt[exerciseId], cycleLength),
+      loadType: exercise.loadType,
+    };
+  });
+
+  const comparableStrength = items.map((item) => item.weeklyStrengthChange).filter((value) => value !== null);
+  const currentVolume = items.reduce((sum, item) => sum + item.currentWeek.volume, 0);
+  const previousVolume = items.reduce((sum, item) => sum + item.previousWeek.volume, 0);
+  return {
+    items,
+    week: {
+      focusSessions: items.reduce((sum, item) => sum + item.currentWeek.sessions, 0),
+      sets: items.reduce((sum, item) => sum + item.currentWeek.sets, 0),
+      volume: currentVolume,
+      previousVolume,
+      volumeChange: percentChange(currentVolume, previousVolume),
+      strengthChange: comparableStrength.length
+        ? comparableStrength.reduce((sum, value) => sum + value, 0) / comparableStrength.length
+        : null,
+    },
+  };
+}
+
+export function advanceFocusCycles(profile, history = [], completedWorkout) {
+  if (profile.focusEnabled === false) return { profile, rotated: [] };
+  const cycleLength = clamp(Number(profile.focusCycleLength) || 4, 2, 8);
+  let focusExerciseIds = [...new Set([
+    ...(profile.focusExerciseIds || []),
+    ...suggestFocusExercises(profile),
+  ])].slice(0, 3);
+  const focusCycleStartedAt = { ...(profile.focusCycleStartedAt || {}) };
+  const rotated = [];
+
+  (completedWorkout?.exercises || [])
+    .filter((item) => item.isFocus && item.sets?.some((set) => set.done))
+    .forEach((item) => {
+      const progress = getFocusCycleProgress(history, item.exerciseId, focusCycleStartedAt[item.exerciseId], cycleLength);
+      if (progress.completed < cycleLength) return;
+      const replacementId = getNextFocusExercise(profile, item.exerciseId, focusExerciseIds);
+      if (!replacementId || replacementId === item.exerciseId) return;
+      focusExerciseIds = focusExerciseIds.map((id) => id === item.exerciseId ? replacementId : id);
+      focusCycleStartedAt[replacementId] = Number(completedWorkout.completedAt) || Date.now();
+      rotated.push({ previousId: item.exerciseId, nextId: replacementId });
+    });
+
+  return {
+    profile: { ...profile, focusExerciseIds, focusCycleLength: cycleLength, focusCycleStartedAt },
+    rotated,
+  };
 }
 
 function selectWorkoutFocus(profile, history, targets) {
@@ -512,7 +669,7 @@ export function generateWorkout(profile, history = [], options = {}) {
       isFocus: exercise.id === focus?.id,
     })),
     engine: {
-      version: 4,
+      version: 5,
       weeklyVolumeBeforeWorkout: weeklyLoad.volume,
       weeklyFrequencyBeforeWorkout: weeklyLoad.frequency,
       weeklyMovementFrequencyBeforeWorkout: weeklyMovementFrequency,
@@ -522,7 +679,7 @@ export function generateWorkout(profile, history = [], options = {}) {
       unavailableMovementFamilies: requiredFamilies
         .map((family) => family.id)
         .filter((family) => !coveredMovementFamilies.includes(family)),
-      evidenceProfile: 'ACSM-2026-PELLAND-2026-RIR',
+      evidenceProfile: 'ACSM-2026-DOUBLE-PROGRESSION-RIR',
     },
   };
 }
