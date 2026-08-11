@@ -16,6 +16,10 @@ npm run build
 npm run preview
 ```
 
+La build viene generata in `docs/`, pronta per GitHub Pages. Nelle impostazioni
+del repository seleziona **Deploy from a branch**, il branch desiderato e la
+cartella **/docs**.
+
 Verifica del motore:
 
 ```bash
@@ -64,7 +68,7 @@ Per aggiornare manualmente gli snapshot durante lo sviluppo:
 npm run sync:wger
 ```
 
-Il comando è solo uno strumento di sviluppo e non viene incluso nel bundle della PWA. Al termine ricostruisce automaticamente anche il `dist`; con un server di sviluppo o una PWA già aperta basta quindi ricaricare la pagina.
+Il comando è solo uno strumento di sviluppo e non viene incluso nel bundle della PWA. Al termine ricostruisce automaticamente anche `docs/`; con un server di sviluppo o una PWA già aperta basta quindi ricaricare la pagina.
 
 Gli snapshot inclusi sono:
 

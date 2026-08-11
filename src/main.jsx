@@ -251,7 +251,7 @@ function App() {
   useEffect(() => {
     const handler = (event) => { event.preventDefault(); setInstallPrompt(event); };
     window.addEventListener('beforeinstallprompt', handler);
-    if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js');
+    if ('serviceWorker' in navigator) navigator.serviceWorker.register(`${import.meta.env.BASE_URL}sw.js`);
     return () => window.removeEventListener('beforeinstallprompt', handler);
   }, []);
   useEffect(() => {
