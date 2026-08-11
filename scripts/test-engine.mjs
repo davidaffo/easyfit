@@ -11,6 +11,7 @@ import {
 import { getExerciseDetails } from '../src/data/exerciseDetails.js';
 import {
   advanceFocusCycles,
+  calibrateBodyweightPrescription,
   estimateOneRepMax,
   generateWorkout,
   getExerciseHistory,
@@ -24,6 +25,8 @@ import {
   getWeeklyMuscleLoad,
   getWeeklyMovementFrequency,
   getWeeklyTargets,
+  isExerciseAllowed,
+  isReturningAfterBreak,
   removeExercise,
   replaceExercise,
   suggestFocusExercises,
@@ -95,7 +98,6 @@ delete preferences[bench.id];
 const profile = {
   goal: 'muscle',
   level: 'intermediate',
-  weeklyDays: 3,
   equipment: ['barbell', 'bench'],
   duration: 25,
   split: 'full',
@@ -156,7 +158,7 @@ const downloadedBackup = await downloadWebDavBackup({
 assert.equal(downloadMethod, 'GET', 'Nextcloud restore must use WebDAV GET');
 assert.deepEqual(parseBackup(downloadedBackup).history[0].exercises, hardHistory[0].exercises, 'A cloud download must remain a valid Easyfit backup');
 
-assert.deepEqual(getWeeklyTargets(profile), { sets: 10, frequency: 3, weeklyDays: 3 }, 'Intermediate hypertrophy targets must distribute ten fractional sets over three exposures');
+assert.deepEqual(getWeeklyTargets(profile), { sets: 10, frequency: 2 }, 'Adaptive hypertrophy targets must aim for two exposures without asking for planned training days');
 assert.equal(getWeeklyTargets({ ...profile, level: 'beginner' }).sets, 7, 'Beginner volume must start conservatively');
 assert.equal(getWeeklyTargets({ ...profile, level: 'advanced' }).sets, 12, 'Advanced volume must rise without using an extreme target');
 const recalibrated = generateWorkout(profile, hardHistory, { targets: ['chest'], duration: 25 });
@@ -171,6 +173,31 @@ const focusProfile = {
   focusExerciseIds: [],
 };
 
+const snatch = exercises.find((exercise) => /dumbbell snatch/i.test(exercise.name));
+assert(snatch, 'The catalog must contain the hybrid movement used by the filter test');
+assert.equal(isExerciseAllowed(snatch, { ...focusProfile, goal: 'muscle' }), false, 'Snatches and similar hybrid power movements must be excluded from hypertrophy workouts');
+assert.equal(isExerciseAllowed(snatch, { ...focusProfile, goal: 'fitness' }), true, 'The automatic hybrid filter must remain specific to the muscle-building goal');
+const combinedLift = exercises.find((exercise) => /glute bridge single-arm press/i.test(exercise.name));
+assert(combinedLift, 'The catalog must contain the combined lift used by the filter test');
+assert.equal(isExerciseAllowed(combinedLift, { ...focusProfile, goal: 'muscle' }), false, 'Exercises that combine unrelated lifts must be excluded from hypertrophy workouts');
+
+const bodyweightPush = exercises.find((exercise) => exercise.loadType === 'bodyweight' && exercise.primary === 'chest' && exercise.pattern === 'horizontal-push');
+assert(bodyweightPush, 'A bodyweight horizontal push must exist');
+const loadedAlternativeProfile = {
+  ...focusProfile,
+  equipment: ['bodyweight', 'barbell', 'bench'],
+  exerciseFilters: { preferLoadedVariants: true, excludeDirectCore: false, excludeCalves: false },
+};
+assert.equal(isExerciseAllowed(bodyweightPush, loadedAlternativeProfile), false, 'A bodyweight movement must be removable when a loaded equivalent is available');
+assert.equal(isExerciseAllowed(bodyweightPush, { ...loadedAlternativeProfile, exerciseFilters: { ...loadedAlternativeProfile.exerciseFilters, preferLoadedVariants: false } }), true, 'The user must be able to keep bodyweight alternatives');
+
+const allEquipment = [...new Set(exercises.flatMap((exercise) => exercise.equipment))];
+const directCore = exercises.find((exercise) => exercise.primary === 'core' && exercise.equipment.every((item) => allEquipment.includes(item)));
+const directCalves = exercises.find((exercise) => exercise.primary === 'calves' && exercise.equipment.every((item) => allEquipment.includes(item)));
+const directFilterProfile = { ...focusProfile, equipment: allEquipment, exerciseFilters: { preferLoadedVariants: false, excludeDirectCore: true, excludeCalves: true } };
+assert.equal(isExerciseAllowed(directCore, directFilterProfile), false, 'Direct abdominal exercises must support a global exclusion');
+assert.equal(isExerciseAllowed(directCalves, directFilterProfile), false, 'Direct calf exercises must support a global exclusion');
+
 const adaptiveWorkout = generateWorkout({
   ...focusProfile,
   split: 'adaptive',
@@ -183,34 +210,36 @@ const adaptiveFamilies = new Set(adaptiveWorkout.exercises.map((item) => {
 }));
 assert.deepEqual(
   [...adaptiveFamilies].filter(Boolean).sort(),
-  ['hip', 'knee', 'pull', 'push'],
-  'Even a 25-minute adaptive workout must train push, pull, knee and hip patterns',
+  ['pull', 'push'],
+  'A short first workout must select two coherent movement families instead of training everything',
 );
 assert(adaptiveWorkout.exercises.every((item) => item.sets.length === 2), 'Short sessions must spread volume instead of overloading one exercise');
-assert.equal(adaptiveWorkout.engine.version, 5, 'The workout must preserve the evidence model version');
-assert.deepEqual(adaptiveWorkout.engine.movementFamilies, ['push', 'pull', 'knee', 'hip'], 'The workout must expose its structural constraints');
+assert(adaptiveWorkout.exercises.length <= 3, 'A 25–30 minute workout must contain at most three exercises');
+assert.equal(adaptiveWorkout.engine.version, 6, 'The workout must preserve the evidence model version');
+assert.deepEqual(adaptiveWorkout.engine.movementFamilies, ['push', 'pull'], 'The workout must expose its structural constraints');
+const filteredAdaptive = generateWorkout({ ...directFilterProfile, goal: 'muscle', split: 'adaptive', focusEnabled: false, duration: 60 }, [], { variation: 44 });
+assert(filteredAdaptive.exercises.every((item) => {
+  const exercise = exercises.find((candidate) => candidate.id === item.exerciseId);
+  return exercise.primary !== 'core' && exercise.primary !== 'calves' && !/snatch|clean|jerk|thruster|burpee/i.test(exercise.name);
+}), 'The generated hypertrophy workout must enforce global filters and exclude hybrid power movements');
 
-const sixDayAdaptive = generateWorkout({
+const adaptiveWithTwoLegacyDays = generateWorkout({
   ...focusProfile,
   split: 'adaptive',
   focusEnabled: false,
-  weeklyDays: 6,
+  weeklyDays: 2,
   duration: 45,
 }, [], { variation: 42 });
-assert.equal(getWeeklyTargets({ ...focusProfile, split: 'adaptive', weeklyDays: 6 }).frequency, 3, 'Six adaptive days must plan three weekly exposures per group');
-assert.equal(sixDayAdaptive.engine.movementFamilies.length, 2, 'Six training days must rotate two pattern families instead of forcing six full-body sessions');
-assert.equal(getWeeklyTargets({ ...profile, split: 'ppl', weeklyDays: 3 }).frequency, 1, 'A three-day PPL must prescribe its weekly volume in the single planned exposure');
+const adaptiveWithSixLegacyDays = generateWorkout({ ...focusProfile, split: 'adaptive', focusEnabled: false, weeklyDays: 6, duration: 45 }, [], { variation: 42 });
+assert.deepEqual(adaptiveWithSixLegacyDays.engine.movementFamilies, adaptiveWithTwoLegacyDays.engine.movementFamilies, 'Legacy planned-day values must no longer change an adaptive workout');
+assert.equal(adaptiveWithTwoLegacyDays.engine.movementFamilies.length, 3, 'A regular 45-minute workout must select three movement families');
+assert(adaptiveWithTwoLegacyDays.exercises.length <= 6, 'A first 45-minute workout must remain capped at six exercises');
+assert.equal(getWeeklyTargets({ ...profile, split: 'ppl' }).frequency, 1, 'PPL must retain one target exposure per rotation');
 
-const sixDayHistory = [];
-const sixDayFamilyCounts = { push: 0, pull: 0, knee: 0, hip: 0 };
-for (let day = 0; day < 6; day += 1) {
-  const generated = generateWorkout({ ...focusProfile, split: 'adaptive', focusEnabled: false, weeklyDays: 6 }, sixDayHistory, { variation: 100 + day });
-  generated.engine.movementFamilies.forEach((family) => { sixDayFamilyCounts[family] += 1; });
-  generated.completedAt = Date.now() - (6 - day) * 36e5;
-  generated.exercises.forEach((item) => item.sets.forEach((set) => { set.done = true; set.rir = 2; }));
-  sixDayHistory.push(generated);
-}
-assert.deepEqual(sixDayFamilyCounts, { push: 3, pull: 3, knee: 3, hip: 3 }, 'A six-day adaptive week must expose every movement family three times');
+adaptiveWithTwoLegacyDays.completedAt = Date.now() - 36e5;
+adaptiveWithTwoLegacyDays.exercises.forEach((item) => item.sets.forEach((set) => { set.done = true; set.rir = 2; }));
+const nextAdaptive = generateWorkout({ ...focusProfile, split: 'adaptive', focusEnabled: false, duration: 45 }, [adaptiveWithTwoLegacyDays], { variation: 43 });
+assert(new Set([...adaptiveWithTwoLegacyDays.engine.movementFamilies, ...nextAdaptive.engine.movementFamilies]).size === 4, 'The next workout must rotate in the movement family omitted from the previous one');
 
 const highFatigueHistory = [{
   id: 'high-fatigue',
@@ -223,6 +252,13 @@ const highFatigueHistory = [{
 const fatigueAdjusted = generateWorkout(profile, highFatigueHistory, { targets: ['chest'], duration: 25 });
 assert.equal(fatigueAdjusted.exercises[0].targetRir, 2, 'Readiness must not silently change the RIR explicitly chosen by the user');
 assert.equal(fatigueAdjusted.exercises[0].sets.length, 2, 'Low readiness must cap per-exercise sets');
+
+const staleHistory = structuredClone(hardHistory);
+staleHistory[0].completedAt = Date.now() - 11 * 864e5;
+assert.equal(isReturningAfterBreak(staleHistory), true, 'More than ten days without training must trigger gradual return mode');
+const returnWorkout = generateWorkout({ ...profile, duration: 60 }, staleHistory, { targets: ['chest'], duration: 60 });
+assert.equal(returnWorkout.engine.returningFromBreak, true, 'The workout must expose gradual return mode');
+assert(returnWorkout.exercises.every((item) => item.sets.length <= 2), 'Gradual return mode must cap each exercise at two sets');
 
 const gradualProgressHistory = [{
   id: 'gradual-progress',
@@ -350,7 +386,12 @@ const bodyweightHistory = [{
 }];
 const bodyPreferences = Object.fromEntries(exercises.map((exercise) => [exercise.id, 'exclude']));
 delete bodyPreferences[bodyweight.id];
+const uncalibratedBodyWorkout = generateWorkout({ ...profile, equipment: ['bodyweight'], preferences: bodyPreferences }, [], { targets: ['quads'], duration: 25 });
+assert.equal(uncalibratedBodyWorkout.exercises[0].needsInitialReps, true, 'A first-time bodyweight exercise must request a repetition calibration');
+const calibratedBodyweight = calibrateBodyweightPrescription(uncalibratedBodyWorkout.exercises[0], 20);
+assert.equal(calibratedBodyweight.needsInitialReps, false, 'Submitting maximum repetitions must complete bodyweight calibration');
+assert(calibratedBodyweight.sets.every((set) => set.reps === Math.min(18, calibratedBodyweight.repRange.max)), 'Calibration must subtract target RIR and respect the exercise repetition cap');
 const bodyWorkout = generateWorkout({ ...profile, equipment: ['bodyweight'], preferences: bodyPreferences }, bodyweightHistory, { targets: ['quads'], duration: 25 });
 assert(bodyWorkout.exercises[0].sets[0].reps > 8, 'Bodyweight reps must adapt to demonstrated capacity');
 
-console.log('Checks passed: backup/WebDAV, guides, multifrequency, focus cycles and analytics, fractional volume, double progression, custom limits, exact RIR and workout editing.');
+console.log('Checks passed: backup/WebDAV, guides, adaptive rotation, exercise filters, bodyweight calibration, gradual return, focus analytics, double progression, custom limits, exact RIR and workout editing.');

@@ -28,21 +28,15 @@ const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
 
 const levelVolumeMultiplier = { beginner: 0.7, intermediate: 1, advanced: 1.2 };
 
-function plannedWeeklyFrequency(profile, weeklyDays) {
-  if (profile.split === 'full') return weeklyDays;
-  if (profile.split === 'upper-lower') return Math.max(1, Math.round(weeklyDays / 2));
-  if (profile.split === 'ppl') return Math.max(1, Math.round(weeklyDays / 3));
-  if (weeklyDays <= 3) return weeklyDays;
-  return weeklyDays === 4 ? 2 : 3;
+function plannedWeeklyFrequency(profile) {
+  return profile.split === 'ppl' ? 1 : 2;
 }
 
 export function getWeeklyTargets(profile) {
   const rule = trainingRules[profile.goal] || trainingRules.muscle;
-  const weeklyDays = clamp(Number(profile.weeklyDays) || 3, 2, 6);
   return {
     sets: clamp(Math.round(rule.weeklySets * (levelVolumeMultiplier[profile.level] || 1)), 4, 14),
-    frequency: plannedWeeklyFrequency(profile, weeklyDays),
-    weeklyDays,
+    frequency: plannedWeeklyFrequency(profile),
   };
 }
 
@@ -332,9 +326,10 @@ function prescribedSetCount(exercise, profile, context, limits) {
   const readiness = context.recovery?.[exercise.primary] ?? 100;
   let maximum = context.targetMinutes <= 30 ? 2 : context.targetMinutes <= 45 ? 3 : exercise.compound ? 3 : 4;
   maximum = Math.min(maximum, limits.maxSets);
+  if (context.returningFromBreak) maximum = Math.min(maximum, 2);
   if (profile.level === 'beginner' || readiness < 50) maximum = Math.min(maximum, 2);
   else if (readiness < 65) maximum = Math.min(maximum, 3);
-  if (profile.level === 'advanced' && context.targetMinutes >= 40 && readiness >= 65) {
+  if (!context.returningFromBreak && profile.level === 'advanced' && context.targetMinutes >= 40 && readiness >= 65) {
     maximum = Math.min(limits.maxSets, Math.max(maximum, 4));
   }
   const minimum = targets.frequency >= 5 ? 1 : 2;
@@ -361,6 +356,7 @@ function prescription(exercise, profile, history, context = {}) {
     progressionStep: progression.step,
     estimatedOneRepMax: progress.latestE1rm,
     needsInitialLoad: ['external', 'per-dumbbell'].includes(exercise.loadType) && progression.weight == null,
+    needsInitialReps: exercise.loadType === 'bodyweight' && progress.sessions === 0,
     sets: Array.from({ length: sets }, () => ({
       targetReps: progression.reps,
       targetWeight: progression.weight,
@@ -369,6 +365,26 @@ function prescription(exercise, profile, history, context = {}) {
       weight: progression.weight,
       rir: null,
       done: false,
+    })),
+  };
+}
+
+export function calibrateBodyweightPrescription(item, maximumReps) {
+  const testedMaximum = clamp(Math.round(Number(maximumReps) || 0), 1, 100);
+  const minimum = Number(item.repRange?.min) || 1;
+  const maximum = Number(item.repRange?.max) || 50;
+  const workingReps = clamp(testedMaximum - Number(item.targetRir || 0), minimum, maximum);
+  return {
+    ...item,
+    needsInitialReps: false,
+    calibrationMaxReps: testedMaximum,
+    progressionStep: 'calibrated',
+    sets: item.sets.map((set) => ({
+      ...set,
+      targetReps: workingReps,
+      reps: workingReps,
+      weight: 0,
+      targetWeight: 0,
     })),
   };
 }
@@ -385,6 +401,29 @@ export function hasAvailableEquipment(exercise, profile) {
   return profile.equipment.includes('bodyweight');
 }
 
+const hybridPowerMovement = /\b(snatch|clean(?:\s*(?:and|&)\s*jerk)?|jerk|thruster|turkish get.?up|man maker|devil.?s press|windmill|kettlebell swing|burpee|muscle.?up)\b|glute bridge.*press|(?:landmine )?squat to press|lunge.*(?:curl|press)|deadlift.*(?:row|curl)/i;
+
+function hasLoadedEquivalent(exercise, profile) {
+  if (exercise.loadType !== 'bodyweight') return false;
+  return exercises.some((candidate) => candidate.id !== exercise.id
+    && candidate.primary === exercise.primary
+    && candidate.pattern === exercise.pattern
+    && ['external', 'per-dumbbell'].includes(candidate.loadType)
+    && hasAvailableEquipment(candidate, profile)
+    && profile.preferences?.[candidate.id] !== 'exclude');
+}
+
+export function isExerciseAllowed(exercise, profile) {
+  if (!exercise || !hasAvailableEquipment(exercise, profile)) return false;
+  if (profile.preferences?.[exercise.id] === 'exclude') return false;
+  const filters = profile.exerciseFilters || {};
+  if (filters.excludeDirectCore && exercise.primary === 'core') return false;
+  if (filters.excludeCalves && exercise.primary === 'calves') return false;
+  if (profile.goal === 'muscle' && hybridPowerMovement.test(exercise.name)) return false;
+  if (filters.preferLoadedVariants && hasLoadedEquivalent(exercise, profile)) return false;
+  return true;
+}
+
 const focusFamilies = [
   ['horizontal-push', 'vertical-push'],
   ['horizontal-pull', 'vertical-pull'],
@@ -399,8 +438,7 @@ function focusRank(exercise) {
 export function getFocusCandidates(profile, family = null) {
   const patterns = family == null ? null : focusFamilies[family];
   return exercises
-    .filter((exercise) => exercise.compound && hasAvailableEquipment(exercise, profile))
-    .filter((exercise) => profile.preferences?.[exercise.id] !== 'exclude')
+    .filter((exercise) => exercise.compound && isExerciseAllowed(exercise, profile))
     .filter((exercise) => !patterns || patterns.includes(exercise.pattern))
     .sort((a, b) => focusRank(b) - focusRank(a) || a.name.localeCompare(b.name));
 }
@@ -542,8 +580,7 @@ function selectWorkoutFocus(profile, history, targets) {
   const ids = profile.focusExerciseIds?.length ? profile.focusExerciseIds : suggestFocusExercises(profile);
   const compatible = ids
     .map((id) => exercises.find((exercise) => exercise.id === id))
-    .filter((exercise) => exercise && targets.includes(exercise.primary) && hasAvailableEquipment(exercise, profile))
-    .filter((exercise) => profile.preferences?.[exercise.id] !== 'exclude');
+    .filter((exercise) => exercise && targets.includes(exercise.primary) && isExerciseAllowed(exercise, profile));
   if (!compatible.length) return null;
 
   const lastPerformed = (exerciseId) => [...history].reverse()
@@ -553,7 +590,7 @@ function selectWorkoutFocus(profile, history, targets) {
 
 function scoreExercise(exercise, targets, profile, recovery, weeklyLoad, recentIds, chosen, random) {
   if (!targets.includes(exercise.primary)) return -1000;
-  if (!hasAvailableEquipment(exercise, profile)) return -1000;
+  if (!isExerciseAllowed(exercise, profile)) return -1000;
   if (chosen.some((item) => item.pattern === exercise.pattern)) return -500;
   if (exercise.variationGroup && chosen.some((item) => item.variationGroup === exercise.variationGroup)) return -500;
 
@@ -583,10 +620,26 @@ function seededRandom(seed) {
   };
 }
 
-function adaptiveFamilyCount(weeklyDays) {
-  if (weeklyDays <= 3) return movementFamilies.length;
-  if (weeklyDays === 5) return 3;
-  return 2;
+function adaptiveFamilyCount(targetMinutes) {
+  if (targetMinutes <= 30) return 2;
+  if (targetMinutes <= 55) return 3;
+  return movementFamilies.length;
+}
+
+export function isReturningAfterBreak(history = [], now = Date.now()) {
+  const lastWorkout = [...history]
+    .filter((workout) => workout.completedAt)
+    .sort((a, b) => b.completedAt - a.completedAt)[0];
+  return Boolean(lastWorkout && now - lastWorkout.completedAt > 10 * DAY);
+}
+
+function auxiliaryTarget(profile, recovery, weeklyLoad) {
+  return ['core', 'calves']
+    .filter((muscle) => !(muscle === 'core' && profile.exerciseFilters?.excludeDirectCore))
+    .filter((muscle) => !(muscle === 'calves' && profile.exerciseFilters?.excludeCalves))
+    .sort((a, b) => weeklyLoad.frequency[a] - weeklyLoad.frequency[b]
+      || weeklyLoad.volume[a] - weeklyLoad.volume[b]
+      || recovery[b] - recovery[a])[0] || null;
 }
 
 function movementFamilyNeed(family, profile, recovery, weeklyLoad, movementFrequency) {
@@ -616,10 +669,21 @@ export function generateWorkout(profile, history = [], options = {}) {
   const recentIds = history.slice(-3).flatMap((workout) => workout.exercises.map((item) => item.exerciseId));
   const avoidIds = new Set(options.avoidExerciseIds || []);
   const targetMinutes = options.duration || profile.duration || 45;
-  const prescriptionContext = { weeklyLoad, recovery, targetMinutes };
+  const returningFromBreak = isReturningAfterBreak(history);
+  const prescriptionContext = { weeklyLoad, recovery, targetMinutes, returningFromBreak };
+  let requiredFamilies = movementFamilies.filter((family) => family.muscles.some((muscle) => targets.includes(muscle)));
+  if (profile.split === 'adaptive' && !options.targets) {
+    requiredFamilies = [...requiredFamilies]
+      .sort((a, b) => compareMovementFamilyNeed(a, b, profile, recovery, weeklyLoad, weeklyMovementFrequency))
+      .slice(0, adaptiveFamilyCount(targetMinutes));
+    targets = [...new Set(requiredFamilies.flatMap((family) => family.muscles))];
+    const auxiliary = targetMinutes >= 40 ? auxiliaryTarget(profile, recovery, weeklyLoad) : null;
+    if (auxiliary) targets.push(auxiliary);
+  }
   const focus = selectWorkoutFocus(profile, history, targets);
   const chosen = focus ? [focus] : [];
   const random = seededRandom(Date.now() + (options.variation || 0));
+  const maxExercises = targetMinutes <= 30 ? 3 : targetMinutes <= 45 ? 6 : targetMinutes <= 60 ? 7 : 8;
   let usedMinutes = 5 + (focus ? estimateExerciseMinutes(focus, profile, history, prescriptionContext) : 0);
 
   const rankCandidates = (patterns = null) => exercises
@@ -630,13 +694,6 @@ export function generateWorkout(profile, history = [], options = {}) {
     .filter((item) => item.score > -100)
     .sort((a, b) => b.score - a.score);
 
-  let requiredFamilies = movementFamilies.filter((family) => family.muscles.some((muscle) => targets.includes(muscle)));
-  if (profile.split === 'adaptive' && !options.targets) {
-    requiredFamilies = [...requiredFamilies]
-      .sort((a, b) => compareMovementFamilyNeed(a, b, profile, recovery, weeklyLoad, weeklyMovementFrequency))
-      .slice(0, adaptiveFamilyCount(getWeeklyTargets(profile).weeklyDays));
-    targets = [...new Set([...requiredFamilies.flatMap((family) => family.muscles), 'calves', 'core'])];
-  }
   requiredFamilies.forEach((family) => {
     if (chosen.some((exercise) => getMovementFamily(exercise) === family.id)) return;
     const next = rankCandidates(family.patterns)[0]?.exercise;
@@ -645,7 +702,7 @@ export function generateWorkout(profile, history = [], options = {}) {
     usedMinutes += estimateExerciseMinutes(next, profile, history, prescriptionContext);
   });
 
-  while (usedMinutes < targetMinutes - 4 && chosen.length < 8) {
+  while (usedMinutes < targetMinutes - 4 && chosen.length < maxExercises) {
     const ranked = rankCandidates();
     if (!ranked.length) break;
     const next = ranked[0].exercise;
@@ -669,17 +726,18 @@ export function generateWorkout(profile, history = [], options = {}) {
       isFocus: exercise.id === focus?.id,
     })),
     engine: {
-      version: 5,
+      version: 6,
       weeklyVolumeBeforeWorkout: weeklyLoad.volume,
       weeklyFrequencyBeforeWorkout: weeklyLoad.frequency,
       weeklyMovementFrequencyBeforeWorkout: weeklyMovementFrequency,
       weeklyTargets,
       recoveryAtGeneration: recovery,
       movementFamilies: requiredFamilies.map((family) => family.id),
+      returningFromBreak,
       unavailableMovementFamilies: requiredFamilies
         .map((family) => family.id)
         .filter((family) => !coveredMovementFamilies.includes(family)),
-      evidenceProfile: 'ACSM-2026-DOUBLE-PROGRESSION-RIR',
+      evidenceProfile: 'ACSM-2026-ADAPTIVE-ROTATION-DOUBLE-PROGRESSION-RIR',
     },
   };
 }
@@ -690,9 +748,8 @@ export function getSimilarExercises(workout, exerciseId, profile) {
   const used = workout.exercises.map((item) => exercises.find((exercise) => exercise.id === item.exerciseId));
   return exercises
     .filter((exercise) => exercise.id !== exerciseId && exercise.primary === current.primary)
-    .filter((exercise) => hasAvailableEquipment(exercise, profile))
+    .filter((exercise) => isExerciseAllowed(exercise, profile))
     .filter((exercise) => !used.some((item) => item?.id === exercise.id || (exercise.variationGroup && item?.variationGroup === exercise.variationGroup)))
-    .filter((exercise) => profile.preferences?.[exercise.id] !== 'exclude')
     .sort((a, b) => {
       const patternDifference = Number(b.pattern === current.pattern) - Number(a.pattern === current.pattern);
       const compoundDifference = Number(b.compound === current.compound) - Number(a.compound === current.compound);
@@ -718,6 +775,7 @@ export function replaceExercise(workout, exerciseId, profile, history = [], repl
       frequency: workout.engine?.weeklyFrequencyBeforeWorkout || measuredWeeklyLoad.frequency,
     },
     recovery: workout.engine?.recoveryAtGeneration || getRecovery(history),
+    returningFromBreak: workout.engine?.returningFromBreak || isReturningAfterBreak(history),
   };
   return {
     ...workout,

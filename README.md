@@ -28,12 +28,14 @@ npm test
 
 ## Come viene generato un workout
 
-Il motore locale v5 separa due decisioni:
+Il motore locale v6 separa due decisioni:
 
-1. **Exercise selector** — filtra per attrezzatura e split. In modalità adattiva usa tutti e quattro i pattern — spinta, tirata, dominante di ginocchio e dominante d’anca — nelle routine da 2–3 giorni; con 4–6 giorni li ruota in base ai deficit settimanali per evitare volume ridondante. Gli slot restanti dipendono da volume e frequenza degli ultimi sette giorni, prontezza stimata, preferenze e storico recente.
+1. **Exercise selector** — filtra per attrezzatura, split e preferenze globali. In modalità adattiva sceglie 2, 3 o 4 famiglie di movimento in base ai minuti disponibili e ruota spinta, tirata, dominante di ginocchio e dominante d’anca usando deficit, recupero e storico reale. Non chiede quanti giorni a settimana l’utente intenda allenarsi. Gli slot restanti dipendono da volume e frequenza degli ultimi sette giorni, prontezza stimata, preferenze e storico recente.
 2. **Prescription** — distribuisce il volume settimanale sulle esposizioni ancora necessarie e applica una doppia progressione individuale a serie, ripetizioni, RIR, recupero e carico.
 
-Il volume usa un conteggio frazionario: una serie vale `1` per il muscolo primario e `0,5` per i muscoli secondari. Un contatto indiretto conta come esposizione solo quando raggiunge almeno una serie equivalente nella stessa sessione. I target non sono massimali: per l’ipertrofia partono da 7, 10 o 12 serie equivalenti settimanali per principianti, intermedi ed esperti e vengono distribuiti sulle esposizioni realmente previste dallo split. Le sessioni brevi riducono le serie per esercizio prima di eliminare un pattern fondamentale; la modalità adattiva mantiene 2–3 esposizioni per gruppo anche quando gli allenamenti settimanali sono di più.
+Il volume usa un conteggio frazionario: una serie vale `1` per il muscolo primario e `0,5` per i muscoli secondari. Un contatto indiretto conta come esposizione solo quando raggiunge almeno una serie equivalente nella stessa sessione. I target non sono massimali: per l’ipertrofia partono da 7, 10 o 12 serie equivalenti settimanali per principianti, intermedi ed esperti e vengono distribuiti sulle esposizioni mancanti. Una sessione adattiva iniziale non interpreta più “tutti recuperati” come “allena tutto”: seleziona un sottoinsieme coerente e lascia alle sessioni successive la rotazione delle famiglie omesse. Dopo più di dieci giorni di pausa attiva inoltre un rientro graduale con massimo due serie per esercizio.
+
+La durata impone anche un tetto semplice al numero di esercizi: massimo 3 fino a 30 minuti, 6 a 45 minuti, 7 a 60 minuti e 8 oltre i 60. La stima include cinque minuti iniziali, tempi di esecuzione e recuperi prescritti.
 
 La prontezza stimata non pretende di misurare il recupero biologico. È un indicatore interno che decresce con volume, vicinanza al cedimento e sovraperformance nelle ripetizioni; quando è bassa limita le serie e abbassa la priorità del distretto, senza modificare di nascosto il RIR scelto o trasformare automaticamente il programma in una bro split.
 
@@ -55,6 +57,7 @@ La doppia progressione è una scelta operativa semplice, non una presunta superi
 - La capacità della serie è stimata come `ripetizioni + RIR`.
 - L’e1RM usa Brzycki fino a 10 ripetizioni equivalenti ed Epley oltre 10, dove Brzycki diventa instabile.
 - L’e1RM rimane una metrica di storico e calibrazione; dopo il primo carico la progressione operativa usa peso, ripetizioni e RIR realmente registrati.
+- Alla prima comparsa di un esercizio a corpo libero viene chiesto il massimo di ripetizioni pulite; la prima prescrizione sottrae il RIR target e rispetta il limite di ripetizioni dell’esercizio.
 - Per corpo libero ed elastici vengono adattate le ripetizioni, non viene inventato un carico in kg.
 - RIR, ripetizioni effettive, serie completate e tipo di esercizio contribuiscono anche alla fatica stimata.
 
@@ -92,10 +95,12 @@ La sincronizzazione è esplicita: **Carica / sovrascrivi** usa `PUT`, mentre **R
 
 ## Funzioni incluse
 
-- onboarding in tre passaggi, inclusa la frequenza settimanale prevista;
-- generazione per prontezza stimata, volume frazionario, frequenza, split, durata e attrezzatura;
-- multifrequenza adattiva strutturale: full body a 2–3 giorni, rotazione dei pattern a 4–6 giorni;
-- calibrazione del primo carico ed e1RM progressivo;
+- onboarding in tre passaggi senza previsione artificiale dei giorni settimanali;
+- generazione per prontezza stimata, volume frazionario, frequenza misurata, split, durata e attrezzatura;
+- multifrequenza adattiva con 2–4 famiglie per sessione e rotazione basata sullo storico reale;
+- calibrazione del primo carico, delle ripetizioni massime a corpo libero ed e1RM progressivo;
+- filtri globali per corpo libero ridondante, addominali diretti e polpacci, più esclusione automatica dei movimenti ibridi/olimpici dalla modalità Massa;
+- rientro graduale automatico dopo oltre dieci giorni di pausa;
 - sostituzione di un esercizio con uno compatibile;
 - menu esercizio con lista ricercabile di sostituzioni compatibili, rimozione dal workout o esclusione permanente ripristinabile;
 - refresh dell’intero workout mantenendo durata, muscoli target e focus compatibile;

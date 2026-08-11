@@ -11,6 +11,7 @@ import {
 import { getExerciseDetails } from './data/exerciseDetails.js';
 import {
   advanceFocusCycles,
+  calibrateBodyweightPrescription,
   generateWorkout,
   getFocusAnalytics,
   getExerciseHistory,
@@ -18,7 +19,7 @@ import {
   getNextFocusExercise,
   getRecovery,
   getSimilarExercises,
-  hasAvailableEquipment,
+  isExerciseAllowed,
   removeExercise,
   replaceExercise,
   suggestFocusExercises,
@@ -31,7 +32,6 @@ const defaultProfile = {
   level: 'intermediate',
   equipment: ['bodyweight', 'dumbbells', 'bench'],
   duration: 45,
-  weeklyDays: 3,
   targetRir: 2,
   setCaps: { compound: 3, accessory: 4 },
   setCapsVersion: 2,
@@ -43,6 +43,7 @@ const defaultProfile = {
   focusExerciseIds: [],
   focusCycleLength: 4,
   focusCycleStartedAt: {},
+  exerciseFilters: { preferLoadedVariants: true, excludeDirectCore: false, excludeCalves: false },
   preferences: {},
 };
 
@@ -63,6 +64,9 @@ function normalizeProfile(profile = {}) {
     focusCycleLength: Math.min(8, Math.max(2, Number(profile.focusCycleLength) || 4)),
     focusCycleStartedAt: isObject(profile.focusCycleStartedAt) ? profile.focusCycleStartedAt : {},
     preferences: isObject(profile.preferences) ? profile.preferences : {},
+    exerciseFilters: isObject(profile.exerciseFilters)
+      ? { ...defaultProfile.exerciseFilters, ...profile.exerciseFilters }
+      : defaultProfile.exerciseFilters,
     setCaps: shouldMigrateSetCaps ? defaultProfile.setCaps : { ...defaultProfile.setCaps, ...savedSetCaps },
     setCapsVersion: 2,
     exerciseOverrides: isObject(profile.exerciseOverrides) ? profile.exerciseOverrides : {},
@@ -197,11 +201,6 @@ function Onboarding({ onDone }) {
       <div className="range-label"><label>Durata abituale</label><strong>{profile.duration} min</strong></div>
       <input type="range" min="25" max="75" step="5" value={profile.duration} onChange={(event) => setProfile({ ...profile, duration: Number(event.target.value) })}/>
       <div className="range-scale"><span>25 min</span><span>75 min</span></div>
-    </section>
-    <section className="form-section">
-      <div className="range-label"><label>Allenamenti a settimana</label><strong>{profile.weeklyDays}</strong></div>
-      <input type="range" min="2" max="6" step="1" value={profile.weeklyDays} onChange={(event) => setProfile({ ...profile, weeklyDays: Number(event.target.value) })}/>
-      <div className="range-scale"><span>2 giorni</span><span>6 giorni</span></div>
     </section>
     <section className="form-section">
       <label>RIR target</label>
@@ -390,6 +389,14 @@ function WorkoutView({ workout, setWorkout, profile, setProfile, history, showTo
       }),
     }));
   };
+  const setInitialReps = (exerciseIndex, maximumReps) => {
+    setWorkout((current) => ({
+      ...current,
+      exercises: current.exercises.map((item, index) => index === exerciseIndex
+        ? calibrateBodyweightPrescription(item, maximumReps)
+        : item),
+    }));
+  };
   const toggleSet = (exerciseIndex, setIndex, item) => {
     const set = item.sets[setIndex];
     if (set.done) return updateSet(exerciseIndex, setIndex, { done: false });
@@ -506,9 +513,9 @@ function WorkoutView({ workout, setWorkout, profile, setProfile, history, showTo
   return <main className="workout-view">
     <header className="workout-topbar"><button className="icon-button light" onClick={onBack}><Icon name="arrow"/></button><div><span>WORKOUT DI OGGI</span><strong>{workout.duration} min · {workout.exercises.length} esercizi</strong></div><button className="icon-button light" onClick={refreshWorkout} aria-label="Rigenera workout"><Icon name="refresh"/></button></header>
     <div className="workout-progress"><i style={{ width: `${(doneSets / totalSets) * 100}%` }}/></div>
-    <section className="workout-title"><span className="eyebrow">CREATO SUL TUO RECUPERO</span><h1>{workout.targetMuscles.slice(0, 2).map((item) => muscles[item]).join(' + ')}</h1><p>{doneSets} di {totalSets} serie completate</p></section>
+    <section className="workout-title"><span className="eyebrow">{workout.engine?.returningFromBreak ? 'RIENTRO GRADUALE · VOLUME RIDOTTO' : 'CREATO SUL TUO RECUPERO'}</span><h1>{workout.targetMuscles.slice(0, 2).map((item) => muscles[item]).join(' + ')}</h1><p>{doneSets} di {totalSets} serie completate</p></section>
     <div className="exercise-list">
-      {workout.exercises.map((item, exerciseIndex) => <ExerciseCard key={item.exerciseId} item={item} exerciseIndex={exerciseIndex} language={profile.exerciseLanguage} updateSet={updateSet} setInitialLoad={setInitialLoad} toggleSet={toggleSet} onRir={(setIndex) => setPendingSet({ exerciseIndex, setIndex, item, wasDone: item.sets[setIndex].done })} onGuide={() => setGuideExerciseId(item.exerciseId)} onHistory={() => setHistoryExerciseId(item.exerciseId)} onOptions={() => setOptionsExerciseId(item.exerciseId)}/>)}
+      {workout.exercises.map((item, exerciseIndex) => <ExerciseCard key={item.exerciseId} item={item} exerciseIndex={exerciseIndex} language={profile.exerciseLanguage} updateSet={updateSet} setInitialLoad={setInitialLoad} setInitialReps={setInitialReps} toggleSet={toggleSet} onRir={(setIndex) => setPendingSet({ exerciseIndex, setIndex, item, wasDone: item.sets[setIndex].done })} onGuide={() => setGuideExerciseId(item.exerciseId)} onHistory={() => setHistoryExerciseId(item.exerciseId)} onOptions={() => setOptionsExerciseId(item.exerciseId)}/>)}
     </div>
     <div className="finish-panel"><div><span>{Math.round(doneSets / totalSets * 100)}%</span><small>completato</small></div><button className="button acid" disabled={!doneSets} onClick={complete}><Icon name="trophy"/>Termina workout</button></div>
     {rest > 0 && <div className="rest-timer"><button onClick={() => setRest(0)}><Icon name="close" size={18}/></button><span>RECUPERO</span><strong>{Math.floor(rest / 60)}:{String(rest % 60).padStart(2, '0')}</strong><small>Prossima serie quando sei pronto</small><button className="skip-rest" onClick={() => setRest(0)}>Salta recupero</button></div>}
@@ -528,16 +535,22 @@ function ExercisePreview({ source, name, onOpen }) {
   return <button className="exercise-preview" onClick={onOpen} aria-label={`Apri guida ${name}`}><img src={source} alt={`Esecuzione di ${name}`} loading="lazy" onError={() => setFailed(true)}/><span><Icon name="guide" size={15}/> Apri guida</span></button>;
 }
 
-function ExerciseCard({ item, exerciseIndex, language, updateSet, setInitialLoad, toggleSet, onRir, onGuide, onHistory, onOptions }) {
+function ExerciseCard({ item, exerciseIndex, language, updateSet, setInitialLoad, setInitialReps, toggleSet, onRir, onGuide, onHistory, onOptions }) {
   const exercise = exercises.find((candidate) => candidate.id === item.exerciseId);
   const details = useExerciseDetails(exercise.wgerId, 'en');
   const [initialLoad, setInitialLoadValue] = useState('');
+  const [initialReps, setInitialRepsValue] = useState('');
   const usesWeight = ['external', 'per-dumbbell'].includes(exercise.loadType);
   const needsInitialLoad = usesWeight && item.sets.every((set) => set.weight == null);
   const submitInitialLoad = (event) => {
     event.preventDefault();
     const weight = Number(initialLoad);
     if (weight > 0) setInitialLoad(exerciseIndex, weight);
+  };
+  const submitInitialReps = (event) => {
+    event.preventDefault();
+    const repetitions = Number(initialReps);
+    if (repetitions > 0) setInitialReps(exerciseIndex, repetitions);
   };
 
   return <article className="exercise-card">
@@ -547,6 +560,10 @@ function ExerciseCard({ item, exerciseIndex, language, updateSet, setInitialLoad
       <div><span>PRIMA VOLTA</span><strong>Che carico vuoi usare?</strong><small>Scegli un peso con cui pensi di chiudere le serie a RIR {item.targetRir}.</small></div>
       <label><input autoFocus inputMode="decimal" type="number" min="0.5" step="0.5" placeholder="0" value={initialLoad} onChange={(event) => setInitialLoadValue(event.target.value)}/><span>kg {exercise.loadType === 'per-dumbbell' ? 'per manubrio' : ''}</span></label>
       <button className="button dark" disabled={Number(initialLoad) <= 0}>Imposta carico</button>
+    </form> : item.needsInitialReps ? <form className="initial-load bodyweight-calibration" onSubmit={submitInitialReps}>
+      <div><span>CALIBRAZIONE INIZIALE</span><strong>Quante ripetizioni massime?</strong><small>Inserisci quante ripetizioni pulite riusciresti a fare arrivando a cedimento. Easyfit sottrae il RIR target e rispetta il limite dell’esercizio.</small></div>
+      <label><input autoFocus inputMode="numeric" type="number" min="1" max="100" step="1" placeholder="0" value={initialReps} onChange={(event) => setInitialRepsValue(event.target.value)}/><span>reps</span></label>
+      <button className="button dark" disabled={Number(initialReps) <= 0}>Calibra serie</button>
     </form> : <>
       <div className="set-head"><span>SET</span><span>KG</span><span>REPS</span><span>RIR</span><span>FATTO</span></div>
       <div className="sets">{item.sets.map((set, setIndex) => <div className={`set-row ${set.done ? 'done' : ''}`} key={setIndex}>
@@ -858,7 +875,7 @@ function History({ history, profile }) {
 function FocusSettings({ profile, update }) {
   const availableSaved = (profile.focusExerciseIds || []).filter((id) => {
     const exercise = exercises.find((candidate) => candidate.id === id);
-    return exercise && hasAvailableEquipment(exercise, profile) && profile.preferences?.[id] !== 'exclude';
+    return exercise && isExerciseAllowed(exercise, profile);
   });
   const focusIds = [...new Set([...availableSaved, ...suggestFocusExercises(profile)])].slice(0, 3);
   const setEnabled = () => update(profile.focusEnabled ? { focusEnabled: false } : {
@@ -895,6 +912,17 @@ function FocusSettings({ profile, update }) {
       <p className="setting-help">Di default ogni focus resta per 4 esecuzioni, circa un mese se ricorre una volta a settimana. Poi viene sostituito automaticamente con un movimento della stessa famiglia.</p>
     </>}
   </section>;
+}
+
+function ExerciseFilterSettings({ profile, update }) {
+  const filters = { ...defaultProfile.exerciseFilters, ...(profile.exerciseFilters || {}) };
+  const toggle = (key) => update({ exerciseFilters: { ...filters, [key]: !filters[key] } });
+  const items = [
+    ['preferLoadedVariants', 'Evita corpo libero duplicato', 'Se esiste una variante caricabile compatibile con la tua attrezzatura, usa quella.'],
+    ['excludeDirectCore', 'Escludi addominali diretti', 'Niente crunch, plank o altri esercizi con il core come target principale.'],
+    ['excludeCalves', 'Escludi polpacci diretti', 'Rimuove calf raise e lavoro specifico per i polpacci.'],
+  ];
+  return <SettingsGroup title="Filtri automatici"><div className="filter-settings">{items.map(([key, title, text]) => <div key={key}><div><strong>{title}</strong><small>{text}</small></div><button className={`switch ${filters[key] ? 'on' : ''}`} role="switch" aria-checked={filters[key]} onClick={() => toggle(key)}><i/></button></div>)}</div><p className="setting-help">In modalità Massa, movimenti olimpici, balistici e ibridi come snatch, clean, jerk, thruster e burpee sono esclusi automaticamente. Il lavoro diretto per i polpacci resta attivo di default perché gli altri esercizi spesso non forniscono uno stimolo sufficiente; puoi comunque disattivarlo qui.</p></SettingsGroup>;
 }
 
 function ExcludedExercises({ profile, update }) {
@@ -1028,7 +1056,7 @@ function Profile({ profile, setProfile, history, workout, onRestoreBackup, insta
     const nextProfile = { ...profile, equipment };
     const compatibleFocus = (profile.focusExerciseIds || []).filter((id) => {
       const exercise = exercises.find((candidate) => candidate.id === id);
-      return exercise && hasAvailableEquipment(exercise, nextProfile) && nextProfile.preferences?.[id] !== 'exclude';
+      return exercise && isExerciseAllowed(exercise, nextProfile);
     });
     update({ equipment, focusExerciseIds: [...new Set([...compatibleFocus, ...suggestFocusExercises(nextProfile)])].slice(0, 3) });
   };
@@ -1058,7 +1086,6 @@ function Profile({ profile, setProfile, history, workout, onRestoreBackup, insta
     <SettingsGroup title="Esperienza"><div className="settings-options">{[['beginner', 'Principiante'], ['intermediate', 'Intermedio'], ['advanced', 'Esperto']].map(([id, label]) => <button className={profile.level === id ? 'selected' : ''} onClick={() => update({ level: id })} key={id}>{label}<span><Icon name="check" size={14}/></span></button>)}</div></SettingsGroup>
     <SettingsGroup title="RIR target"><div className="rir-setting">{[0, 1, 2, 3, 4].map((rir) => <button key={rir} className={profile.targetRir === rir ? 'selected' : ''} onClick={() => update({ targetRir: rir })}><strong>{rir === 4 ? '4+' : rir}</strong><small>{rir === 0 ? 'Cedimento' : `${rir} in riserva`}</small></button>)}</div><p className="setting-help">È il target globale. RIR 0 resta disponibile, ma 1–2 offre normalmente un rapporto stimolo/fatica migliore. Puoi cambiarlo per un singolo esercizio dal suo menu.</p></SettingsGroup>
     <SettingsGroup title="Limiti serie"><div className="type-cap-list">{[['compound', 'Multiarticolari'], ['accessory', 'Isolamento e accessori']].map(([type, label]) => <div key={type}><span>{label}</span><div className="stepper"><button onClick={() => update({ setCaps: { ...profile.setCaps, [type]: Math.max(1, profile.setCaps[type] - 1) } })}>−</button><b>{profile.setCaps[type]}</b><button onClick={() => update({ setCaps: { ...profile.setCaps, [type]: Math.min(6, profile.setCaps[type] + 1) } })}>+</button></div></div>)}</div><p className="setting-help">Sono tetti massimi: durata, volume e prontezza possono comunque prescrivere meno serie.</p></SettingsGroup>
-    <SettingsGroup title="Frequenza settimanale"><div className="range-label"><span>Allenamenti previsti</span><strong>{profile.weeklyDays}</strong></div><input type="range" min="2" max="6" step="1" value={profile.weeklyDays} onChange={(event) => setProfile({ ...profile, weeklyDays: Number(event.target.value) })} onPointerUp={() => showToast('Frequenza aggiornata')}/><p className="setting-help">In modalità adattiva distribuisce ogni gruppo su 2–3 esposizioni, senza trasformare sei giorni in sei full body.</p></SettingsGroup>
     <SettingsGroup title="Durata"><div className="range-label"><span>Tempo per workout</span><strong>{profile.duration} min</strong></div><input type="range" min="25" max="75" step="5" value={profile.duration} onChange={(event) => setProfile({ ...profile, duration: Number(event.target.value) })} onPointerUp={() => showToast('Durata aggiornata')}/></SettingsGroup>
     <SettingsGroup title="Split"><div className="select-wrap"><select value={profile.split} onChange={(event) => update({ split: event.target.value })}>{Object.entries(splitLabels).map(([id, label]) => <option value={id} key={id}>{label}</option>)}</select><Icon name="chevron"/></div></SettingsGroup>
     <FocusSettings profile={profile} update={update}/>
@@ -1067,11 +1094,12 @@ function Profile({ profile, setProfile, history, workout, onRestoreBackup, insta
       <button className={profile.exerciseLanguage === 'it' ? 'selected' : ''} onClick={() => update({ exerciseLanguage: 'it' })}>Italiano, con fallback inglese <span><Icon name="check" size={14}/></span></button>
     </div><p className="setting-help">L’inglese è il nome canonico. {exerciseCatalogMeta.italianTranslations} esercizi hanno anche una traduzione italiana.</p></SettingsGroup>
     <SettingsGroup title="Attrezzatura"><div className="tag-list">{Object.entries(equipmentLabels).map(([id, label]) => <button key={id} className={profile.equipment.includes(id) ? 'selected' : ''} onClick={() => toggleEquipment(id)}>{label}{profile.equipment.includes(id) && <Icon name="check" size={14}/>}</button>)}</div></SettingsGroup>
+    <ExerciseFilterSettings profile={profile} update={update}/>
     <ExcludedExercises profile={profile} update={update}/>
     <SettingsGroup title="Backup e cloud"><div className="backup-options"><button onClick={exportBackup}><span><Icon name="download" size={18}/></span><div><strong>Esporta backup</strong><small>Scarica profilo, storico, workout e preferenze</small></div></button><label><input type="file" accept="application/json,.json" onChange={importBackup}/><span><Icon name="upload" size={18}/></span><div><strong>Importa backup</strong><small>Controlla il file prima di sostituire i dati</small></div></label><button onClick={() => setBackupOpen(true)}><span><Icon name="cloud" size={18}/></span><div><strong>Nextcloud</strong><small>{profile.cloud?.webDavUrl ? 'Connessione WebDAV configurata' : 'Carica o ripristina direttamente dal cloud'}</small></div></button></div><p className="setting-help">Il backup è un JSON versionato. Non contiene immagini del catalogo né credenziali cloud.</p></SettingsGroup>
     <section className="settings-group danger-zone"><h2>Dati dell’app</h2><p>Cancella tutti i dati salvati su questo dispositivo e riapre la configurazione iniziale.</p><button onClick={() => setResetOpen(true)}><Icon name="trash" size={18}/><span><strong>Cancella tutti i dati</strong><small>Profilo, storico, carichi e preferenze</small></span><Icon name="chevron" size={17}/></button></section>
     <div className="catalog-credit">Catalogo: <a href="https://wger.de" target="_blank" rel="noreferrer">wger</a> · {exerciseCatalogMeta.eligible} esercizi compatibili · licenze indicate nei dati sorgente.</div>
-    <div className="version">Easyfit MVP · Motore locale v0.5</div>
+    <div className="version">Easyfit MVP · Motore locale v0.6</div>
     {resetOpen && <ResetDataSheet onConfirm={onReset} onClose={() => setResetOpen(false)}/>} 
     {backupOpen && <BackupSheet profile={profile} history={history} workout={workout} onRestore={onRestoreBackup} onSaveCloud={(cloud) => setProfile({ ...profile, cloud })} showToast={showToast} onClose={() => setBackupOpen(false)}/>}
   </main>;

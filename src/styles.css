@@ -423,6 +423,12 @@ input[type="range"] { width: 100%; height: 4px; margin: 22px 0 10px; accent-colo
 .focus-cycle-setting small { color: var(--muted); font-size: 8px; }
 .focus-cycle-setting .stepper { height: 35px; grid-template-columns: 33px 27px 33px; }
 .regenerate-focus { min-height: 34px; margin-top: 8px; padding: 0; border: 0; background: transparent; color: var(--ink); display: flex; align-items: center; gap: 6px; font-size: 9px; font-weight: 800; cursor: pointer; }
+.filter-settings { border: 1px solid var(--line); border-radius: 7px; overflow: hidden; background: var(--white); }
+.filter-settings > div { min-height: 68px; padding: 9px 10px; border-bottom: 1px solid var(--line); display: flex; align-items: center; justify-content: space-between; gap: 13px; }
+.filter-settings > div:last-child { border: 0; }
+.filter-settings > div > div { display: flex; flex-direction: column; gap: 3px; }
+.filter-settings strong { font-size: 10px; }
+.filter-settings small { max-width: 370px; color: var(--muted); font-size: 8px; line-height: 1.35; }
 .excluded-list { display: grid; border: 1px solid var(--line); border-radius: 7px; overflow: hidden; background: var(--white); }
 .excluded-list article { min-height: 54px; padding: 8px 11px; border-bottom: 1px solid var(--line); display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .excluded-list article:last-child { border: 0; }
