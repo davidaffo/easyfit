@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { equipmentLabels, exerciseCatalogMeta, exercises, getExerciseName, muscles } from './data/exercises.js';
 import {
@@ -19,6 +19,7 @@ import {
   getNextFocusExercise,
   getRecovery,
   getSimilarExercises,
+  getWorkoutSettingsFingerprint,
   isExerciseAllowed,
   removeExercise,
   replaceExercise,
@@ -240,6 +241,8 @@ function App() {
   const [view, setView] = useState('home');
   const [toast, setToast] = useState('');
   const [installPrompt, setInstallPrompt] = useState(null);
+  const previousWorkoutSettings = useRef(null);
+  const settingsFingerprint = profile ? getWorkoutSettingsFingerprint(profile) : '';
 
   useEffect(() => { if (profile) localStorage.setItem('easyfit-profile', JSON.stringify(profile)); }, [profile]);
   useEffect(() => { localStorage.setItem('easyfit-history', JSON.stringify(history)); }, [history]);
@@ -258,8 +261,21 @@ function App() {
     const timeout = setTimeout(() => setToast(''), 2600);
     return () => clearTimeout(timeout);
   }, [toast]);
+  useEffect(() => {
+    if (!profile) {
+      previousWorkoutSettings.current = null;
+      return;
+    }
+    const previous = previousWorkoutSettings.current;
+    previousWorkoutSettings.current = { fingerprint: settingsFingerprint, duration: profile.duration };
+    if (!previous || previous.fingerprint === settingsFingerprint || !workout || view === 'workout') return;
+    const duration = previous.duration !== profile.duration ? profile.duration : workout.duration;
+    setWorkout(generateWorkout(profile, history, { duration, variation: Date.now() }));
+    setToast('Impostazioni applicate: scheda aggiornata');
+  }, [settingsFingerprint]);
 
   const finishOnboarding = (newProfile) => {
+    previousWorkoutSettings.current = { fingerprint: getWorkoutSettingsFingerprint(newProfile), duration: newProfile.duration };
     setProfile(newProfile);
     setWorkout(generateWorkout(newProfile, []));
   };
@@ -283,7 +299,9 @@ function App() {
     const restoredWorkout = backup.workout?.exercises?.every((item) => exercises.some((exercise) => exercise.id === item.exerciseId))
       ? backup.workout
       : null;
-    setProfile(normalizeProfile(backup.profile));
+    const restoredProfile = normalizeProfile(backup.profile);
+    previousWorkoutSettings.current = { fingerprint: getWorkoutSettingsFingerprint(restoredProfile), duration: restoredProfile.duration };
+    setProfile(restoredProfile);
     setHistory(backup.history);
     setWorkout(restoredWorkout);
     setView('home');

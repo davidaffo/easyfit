@@ -37,6 +37,8 @@ Il volume usa un conteggio frazionario: una serie vale `1` per il muscolo primar
 
 La durata impone anche un tetto semplice al numero di esercizi: massimo 3 fino a 30 minuti, 6 a 45 minuti, 7 a 60 minuti e 8 oltre i 60. La stima include cinque minuti iniziali, tempi di esecuzione e recuperi prescritti.
 
+La composizione limita anche la fatica sistemica: fino a 30 minuti usa normalmente 2 multiarticolari e 1 accessorio; a 45 minuti non supera 3 multiarticolari; da 60 minuti non supera 4. Coperti i pattern prioritari, gli slot ancora compatibili con il tempo vengono assegnati soltanto agli accessori. Se cambia un’impostazione che influenza la prescrizione — obiettivo, livello, RIR, attrezzatura, durata, split, focus, filtri o limiti — la scheda pronta viene rigenerata automaticamente. Lingua e configurazione del backup non la invalidano; un workout già aperto non viene sostituito durante l’esecuzione.
+
 La prontezza stimata non pretende di misurare il recupero biologico. È un indicatore interno che decresce con volume, vicinanza al cedimento e sovraperformance nelle ripetizioni; quando è bassa limita le serie e abbassa la priorità del distretto, senza modificare di nascosto il RIR scelto o trasformare automaticamente il programma in una bro split.
 
 I **Focus exercises** sono tre movimenti principali persistenti (spinta, tirata e parte inferiore). Quando uno è compatibile con i muscoli del giorno viene messo per primo. Il ciclo predefinito dura quattro esecuzioni effettivamente completate — circa un mese per un focus eseguito una volta a settimana — quindi passa automaticamente a un esercizio compatibile della stessa famiglia. La durata resta configurabile tra 2 e 8 esposizioni. Non esistono fasi “tecnica/incremento/test”: la progressione è continua e usa lo stesso calcolo basato sulle serie realmente registrate.
@@ -97,6 +99,8 @@ La sincronizzazione è esplicita: **Carica / sovrascrivi** usa `PUT`, mentre **R
 
 - onboarding in tre passaggi senza previsione artificiale dei giorni settimanali;
 - generazione per prontezza stimata, volume frazionario, frequenza misurata, split, durata e attrezzatura;
+- rigenerazione automatica della scheda pronta quando cambiano le impostazioni di allenamento;
+- equilibrio per durata tra multiarticolari prioritari e accessori mirati;
 - multifrequenza adattiva con 2–4 famiglie per sessione e rotazione basata sullo storico reale;
 - calibrazione del primo carico, delle ripetizioni massime a corpo libero ed e1RM progressivo;
 - filtri globali per corpo libero ridondante, addominali diretti e polpacci, più esclusione automatica dei movimenti ibridi/olimpici dalla modalità Massa;

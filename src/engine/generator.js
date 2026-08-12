@@ -661,6 +661,35 @@ function compareMovementFamilyNeed(a, b, profile, recovery, weeklyLoad, movement
     || needB.readiness - needA.readiness;
 }
 
+export function getWorkoutCompositionLimits(targetMinutes = 45) {
+  const minutes = Number(targetMinutes) || 45;
+  if (minutes <= 30) return { maxExercises: 3, maxCompounds: 2, desiredAccessories: 1 };
+  if (minutes <= 45) return { maxExercises: 6, maxCompounds: 3, desiredAccessories: 2 };
+  if (minutes <= 60) return { maxExercises: 7, maxCompounds: 4, desiredAccessories: 2 };
+  return { maxExercises: 8, maxCompounds: 4, desiredAccessories: 3 };
+}
+
+function sortedRecord(value = {}) {
+  return Object.fromEntries(Object.entries(value || {}).sort(([a], [b]) => a.localeCompare(b)));
+}
+
+export function getWorkoutSettingsFingerprint(profile = {}) {
+  return JSON.stringify({
+    goal: profile.goal,
+    level: profile.level,
+    equipment: [...(profile.equipment || [])].sort(),
+    duration: Number(profile.duration) || 45,
+    targetRir: profile.targetRir,
+    setCaps: sortedRecord(profile.setCaps),
+    exerciseOverrides: sortedRecord(profile.exerciseOverrides),
+    split: profile.split,
+    focusEnabled: profile.focusEnabled,
+    focusExerciseIds: [...(profile.focusExerciseIds || [])],
+    exerciseFilters: sortedRecord(profile.exerciseFilters),
+    preferences: sortedRecord(profile.preferences),
+  });
+}
+
 export function generateWorkout(profile, history = [], options = {}) {
   const recovery = getRecovery(history);
   const weeklyLoad = getWeeklyMuscleLoad(history);
@@ -683,7 +712,9 @@ export function generateWorkout(profile, history = [], options = {}) {
   const focus = selectWorkoutFocus(profile, history, targets);
   const chosen = focus ? [focus] : [];
   const random = seededRandom(Date.now() + (options.variation || 0));
-  const maxExercises = targetMinutes <= 30 ? 3 : targetMinutes <= 45 ? 6 : targetMinutes <= 60 ? 7 : 8;
+  const compositionLimits = getWorkoutCompositionLimits(targetMinutes);
+  const { maxExercises, maxCompounds } = compositionLimits;
+  const plannedFamilies = requiredFamilies.slice(0, maxCompounds);
   let usedMinutes = 5 + (focus ? estimateExerciseMinutes(focus, profile, history, prescriptionContext) : 0);
 
   const rankCandidates = (patterns = null) => exercises
@@ -694,16 +725,17 @@ export function generateWorkout(profile, history = [], options = {}) {
     .filter((item) => item.score > -100)
     .sort((a, b) => b.score - a.score);
 
-  requiredFamilies.forEach((family) => {
+  plannedFamilies.forEach((family) => {
+    if (chosen.filter((exercise) => exercise.compound).length >= maxCompounds) return;
     if (chosen.some((exercise) => getMovementFamily(exercise) === family.id)) return;
-    const next = rankCandidates(family.patterns)[0]?.exercise;
+    const next = rankCandidates(family.patterns).find(({ exercise }) => exercise.compound)?.exercise;
     if (!next) return;
     chosen.push(next);
     usedMinutes += estimateExerciseMinutes(next, profile, history, prescriptionContext);
   });
 
   while (usedMinutes < targetMinutes - 4 && chosen.length < maxExercises) {
-    const ranked = rankCandidates();
+    const ranked = rankCandidates().filter(({ exercise }) => !exercise.compound);
     if (!ranked.length) break;
     const next = ranked[0].exercise;
     const nextMinutes = estimateExerciseMinutes(next, profile, history, prescriptionContext);
@@ -714,6 +746,7 @@ export function generateWorkout(profile, history = [], options = {}) {
 
   const weeklyTargets = getWeeklyTargets(profile);
   const coveredMovementFamilies = [...new Set(chosen.map((exercise) => getMovementFamily(exercise)).filter(Boolean))];
+  const compoundCount = chosen.filter((exercise) => exercise.compound).length;
 
   return {
     id: `workout-${Date.now()}`,
@@ -732,9 +765,15 @@ export function generateWorkout(profile, history = [], options = {}) {
       weeklyMovementFrequencyBeforeWorkout: weeklyMovementFrequency,
       weeklyTargets,
       recoveryAtGeneration: recovery,
-      movementFamilies: requiredFamilies.map((family) => family.id),
+      movementFamilies: plannedFamilies.map((family) => family.id),
+      composition: {
+        compounds: compoundCount,
+        accessories: chosen.length - compoundCount,
+        ...compositionLimits,
+      },
+      settingsFingerprint: getWorkoutSettingsFingerprint(profile),
       returningFromBreak,
-      unavailableMovementFamilies: requiredFamilies
+      unavailableMovementFamilies: plannedFamilies
         .map((family) => family.id)
         .filter((family) => !coveredMovementFamilies.includes(family)),
       evidenceProfile: 'ACSM-2026-ADAPTIVE-ROTATION-DOUBLE-PROGRESSION-RIR',

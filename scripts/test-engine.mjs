@@ -25,6 +25,8 @@ import {
   getWeeklyMuscleLoad,
   getWeeklyMovementFrequency,
   getWeeklyTargets,
+  getWorkoutCompositionLimits,
+  getWorkoutSettingsFingerprint,
   isExerciseAllowed,
   isReturningAfterBreak,
   removeExercise,
@@ -215,6 +217,7 @@ assert.deepEqual(
 );
 assert(adaptiveWorkout.exercises.every((item) => item.sets.length === 2), 'Short sessions must spread volume instead of overloading one exercise');
 assert(adaptiveWorkout.exercises.length <= 3, 'A 25–30 minute workout must contain at most three exercises');
+assert.deepEqual(adaptiveWorkout.engine.composition, { compounds: 2, accessories: 1, ...getWorkoutCompositionLimits(25) }, 'A short workout must balance two compounds with one accessory');
 assert.equal(adaptiveWorkout.engine.version, 6, 'The workout must preserve the evidence model version');
 assert.deepEqual(adaptiveWorkout.engine.movementFamilies, ['push', 'pull'], 'The workout must expose its structural constraints');
 const filteredAdaptive = generateWorkout({ ...directFilterProfile, goal: 'muscle', split: 'adaptive', focusEnabled: false, duration: 60 }, [], { variation: 44 });
@@ -234,7 +237,14 @@ const adaptiveWithSixLegacyDays = generateWorkout({ ...focusProfile, split: 'ada
 assert.deepEqual(adaptiveWithSixLegacyDays.engine.movementFamilies, adaptiveWithTwoLegacyDays.engine.movementFamilies, 'Legacy planned-day values must no longer change an adaptive workout');
 assert.equal(adaptiveWithTwoLegacyDays.engine.movementFamilies.length, 3, 'A regular 45-minute workout must select three movement families');
 assert(adaptiveWithTwoLegacyDays.exercises.length <= 6, 'A first 45-minute workout must remain capped at six exercises');
+assert(adaptiveWithTwoLegacyDays.engine.composition.compounds <= 3, 'A 45-minute workout must contain at most three compound exercises');
+assert(adaptiveWithTwoLegacyDays.engine.composition.accessories >= 2, 'A 45-minute workout must retain room for at least two accessories');
 assert.equal(getWeeklyTargets({ ...profile, split: 'ppl' }).frequency, 1, 'PPL must retain one target exposure per rotation');
+
+const settingsFingerprint = getWorkoutSettingsFingerprint(focusProfile);
+assert.equal(getWorkoutSettingsFingerprint({ ...focusProfile, exerciseLanguage: 'it', cloud: { webDavUrl: 'https://example.test' } }), settingsFingerprint, 'Language and cloud settings must not invalidate an existing workout');
+assert.notEqual(getWorkoutSettingsFingerprint({ ...focusProfile, targetRir: 1 }), settingsFingerprint, 'A training setting such as target RIR must invalidate an existing workout');
+assert.notEqual(getWorkoutSettingsFingerprint({ ...focusProfile, exerciseFilters: { excludeDirectCore: true } }), settingsFingerprint, 'Exercise filters must invalidate an existing workout');
 
 adaptiveWithTwoLegacyDays.completedAt = Date.now() - 36e5;
 adaptiveWithTwoLegacyDays.exercises.forEach((item) => item.sets.forEach((set) => { set.done = true; set.rir = 2; }));
