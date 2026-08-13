@@ -30,7 +30,7 @@ npm test
 
 Il motore locale v6 separa due decisioni:
 
-1. **Exercise selector** — filtra per attrezzatura, split e preferenze globali. In modalità adattiva sceglie 2, 3 o 4 famiglie di movimento in base ai minuti disponibili e ruota spinta, tirata, dominante di ginocchio e dominante d’anca usando deficit, recupero e storico reale. Non chiede quanti giorni a settimana l’utente intenda allenarsi. Gli slot restanti dipendono da volume e frequenza degli ultimi sette giorni, prontezza stimata, preferenze e storico recente.
+1. **Exercise selector** — filtra per attrezzatura, split e preferenze globali. Il Catalogo essenziale usa un solo rappresentante per famiglia wger, pattern e attrezzatura, evitando che pause, prese o angoli appena diversi affollino la generazione. In modalità adattiva sceglie 2, 3 o 4 famiglie di movimento in base ai minuti disponibili e ruota spinta, tirata, dominante di ginocchio e dominante d’anca usando deficit, recupero e storico reale. Non chiede quanti giorni a settimana l’utente intenda allenarsi. Gli slot restanti dipendono da volume e frequenza degli ultimi sette giorni, prontezza stimata, preferenze e storico recente.
 2. **Prescription** — distribuisce il volume settimanale sulle esposizioni ancora necessarie e applica una doppia progressione individuale a serie, ripetizioni, RIR, recupero e carico.
 
 Il volume usa un conteggio frazionario: una serie vale `1` per il muscolo primario e `0,5` per i muscoli secondari. Un contatto indiretto conta come esposizione solo quando raggiunge almeno una serie equivalente nella stessa sessione. I target non sono massimali: per l’ipertrofia partono da 7, 10 o 12 serie equivalenti settimanali per principianti, intermedi ed esperti e vengono distribuiti sulle esposizioni mancanti. Una sessione adattiva iniziale non interpreta più “tutti recuperati” come “allena tutto”: seleziona un sottoinsieme coerente e lascia alle sessioni successive la rotazione delle famiglie omesse. Dopo più di dieci giorni di pausa attiva inoltre un rientro graduale con massimo due serie per esercizio.
@@ -104,6 +104,7 @@ La sincronizzazione è esplicita: **Carica / sovrascrivi** usa `PUT`, mentre **R
 - multifrequenza adattiva con 2–4 famiglie per sessione e rotazione basata sullo storico reale;
 - calibrazione del primo carico, delle ripetizioni massime a corpo libero ed e1RM progressivo;
 - filtri globali per corpo libero ridondante, addominali diretti e polpacci, più esclusione automatica dei movimenti ibridi/olimpici dalla modalità Massa;
+- Catalogo essenziale attivo di default; le microvarianti restano ricercabili e apribili esplicitamente nella sostituzione;
 - rientro graduale automatico dopo oltre dieci giorni di pausa;
 - sostituzione di un esercizio con uno compatibile;
 - menu esercizio con lista ricercabile di sostituzioni compatibili, rimozione dal workout o esclusione permanente ripristinabile;

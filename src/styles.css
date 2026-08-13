@@ -307,6 +307,14 @@ input[type="range"] { width: 100%; height: 4px; margin: 22px 0 10px; accent-colo
 .similar-search span { color: #969990; font-size: 7px; font-weight: 800; letter-spacing: .9px; }
 .similar-search input { width: 100%; padding: 0; border: 0; outline: 0; background: transparent; color: var(--ink); font: 700 12px 'Manrope'; }
 .similar-search input::placeholder { color: #a7aaa1; font-weight: 500; }
+.variant-toggle { width: 100%; min-height: 51px; margin-top: 8px; padding: 7px 10px; border: 1px solid var(--line); border-radius: 7px; background: #eceae3; color: var(--ink); display: flex; align-items: center; justify-content: space-between; text-align: left; cursor: pointer; }
+.variant-toggle > span { display: flex; align-items: center; gap: 9px; }
+.variant-toggle > span > span { display: flex; flex-direction: column; gap: 2px; }
+.variant-toggle strong { font-size: 9px; }
+.variant-toggle small { color: var(--muted); font-size: 8px; }
+.variant-toggle > svg { color: #999d93; transition: transform .2s; }
+.variant-toggle.active { border-color: var(--ink); background: var(--white); }
+.variant-toggle.active > svg { transform: rotate(90deg); }
 .similar-results { display: grid; gap: 20px; margin-top: 21px; }
 .similar-group h3 { margin: 0 2px 8px; color: #777b72; font-size: 8px; letter-spacing: .8px; text-transform: uppercase; display: flex; align-items: center; justify-content: space-between; }
 .similar-group h3 span { min-width: 21px; height: 18px; padding: 0 5px; border-radius: 10px; background: #e5e3dc; color: var(--ink); display: grid; place-items: center; font-size: 8px; }

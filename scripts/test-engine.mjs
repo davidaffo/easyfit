@@ -15,6 +15,7 @@ import {
   estimateOneRepMax,
   generateWorkout,
   getExerciseHistory,
+  getExerciseVariantKey,
   getFocusAnalytics,
   getFocusCycleProgress,
   getMovementFamily,
@@ -28,6 +29,7 @@ import {
   getWorkoutCompositionLimits,
   getWorkoutSettingsFingerprint,
   isExerciseAllowed,
+  isEssentialExercise,
   isReturningAfterBreak,
   removeExercise,
   replaceExercise,
@@ -41,6 +43,16 @@ assert.equal(bench.translations.en, 'Bench Press');
 const benchGuide = await getExerciseDetails(bench.wgerId, 'en');
 assert(benchGuide.description.length > 100, 'The lazy wger guide must expose the English instructions');
 assert(benchGuide.image?.startsWith('/exercise-images/'), 'The bundled wger guide must use a local exercise image');
+
+const benchVariantProfile = {
+  goal: 'muscle',
+  equipment: ['barbell', 'bench'],
+  preferences: {},
+  exerciseFilters: { essentialCatalog: true },
+};
+const benchVariantCluster = exercises.filter((exercise) => getExerciseVariantKey(exercise) === getExerciseVariantKey(bench));
+assert(benchVariantCluster.length > 3, 'The catalog must expose the bench microvariants used by the essential catalog test');
+assert.equal(benchVariantCluster.filter((exercise) => isEssentialExercise(exercise, benchVariantProfile)).length, 1, 'The essential catalog must retain one canonical barbell bench variant');
 
 const baseSet = { targetReps: 8, targetWeight: 60, targetRir: 2, weight: 60, done: true };
 assert.equal(willCompleteExercise([{ done: false }, { done: false }, { done: false }], 0), false, 'The first set must not trigger the RIR prompt');
@@ -366,6 +378,9 @@ assert(!withoutExercise.exercises.some((item) => item.exerciseId === firstNonFoc
 const currentFocusExercise = exercises.find((exercise) => exercise.id === focusWorkout.exercises[0].exerciseId);
 const similarChoices = getSimilarExercises(focusWorkout, currentFocusExercise.id, focusProfile);
 assert(similarChoices.length > 1, 'The replacement picker must receive a list of compatible alternatives');
+const allSimilarChoices = getSimilarExercises(focusWorkout, currentFocusExercise.id, focusProfile, { includeVariants: true });
+assert(allSimilarChoices.length > similarChoices.length, 'The replacement picker must keep microvariants available behind an explicit expansion');
+assert.equal(new Set(similarChoices.map(getExerciseVariantKey)).size, similarChoices.length, 'The default replacement list must contain only one representative per variant family');
 const selectedSimilar = similarChoices.find((exercise) => exercise.pattern === currentFocusExercise.pattern);
 const similarWorkout = replaceExercise(focusWorkout, currentFocusExercise.id, focusProfile, [], selectedSimilar.id);
 const similarExercise = exercises.find((exercise) => exercise.id === similarWorkout.exercises[0].exerciseId);

@@ -44,7 +44,7 @@ const defaultProfile = {
   focusExerciseIds: [],
   focusCycleLength: 4,
   focusCycleStartedAt: {},
-  exerciseFilters: { preferLoadedVariants: true, excludeDirectCore: false, excludeCalves: false },
+  exerciseFilters: { essentialCatalog: true, preferLoadedVariants: true, excludeDirectCore: false, excludeCalves: false },
   preferences: {},
 };
 
@@ -690,8 +690,12 @@ function ExercisePrescriptionSheet({ exerciseId, profile, language, onSave, onCl
 
 function SimilarExerciseSheet({ workout, exerciseId, profile, language, onChoose, onClose }) {
   const [query, setQuery] = useState('');
+  const [showVariants, setShowVariants] = useState(false);
   const current = exercises.find((candidate) => candidate.id === exerciseId);
-  const alternatives = useMemo(() => getSimilarExercises(workout, exerciseId, profile), [workout, exerciseId, profile]);
+  const essentialAlternatives = useMemo(() => getSimilarExercises(workout, exerciseId, profile), [workout, exerciseId, profile]);
+  const allAlternatives = useMemo(() => getSimilarExercises(workout, exerciseId, profile, { includeVariants: true }), [workout, exerciseId, profile]);
+  const alternatives = showVariants || query.trim() ? allAlternatives : essentialAlternatives;
+  const hiddenVariantCount = Math.max(0, allAlternatives.length - essentialAlternatives.length);
   const normalizedQuery = query.trim().toLocaleLowerCase();
   const filtered = alternatives.filter((exercise) => {
     if (!normalizedQuery) return true;
@@ -716,6 +720,7 @@ function SimilarExerciseSheet({ workout, exerciseId, profile, language, onChoose
       <h2>Scegli l’alternativa</h2>
       <p>Al posto di <strong>{getExerciseName(current, language)}</strong></p>
       <label className="similar-search"><span>CERCA</span><input type="search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Nome o attrezzatura"/></label>
+      {hiddenVariantCount > 0 && <button className={`variant-toggle ${showVariants ? 'active' : ''}`} onClick={() => setShowVariants((value) => !value)}><span><Icon name="more" size={17}/><span><strong>{showVariants ? 'Nascondi microvarianti' : 'Mostra tutte le varianti'}</strong><small>{hiddenVariantCount} alternative simili {showVariants ? 'visibili' : 'nascoste'}</small></span></span><Icon name="chevron" size={16}/></button>}
       {filtered.length ? <div className="similar-results">{renderGroup('Stesso movimento', exact)}{renderGroup('Stesso gruppo muscolare', related)}</div> : <div className="similar-empty"><Icon name="swap" size={27}/><strong>Nessuna alternativa trovata</strong><span>Prova un’altra ricerca o modifica l’attrezzatura.</span></div>}
     </section>
   </div>;
@@ -936,6 +941,7 @@ function ExerciseFilterSettings({ profile, update }) {
   const filters = { ...defaultProfile.exerciseFilters, ...(profile.exerciseFilters || {}) };
   const toggle = (key) => update({ exerciseFilters: { ...filters, [key]: !filters[key] } });
   const items = [
+    ['essentialCatalog', 'Catalogo essenziale', 'Propone una sola versione rappresentativa per ogni famiglia, pattern e attrezzatura.'],
     ['preferLoadedVariants', 'Evita corpo libero duplicato', 'Se esiste una variante caricabile compatibile con la tua attrezzatura, usa quella.'],
     ['excludeDirectCore', 'Escludi addominali diretti', 'Niente crunch, plank o altri esercizi con il core come target principale.'],
     ['excludeCalves', 'Escludi polpacci diretti', 'Rimuove calf raise e lavoro specifico per i polpacci.'],

@@ -424,6 +424,32 @@ export function isExerciseAllowed(exercise, profile) {
   return true;
 }
 
+export function getExerciseVariantKey(exercise) {
+  if (!exercise?.variationGroup) return `exercise:${exercise?.id}`;
+  const equipment = [...(exercise.equipment || [])].sort().join('+');
+  return `variant:${exercise.variationGroup}:${exercise.primary}:${exercise.pattern}:${equipment}:${exercise.loadType}`;
+}
+
+function canonicalScore(exercise, profile) {
+  const preference = profile.preferences?.[exercise.id] === 'more' ? 30 : profile.preferences?.[exercise.id] === 'less' ? -20 : 0;
+  const sidePenalty = /\b(left|right)\b/i.test(exercise.name) ? 20 : 0;
+  const complexityPenalty = Math.max(0, exercise.name.trim().split(/\s+/).length - 4);
+  return preference + exercise.selectionPriority * 3 - sidePenalty - complexityPenalty;
+}
+
+export function getCanonicalExercise(exercise, profile) {
+  if (!exercise?.variationGroup) return exercise;
+  const key = getExerciseVariantKey(exercise);
+  return exercises
+    .filter((candidate) => getExerciseVariantKey(candidate) === key && isExerciseAllowed(candidate, profile))
+    .sort((a, b) => canonicalScore(b, profile) - canonicalScore(a, profile) || a.name.localeCompare(b.name))[0] || exercise;
+}
+
+export function isEssentialExercise(exercise, profile) {
+  if (profile.exerciseFilters?.essentialCatalog === false) return true;
+  return getCanonicalExercise(exercise, profile)?.id === exercise.id;
+}
+
 const focusFamilies = [
   ['horizontal-push', 'vertical-push'],
   ['horizontal-pull', 'vertical-pull'],
@@ -438,7 +464,7 @@ function focusRank(exercise) {
 export function getFocusCandidates(profile, family = null) {
   const patterns = family == null ? null : focusFamilies[family];
   return exercises
-    .filter((exercise) => exercise.compound && isExerciseAllowed(exercise, profile))
+    .filter((exercise) => exercise.compound && isExerciseAllowed(exercise, profile) && isEssentialExercise(exercise, profile))
     .filter((exercise) => !patterns || patterns.includes(exercise.pattern))
     .sort((a, b) => focusRank(b) - focusRank(a) || a.name.localeCompare(b.name));
 }
@@ -719,6 +745,7 @@ export function generateWorkout(profile, history = [], options = {}) {
 
   const rankCandidates = (patterns = null) => exercises
     .filter((exercise) => profile.preferences?.[exercise.id] !== 'exclude' && !chosen.some((item) => item.id === exercise.id))
+    .filter((exercise) => isEssentialExercise(exercise, profile))
     .filter((exercise) => !avoidIds.has(exercise.id))
     .filter((exercise) => !patterns || patterns.includes(exercise.pattern))
     .map((exercise) => ({ exercise, score: scoreExercise(exercise, targets, profile, recovery, weeklyLoad, recentIds, chosen, random) }))
@@ -781,25 +808,36 @@ export function generateWorkout(profile, history = [], options = {}) {
   };
 }
 
-export function getSimilarExercises(workout, exerciseId, profile) {
+export function getSimilarExercises(workout, exerciseId, profile, options = {}) {
   const current = exercises.find((item) => item.id === exerciseId);
   if (!current) return [];
-  const used = workout.exercises.map((item) => exercises.find((exercise) => exercise.id === item.exerciseId));
-  return exercises
+  const used = workout.exercises
+    .filter((item) => item.exerciseId !== exerciseId)
+    .map((item) => exercises.find((exercise) => exercise.id === item.exerciseId));
+  const currentVariantKey = getExerciseVariantKey(current);
+  const candidates = exercises
     .filter((exercise) => exercise.id !== exerciseId && exercise.primary === current.primary)
     .filter((exercise) => isExerciseAllowed(exercise, profile))
-    .filter((exercise) => !used.some((item) => item?.id === exercise.id || (exercise.variationGroup && item?.variationGroup === exercise.variationGroup)))
+    .filter((exercise) => !used.some((item) => item?.id === exercise.id || getExerciseVariantKey(item) === getExerciseVariantKey(exercise)))
     .sort((a, b) => {
       const patternDifference = Number(b.pattern === current.pattern) - Number(a.pattern === current.pattern);
       const compoundDifference = Number(b.compound === current.compound) - Number(a.compound === current.compound);
-      return patternDifference || compoundDifference || b.selectionPriority - a.selectionPriority || a.name.localeCompare(b.name);
+      return patternDifference || compoundDifference || canonicalScore(b, profile) - canonicalScore(a, profile) || a.name.localeCompare(b.name);
     });
+  if (options.includeVariants || profile.exerciseFilters?.essentialCatalog === false) return candidates;
+  const seen = new Set();
+  return candidates.filter((exercise) => {
+    const key = getExerciseVariantKey(exercise);
+    if (key === currentVariantKey || seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
 }
 
 export function replaceExercise(workout, exerciseId, profile, history = [], replacementId = null) {
   const current = exercises.find((item) => item.id === exerciseId);
   if (!current) return workout;
-  const alternatives = getSimilarExercises(workout, exerciseId, profile);
+  const alternatives = getSimilarExercises(workout, exerciseId, profile, { includeVariants: true });
   if (!alternatives.length) return workout;
   const replacement = replacementId
     ? alternatives.find((exercise) => exercise.id === replacementId)
