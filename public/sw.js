@@ -1,20 +1,27 @@
-const CACHE = 'easyfit-v5';
+const CACHE = 'easyfit-v15';
 const BASE = new URL('./', self.location.href);
 const fromBase = (path) => new URL(path, BASE).href;
-const CORE = ['', 'index.html', 'manifest.webmanifest', 'icon.svg', 'icon-192.png', 'icon-512.png'].map(fromBase);
+const CORE = ['', 'manifest.webmanifest', 'icon.svg', 'icon-192.png', 'icon-512.png'].map(fromBase);
 const IMAGE_INDEX = fromBase('exercise-images/index.json');
 
 self.addEventListener('install', (event) => {
   event.waitUntil((async () => {
     const cache = await caches.open(CACHE);
     await cache.addAll(CORE);
+    const indexResponse = await fetch(fromBase('index.html'), { cache: 'no-store' });
+    if (!indexResponse.ok) throw new Error('App shell unavailable');
+    const indexText = await indexResponse.clone().text();
+    await cache.put(fromBase('index.html'), indexResponse);
+    const buildAssets = [...indexText.matchAll(/(?:src|href)="([^"]+)"/g)]
+      .map((match) => new URL(match[1], BASE))
+      .filter((url) => url.origin === self.location.origin)
+      .map((url) => url.href);
+    await cache.addAll([...new Set(buildAssets)]);
     const response = await fetch(IMAGE_INDEX, { cache: 'no-store' });
     if (response.ok) {
       await cache.put(IMAGE_INDEX, response.clone());
       const images = (await response.json()).map((path) => fromBase(path.replace(/^\//, '')));
-      for (let index = 0; index < images.length; index += 25) {
-        await cache.addAll(images.slice(index, index + 25));
-      }
+      await cache.addAll(images);
     }
   })());
   self.skipWaiting();

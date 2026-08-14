@@ -1,0 +1,1791 @@
+{
+  "source": "wger",
+  "sourceUrl": "https://wger.de",
+  "syncedAt": "2026-08-08T09:38:35.897Z",
+  "curatedAt": "2026-08-13T14:25:36.296Z",
+  "schemaVersion": 2,
+  "curation": "explicit-wger-id-registry",
+  "sourceCount": 787,
+  "count": 54,
+  "eligible": 54,
+  "exercises": [
+    {
+      "id": "wger-1573",
+      "wgerId": 1573,
+      "name": "Ab wheel",
+      "translations": {
+        "en": "Ab wheel"
+      },
+      "primary": "core",
+      "secondary": [],
+      "equipment": [
+        "bodyweight"
+      ],
+      "muscleContributions": {
+        "core": 1
+      },
+      "pattern": "anti-extension",
+      "compound": false,
+      "selectionPriority": 14,
+      "loadType": "bodyweight",
+      "minutes": 6,
+      "variationGroup": null,
+      "license": {
+        "name": "CC-BY-SA 4",
+        "url": "https://creativecommons.org/licenses/by-sa/4.0/deed.en",
+        "author": "lhegedus"
+      },
+      "source": "wger",
+      "generationEligible": true,
+      "loadMultiplier": 1
+    },
+    {
+      "id": "wger-1801",
+      "wgerId": 1801,
+      "name": "Barbell Full Squat",
+      "translations": {
+        "en": "Barbell Full Squat"
+      },
+      "primary": "quads",
+      "secondary": [
+        "glutes"
+      ],
+      "equipment": [
+        "barbell",
+        "rack"
+      ],
+      "muscleContributions": {
+        "quads": 1,
+        "glutes": 0.5
+      },
+      "pattern": "squat",
+      "compound": true,
+      "selectionPriority": 16,
+      "loadType": "external",
+      "minutes": 9,
+      "variationGroup": null,
+      "license": {
+        "name": "CC-BY-SA 4",
+        "url": "https://creativecommons.org/licenses/by-sa/4.0/deed.en",
+        "author": "fabrice"
+      },
+      "source": "wger",
+      "generationEligible": true,
+      "loadMultiplier": 1
+    },
+    {
+      "id": "wger-1830",
+      "wgerId": 1830,
+      "name": "Barbell Step Back Lunge",
+      "translations": {
+        "en": "Barbell Step Back Lunge"
+      },
+      "primary": "quads",
+      "secondary": [
+        "glutes"
+      ],
+      "equipment": [
+        "barbell",
+        "rack"
+      ],
+      "muscleContributions": {
+        "quads": 1,
+        "glutes": 0.5
+      },
+      "pattern": "single-leg",
+      "compound": true,
+      "selectionPriority": 12,
+      "loadType": "external",
+      "minutes": 9,
+      "variationGroup": null,
+      "license": {
+        "name": "CC-BY-SA 4",
+        "url": "https://creativecommons.org/licenses/by-sa/4.0/deed.en",
+        "author": ""
+      },
+      "source": "wger",
+      "generationEligible": true,
+      "loadMultiplier": 1
+    },
+    {
+      "id": "wger-50",
+      "wgerId": 50,
+      "name": "Barbell Triceps Extension",
+      "translations": {
+        "en": "Barbell Triceps Extension",
+        "it": "Estensione dei Tricipiti con Bilanciere"
+      },
+      "primary": "triceps",
+      "secondary": [],
+      "equipment": [
+        "barbell"
+      ],
+      "muscleContributions": {
+        "triceps": 1
+      },
+      "pattern": "elbow-extension",
+      "compound": false,
+      "selectionPriority": 12,
+      "loadType": "external",
+      "minutes": 6,
+      "variationGroup": "290582f2-d94c-4eb6-a994-99e38d7251f7",
+      "license": {
+        "name": "CC-BY-SA 4",
+        "url": "https://creativecommons.org/licenses/by-sa/4.0/deed.en",
+        "author": "sevae"
+      },
+      "source": "wger",
+      "generationEligible": true,
+      "loadMultiplier": 1
+    },
+    {
+      "id": "wger-73",
+      "wgerId": 73,
+      "name": "Bench Press",
+      "translations": {
+        "en": "Bench Press",
+        "it": "Distensione Panca Piana con Bilanciere"
+      },
+      "primary": "chest",
+      "secondary": [
+        "shoulders",
+        "triceps"
+      ],
+      "equipment": [
+        "barbell",
+        "bench",
+        "rack"
+      ],
+      "muscleContributions": {
+        "chest": 1,
+        "shoulders": 0.5,
+        "triceps": 0.5
+      },
+      "pattern": "horizontal-push",
+      "compound": true,
+      "selectionPriority": 16,
+      "loadType": "external",
+      "minutes": 9,
+      "variationGroup": "f45f135e-4cd3-4023-a82a-83fca2078656",
+      "license": {
+        "name": "CC-BY-SA 3",
+        "url": "https://creativecommons.org/licenses/by-sa/3.0/deed.en",
+        "author": "sistab2"
+      },
+      "source": "wger",
+      "generationEligible": true,
+      "loadMultiplier": 1
+    },
+    {
+      "id": "wger-75",
+      "wgerId": 75,
+      "name": "Benchpress Dumbbells",
+      "translations": {
+        "en": "Benchpress Dumbbells",
+        "it": "Panca Piana con Manubri"
+      },
+      "primary": "chest",
+      "secondary": [
+        "shoulders",
+        "triceps"
+      ],
+      "equipment": [
+        "dumbbells",
+        "bench"
+      ],
+      "muscleContributions": {
+        "chest": 1,
+        "shoulders": 0.5,
+        "triceps": 0.5
+      },
+      "pattern": "horizontal-push",
+      "compound": true,
+      "selectionPriority": 15,
+      "loadType": "per-dumbbell",
+      "minutes": 9,
+      "variationGroup": "f45f135e-4cd3-4023-a82a-83fca2078656",
+      "license": {
+        "name": "CC-BY-SA 3",
+        "url": "https://creativecommons.org/licenses/by-sa/3.0/deed.en",
+        "author": "wger.de"
+      },
+      "source": "wger",
+      "generationEligible": true,
+      "loadMultiplier": 2
+    },
+    {
+      "id": "wger-81",
+      "wgerId": 81,
+      "name": "Bent Over Dumbbell Rows",
+      "translations": {
+        "en": "Bent Over Dumbbell Rows"
+      },
+      "primary": "back",
+      "secondary": [
+        "biceps",
+        "shoulders"
+      ],
+      "equipment": [
+        "dumbbells",
+        "bench"
+      ],
+      "muscleContributions": {
+        "back": 1,
+        "biceps": 0.5,
+        "shoulders": 0.5
+      },
+      "pattern": "horizontal-pull",
+      "compound": true,
+      "selectionPriority": 15,
+      "loadType": "per-dumbbell",
+      "minutes": 9,
+      "variationGroup": "e87bd3db-75b1-44ec-8962-df2f97274109",
+      "license": {
+        "name": "CC-BY-SA 4",
+        "url": "https://creativecommons.org/licenses/by-sa/4.0/deed.en",
+        "author": "sebk"
+      },
+      "source": "wger",
+      "generationEligible": true,
+      "loadMultiplier": 2
+    },
+    {
+      "id": "wger-83",
+      "wgerId": 83,
+      "name": "Bent Over Rowing",
+      "translations": {
+        "en": "Bent Over Rowing",
+        "it": "Rematore presa neutra con bilanciere"
+      },
+      "primary": "back",
+      "secondary": [
+        "biceps",
+        "shoulders"
+      ],
+      "equipment": [
+        "barbell"
+      ],
+      "muscleContributions": {
+        "back": 1,
+        "biceps": 0.5,
+        "shoulders": 0.5
+      },
+      "pattern": "horizontal-pull",
+      "compound": true,
+      "selectionPriority": 16,
+      "loadType": "external",
+      "minutes": 9,
+      "variationGroup": "e87bd3db-75b1-44ec-8962-df2f97274109",
+      "license": {
+        "name": "CC-BY-SA 3",
+        "url": "https://creativecommons.org/licenses/by-sa/3.0/deed.en",
+        "author": "wger.de"
+      },
+      "source": "wger",
+      "generationEligible": true,
+      "loadMultiplier": 1
+    },
+    {
+      "id": "wger-95",
+      "wgerId": 95,
+      "name": "Biceps Curl With Cable",
+      "translations": {
+        "en": "Biceps Curl With Cable"
+      },
+      "primary": "biceps",
+      "secondary": [],
+      "equipment": [
+        "cables"
+      ],
+      "muscleContributions": {
+        "biceps": 1
+      },
+      "pattern": "elbow-flexion",
+      "compound": false,
+      "selectionPriority": 14,
+      "loadType": "external",
+      "minutes": 6,
+      "variationGroup": "674f258e-60c5-4c94-8495-cd918aabea77",
+      "license": {
+        "name": "CC-BY-SA 3",
+        "url": "https://creativecommons.org/licenses/by-sa/3.0/deed.en",
+        "author": "wger.de"
+      },
+      "source": "wger",
+      "generationEligible": true,
+      "loadMultiplier": 1
+    },
+    {
+      "id": "wger-91",
+      "wgerId": 91,
+      "name": "Biceps Curls With Barbell",
+      "translations": {
+        "en": "Biceps Curls With Barbell",
+        "it": "Curl con bilanciere"
+      },
+      "primary": "biceps",
+      "secondary": [],
+      "equipment": [
+        "barbell"
+      ],
+      "muscleContributions": {
+        "biceps": 1
+      },
+      "pattern": "elbow-flexion",
+      "compound": false,
+      "selectionPriority": 13,
+      "loadType": "external",
+      "minutes": 6,
+      "variationGroup": "674f258e-60c5-4c94-8495-cd918aabea77",
+      "license": {
+        "name": "CC-BY-SA 3",
+        "url": "https://creativecommons.org/licenses/by-sa/3.0/deed.en",
+        "author": "wger.de"
+      },
+      "source": "wger",
+      "generationEligible": true,
+      "loadMultiplier": 1
+    },
+    {
+      "id": "wger-92",
+      "wgerId": 92,
+      "name": "Biceps Curls With Dumbbell",
+      "translations": {
+        "en": "Biceps Curls With Dumbbell",
+        "it": "Curl per Bicipiti con Manubrio"
+      },
+      "primary": "biceps",
+      "secondary": [],
+      "equipment": [
+        "dumbbells"
+      ],
+      "muscleContributions": {
+        "biceps": 1
+      },
+      "pattern": "elbow-flexion",
+      "compound": false,
+      "selectionPriority": 15,
+      "loadType": "per-dumbbell",
+      "minutes": 6,
+      "variationGroup": "674f258e-60c5-4c94-8495-cd918aabea77",
+      "license": {
+        "name": "CC-BY-SA 3",
+        "url": "https://creativecommons.org/licenses/by-sa/3.0/deed.en",
+        "author": "wger.de"
+      },
+      "source": "wger",
+      "generationEligible": true,
+      "loadMultiplier": 2
+    },
+    {
+      "id": "wger-94",
+      "wgerId": 94,
+      "name": "Biceps Curls With SZ-bar",
+      "translations": {
+        "en": "Biceps Curls With SZ-bar"
+      },
+      "primary": "biceps",
+      "secondary": [],
+      "equipment": [
+        "ezbar"
+      ],
+      "muscleContributions": {
+        "biceps": 1
+      },
+      "pattern": "elbow-flexion",
+      "compound": false,
+      "selectionPriority": 14,
+      "loadType": "external",
+      "minutes": 6,
+      "variationGroup": "674f258e-60c5-4c94-8495-cd918aabea77",
+      "license": {
+        "name": "CC-BY-SA 3",
+        "url": "https://creativecommons.org/licenses/by-sa/3.0/deed.en",
+        "author": "wger.de"
+      },
+      "source": "wger",
+      "generationEligible": true,
+      "loadMultiplier": 1
+    },
+    {
+      "id": "wger-977",
+      "wgerId": 977,
+      "name": "Box squat",
+      "translations": {
+        "en": "Box squat",
+        "it": "Squat box"
+      },
+      "primary": "quads",
+      "secondary": [
+        "glutes"
+      ],
+      "equipment": [
+        "bodyweight"
+      ],
+      "muscleContributions": {
+        "quads": 1,
+        "glutes": 0.5
+      },
+      "pattern": "squat",
+      "compound": true,
+      "selectionPriority": 13,
+      "loadType": "bodyweight",
+      "minutes": 9,
+      "variationGroup": null,
+      "license": {
+        "name": "CC-BY-SA 4",
+        "url": "https://creativecommons.org/licenses/by-sa/4.0/deed.en",
+        "author": "clafal"
+      },
+      "source": "wger",
+      "generationEligible": true,
+      "loadMultiplier": 1
+    },
+    {
+      "id": "wger-1706",
+      "wgerId": 1706,
+      "name": "Bulgarian Squat with Dumbbells",
+      "translations": {
+        "en": "Bulgarian Squat with Dumbbells"
+      },
+      "primary": "quads",
+      "secondary": [
+        "glutes"
+      ],
+      "equipment": [
+        "dumbbells"
+      ],
+      "muscleContributions": {
+        "quads": 1,
+        "glutes": 0.5
+      },
+      "pattern": "squat",
+      "compound": true,
+      "selectionPriority": 13,
+      "loadType": "per-dumbbell",
+      "minutes": 9,
+      "variationGroup": null,
+      "license": {
+        "name": "CC-BY-SA 4",
+        "url": "https://creativecommons.org/licenses/by-sa/4.0/deed.en",
+        "author": "AlucardEvil40"
+      },
+      "source": "wger",
+      "generationEligible": true,
+      "loadMultiplier": 2
+    },
+    {
+      "id": "wger-1378",
+      "wgerId": 1378,
+      "name": "Cable Lateral Raises (Single Arm)",
+      "translations": {
+        "en": "Cable Lateral Raises (Single Arm)"
+      },
+      "primary": "shoulders",
+      "secondary": [],
+      "equipment": [
+        "cables"
+      ],
+      "muscleContributions": {
+        "shoulders": 1
+      },
+      "pattern": "shoulder-isolation",
+      "compound": false,
+      "selectionPriority": 13,
+      "loadType": "external",
+      "minutes": 6,
+      "variationGroup": "fa7f14c4-f65a-4324-925c-bd30db99119d",
+      "license": {
+        "name": "CC-BY-SA 4",
+        "url": "https://creativecommons.org/licenses/by-sa/4.0/deed.en",
+        "author": "carlos3c"
+      },
+      "source": "wger",
+      "generationEligible": true,
+      "loadMultiplier": 1
+    },
+    {
+      "id": "wger-822",
+      "wgerId": 822,
+      "name": "Cable Rear Delt Fly",
+      "translations": {
+        "en": "Cable Rear Delt Fly"
+      },
+      "primary": "shoulders",
+      "secondary": [
+        "back"
+      ],
+      "equipment": [
+        "cables"
+      ],
+      "muscleContributions": {
+        "shoulders": 1,
+        "back": 0.25
+      },
+      "pattern": "rear-delt",
+      "compound": false,
+      "selectionPriority": 14,
+      "loadType": "external",
+      "minutes": 6,
+      "variationGroup": "19808be8-e98c-4b65-b8c7-f559aba5f2f8",
+      "license": {
+        "name": "CC-BY-SA 4",
+        "url": "https://creativecommons.org/licenses/by-sa/4.0/deed.en",
+        "author": "cshep442"
+      },
+      "source": "wger",
+      "generationEligible": true,
+      "loadMultiplier": 1
+    },
+    {
+      "id": "wger-146",
+      "wgerId": 146,
+      "name": "Calf Press Using Leg Press Machine",
+      "translations": {
+        "en": "Calf Press Using Leg Press Machine",
+        "it": "Pressa per polpacci alla Leg Press"
+      },
+      "primary": "calves",
+      "secondary": [],
+      "equipment": [
+        "machines"
+      ],
+      "muscleContributions": {
+        "calves": 1
+      },
+      "pattern": "calf-raise",
+      "compound": false,
+      "selectionPriority": 13,
+      "loadType": "external",
+      "minutes": 6,
+      "variationGroup": "4b54f372-2aef-4741-b76d-85e3f376f1d7",
+      "license": {
+        "name": "CC-BY-SA 4",
+        "url": "https://creativecommons.org/licenses/by-sa/4.0/deed.en",
+        "author": "nate303303"
+      },
+      "source": "wger",
+      "generationEligible": true,
+      "loadMultiplier": 1
+    },
+    {
+      "id": "wger-129",
+      "wgerId": 129,
+      "name": "Chest Press",
+      "translations": {
+        "en": "Chest Press"
+      },
+      "primary": "chest",
+      "secondary": [
+        "shoulders",
+        "triceps"
+      ],
+      "equipment": [
+        "machines"
+      ],
+      "muscleContributions": {
+        "chest": 1,
+        "shoulders": 0.5,
+        "triceps": 0.5
+      },
+      "pattern": "horizontal-push",
+      "compound": true,
+      "selectionPriority": 13,
+      "loadType": "external",
+      "minutes": 9,
+      "variationGroup": null,
+      "license": {
+        "name": "CC-BY-SA 3",
+        "url": "https://creativecommons.org/licenses/by-sa/3.0/deed.en",
+        "author": "wger.de"
+      },
+      "source": "wger",
+      "generationEligible": true,
+      "loadMultiplier": 1
+    },
+    {
+      "id": "wger-152",
+      "wgerId": 152,
+      "name": "Chin Up",
+      "translations": {
+        "en": "Chin Up",
+        "it": "Trazioni alla sbarra"
+      },
+      "primary": "back",
+      "secondary": [
+        "biceps"
+      ],
+      "equipment": [
+        "pullup"
+      ],
+      "muscleContributions": {
+        "back": 1,
+        "biceps": 0.5
+      },
+      "pattern": "vertical-pull",
+      "compound": true,
+      "selectionPriority": 15,
+      "loadType": "bodyweight",
+      "minutes": 9,
+      "variationGroup": null,
+      "license": {
+        "name": "CC0",
+        "url": "http://creativecommons.org/publicdomain/zero/1.0/",
+        "author": "BFad07"
+      },
+      "source": "wger",
+      "generationEligible": true,
+      "loadMultiplier": 1
+    },
+    {
+      "id": "wger-1127",
+      "wgerId": 1127,
+      "name": "Close-grip supinated lat pulldown",
+      "translations": {
+        "en": "Close-grip supinated lat pulldown"
+      },
+      "primary": "back",
+      "secondary": [
+        "biceps"
+      ],
+      "equipment": [
+        "cables"
+      ],
+      "muscleContributions": {
+        "back": 1,
+        "biceps": 0.5
+      },
+      "pattern": "vertical-pull",
+      "compound": true,
+      "selectionPriority": 15,
+      "loadType": "external",
+      "minutes": 9,
+      "variationGroup": null,
+      "license": {
+        "name": "CC-BY-SA 4",
+        "url": "https://creativecommons.org/licenses/by-sa/4.0/deed.en",
+        "author": "Franpol"
+      },
+      "source": "wger",
+      "generationEligible": true,
+      "loadMultiplier": 1
+    },
+    {
+      "id": "wger-161",
+      "wgerId": 161,
+      "name": "Cross-Bench Dumbbell Pullovers",
+      "translations": {
+        "en": "Cross-Bench Dumbbell Pullovers",
+        "it": "Croci su panca piana"
+      },
+      "primary": "back",
+      "secondary": [],
+      "equipment": [
+        "dumbbells",
+        "bench"
+      ],
+      "muscleContributions": {
+        "back": 1
+      },
+      "pattern": "straight-arm-pull",
+      "compound": false,
+      "selectionPriority": 11,
+      "loadType": "external",
+      "minutes": 6,
+      "variationGroup": null,
+      "license": {
+        "name": "CC-BY-SA 3",
+        "url": "https://creativecommons.org/licenses/by-sa/3.0/deed.en",
+        "author": "powerade69"
+      },
+      "source": "wger",
+      "generationEligible": true,
+      "loadMultiplier": 1,
+      "loadUnit": "single-dumbbell"
+    },
+    {
+      "id": "wger-167",
+      "wgerId": 167,
+      "name": "Crunches",
+      "translations": {
+        "en": "Crunches",
+        "it": "Addominali"
+      },
+      "primary": "core",
+      "secondary": [],
+      "equipment": [
+        "bodyweight"
+      ],
+      "muscleContributions": {
+        "core": 1
+      },
+      "pattern": "trunk-flexion",
+      "compound": false,
+      "selectionPriority": 14,
+      "loadType": "bodyweight",
+      "minutes": 6,
+      "variationGroup": "8f8b5cfb-7f26-45c5-bba5-aae58b3e039f",
+      "license": {
+        "name": "CC-BY-SA 3",
+        "url": "https://creativecommons.org/licenses/by-sa/3.0/deed.en",
+        "author": "wger.de"
+      },
+      "source": "wger",
+      "generationEligible": true,
+      "loadMultiplier": 1
+    },
+    {
+      "id": "wger-184",
+      "wgerId": 184,
+      "name": "Deadlifts",
+      "translations": {
+        "en": "Deadlifts",
+        "it": "Stacco"
+      },
+      "primary": "hamstrings",
+      "secondary": [
+        "glutes",
+        "back"
+      ],
+      "equipment": [
+        "barbell"
+      ],
+      "muscleContributions": {
+        "hamstrings": 1,
+        "glutes": 0.5,
+        "back": 0.5
+      },
+      "pattern": "hinge",
+      "compound": true,
+      "selectionPriority": 13,
+      "loadType": "external",
+      "minutes": 9,
+      "variationGroup": "100586dc-3923-44b3-a987-5f6c0ea17d1b",
+      "license": {
+        "name": "CC-BY-SA 3",
+        "url": "https://creativecommons.org/licenses/by-sa/3.0/deed.en",
+        "author": "wger.de"
+      },
+      "source": "wger",
+      "generationEligible": true,
+      "loadMultiplier": 1
+    },
+    {
+      "id": "wger-203",
+      "wgerId": 203,
+      "name": "Dumbbell Goblet Squat",
+      "translations": {
+        "en": "Dumbbell Goblet Squat"
+      },
+      "primary": "quads",
+      "secondary": [
+        "glutes"
+      ],
+      "equipment": [
+        "dumbbells"
+      ],
+      "muscleContributions": {
+        "quads": 1,
+        "glutes": 0.5
+      },
+      "pattern": "squat",
+      "compound": true,
+      "selectionPriority": 15,
+      "loadType": "external",
+      "minutes": 9,
+      "variationGroup": "ba010720-728a-4baf-ba8c-e1a37370625b",
+      "license": {
+        "name": "CC-BY-SA 4",
+        "url": "https://creativecommons.org/licenses/by-sa/4.0/deed.en",
+        "author": "ataraxie67"
+      },
+      "source": "wger",
+      "generationEligible": true,
+      "loadMultiplier": 1,
+      "loadUnit": "single-dumbbell"
+    },
+    {
+      "id": "wger-1642",
+      "wgerId": 1642,
+      "name": "Dumbbell Hip Thrust",
+      "translations": {
+        "en": "Dumbbell Hip Thrust"
+      },
+      "primary": "glutes",
+      "secondary": [
+        "hamstrings"
+      ],
+      "equipment": [
+        "dumbbells",
+        "bench"
+      ],
+      "muscleContributions": {
+        "glutes": 1,
+        "hamstrings": 0.5
+      },
+      "pattern": "hip-extension",
+      "compound": true,
+      "selectionPriority": 13,
+      "loadType": "external",
+      "minutes": 9,
+      "variationGroup": null,
+      "license": {
+        "name": "CC-BY-SA 4",
+        "url": "https://creativecommons.org/licenses/by-sa/4.0/deed.en",
+        "author": "AlucardEvil40"
+      },
+      "source": "wger",
+      "generationEligible": true,
+      "loadMultiplier": 1,
+      "loadUnit": "single-dumbbell"
+    },
+    {
+      "id": "wger-206",
+      "wgerId": 206,
+      "name": "Dumbbell Lunges Walking",
+      "translations": {
+        "en": "Dumbbell Lunges Walking"
+      },
+      "primary": "quads",
+      "secondary": [
+        "glutes"
+      ],
+      "equipment": [
+        "dumbbells"
+      ],
+      "muscleContributions": {
+        "quads": 1,
+        "glutes": 0.5
+      },
+      "pattern": "single-leg",
+      "compound": true,
+      "selectionPriority": 14,
+      "loadType": "per-dumbbell",
+      "minutes": 9,
+      "variationGroup": "c8727770-8ec1-4fe3-ae70-238a9fc46570",
+      "license": {
+        "name": "CC-BY-SA 3",
+        "url": "https://creativecommons.org/licenses/by-sa/3.0/deed.en",
+        "author": "wger.de"
+      },
+      "source": "wger",
+      "generationEligible": true,
+      "loadMultiplier": 2
+    },
+    {
+      "id": "wger-1652",
+      "wgerId": 1652,
+      "name": "Dumbbell Romanian Deadlift",
+      "translations": {
+        "en": "Dumbbell Romanian Deadlift"
+      },
+      "primary": "hamstrings",
+      "secondary": [
+        "glutes",
+        "back"
+      ],
+      "equipment": [
+        "dumbbells"
+      ],
+      "muscleContributions": {
+        "hamstrings": 1,
+        "glutes": 0.5,
+        "back": 0.5
+      },
+      "pattern": "hinge",
+      "compound": true,
+      "selectionPriority": 15,
+      "loadType": "per-dumbbell",
+      "minutes": 9,
+      "variationGroup": "6d2a7dcd-2d34-440e-b9e6-decb5f840a74",
+      "license": {
+        "name": "CC-BY-SA 4",
+        "url": "https://creativecommons.org/licenses/by-sa/4.0/deed.en",
+        "author": "AlucardEvil40"
+      },
+      "source": "wger",
+      "generationEligible": true,
+      "loadMultiplier": 2
+    },
+    {
+      "id": "wger-1831",
+      "wgerId": 1831,
+      "name": "Hammerstrength Decline Chest Press",
+      "translations": {
+        "en": "Hammerstrength Decline Chest Press"
+      },
+      "primary": "chest",
+      "secondary": [
+        "shoulders",
+        "triceps"
+      ],
+      "equipment": [
+        "machines"
+      ],
+      "muscleContributions": {
+        "chest": 1,
+        "shoulders": 0.5,
+        "triceps": 0.5
+      },
+      "pattern": "horizontal-push",
+      "compound": true,
+      "selectionPriority": 12,
+      "loadType": "external",
+      "minutes": 9,
+      "variationGroup": null,
+      "license": {
+        "name": "CC-BY-SA 4",
+        "url": "https://creativecommons.org/licenses/by-sa/4.0/deed.en",
+        "author": ""
+      },
+      "source": "wger",
+      "generationEligible": true,
+      "loadMultiplier": 1
+    },
+    {
+      "id": "wger-1003",
+      "wgerId": 1003,
+      "name": "Kettlebell deadlifts",
+      "translations": {
+        "en": "Kettlebell deadlifts",
+        "it": "Kettlebell Deadlifts"
+      },
+      "primary": "hamstrings",
+      "secondary": [
+        "glutes",
+        "back"
+      ],
+      "equipment": [
+        "kettlebell"
+      ],
+      "muscleContributions": {
+        "hamstrings": 1,
+        "glutes": 0.5,
+        "back": 0.5
+      },
+      "pattern": "hinge",
+      "compound": true,
+      "selectionPriority": 13,
+      "loadType": "external",
+      "minutes": 9,
+      "variationGroup": null,
+      "license": {
+        "name": "CC-BY-SA 4",
+        "url": "https://creativecommons.org/licenses/by-sa/4.0/deed.en",
+        "author": ""
+      },
+      "source": "wger",
+      "generationEligible": true,
+      "loadMultiplier": 1
+    },
+    {
+      "id": "wger-348",
+      "wgerId": 348,
+      "name": "Lateral Raises",
+      "translations": {
+        "en": "Lateral Raises",
+        "it": "Alzate Laterali"
+      },
+      "primary": "shoulders",
+      "secondary": [],
+      "equipment": [
+        "dumbbells"
+      ],
+      "muscleContributions": {
+        "shoulders": 1
+      },
+      "pattern": "shoulder-isolation",
+      "compound": false,
+      "selectionPriority": 15,
+      "loadType": "per-dumbbell",
+      "minutes": 6,
+      "variationGroup": "b40d438a-c545-4507-8447-10bbb5e30bdd",
+      "license": {
+        "name": "CC-BY-SA 3",
+        "url": "https://creativecommons.org/licenses/by-sa/3.0/deed.en",
+        "author": "wger.de"
+      },
+      "source": "wger",
+      "generationEligible": true,
+      "loadMultiplier": 2
+    },
+    {
+      "id": "wger-364",
+      "wgerId": 364,
+      "name": "Leg Curl",
+      "translations": {
+        "en": "Leg Curl"
+      },
+      "primary": "hamstrings",
+      "secondary": [],
+      "equipment": [
+        "machines"
+      ],
+      "muscleContributions": {
+        "hamstrings": 1
+      },
+      "pattern": "knee-flexion",
+      "compound": false,
+      "selectionPriority": 15,
+      "loadType": "external",
+      "minutes": 6,
+      "variationGroup": "bf50ea3b-2bcb-4278-a682-083798f309d2",
+      "license": {
+        "name": "CC0",
+        "url": "http://creativecommons.org/publicdomain/zero/1.0/",
+        "author": "BFad07"
+      },
+      "source": "wger",
+      "generationEligible": true,
+      "loadMultiplier": 1
+    },
+    {
+      "id": "wger-365",
+      "wgerId": 365,
+      "name": "Leg Curls (laying)",
+      "translations": {
+        "en": "Leg Curls (laying)"
+      },
+      "primary": "hamstrings",
+      "secondary": [],
+      "equipment": [
+        "machines"
+      ],
+      "muscleContributions": {
+        "hamstrings": 1
+      },
+      "pattern": "knee-flexion",
+      "compound": false,
+      "selectionPriority": 12,
+      "loadType": "external",
+      "minutes": 6,
+      "variationGroup": "bf50ea3b-2bcb-4278-a682-083798f309d2",
+      "license": {
+        "name": "CC-BY-SA 3",
+        "url": "https://creativecommons.org/licenses/by-sa/3.0/deed.en",
+        "author": "wger.de"
+      },
+      "source": "wger",
+      "generationEligible": true,
+      "loadMultiplier": 1
+    },
+    {
+      "id": "wger-369",
+      "wgerId": 369,
+      "name": "Leg Extension",
+      "translations": {
+        "en": "Leg Extension"
+      },
+      "primary": "quads",
+      "secondary": [],
+      "equipment": [
+        "machines"
+      ],
+      "muscleContributions": {
+        "quads": 1
+      },
+      "pattern": "knee-extension",
+      "compound": false,
+      "selectionPriority": 15,
+      "loadType": "external",
+      "minutes": 6,
+      "variationGroup": null,
+      "license": {
+        "name": "CC0",
+        "url": "http://creativecommons.org/publicdomain/zero/1.0/",
+        "author": "BFad07"
+      },
+      "source": "wger",
+      "generationEligible": true,
+      "loadMultiplier": 1
+    },
+    {
+      "id": "wger-371",
+      "wgerId": 371,
+      "name": "Leg Press",
+      "translations": {
+        "en": "Leg Press"
+      },
+      "primary": "quads",
+      "secondary": [
+        "glutes"
+      ],
+      "equipment": [
+        "machines"
+      ],
+      "muscleContributions": {
+        "quads": 1,
+        "glutes": 0.5
+      },
+      "pattern": "squat",
+      "compound": true,
+      "selectionPriority": 15,
+      "loadType": "external",
+      "minutes": 9,
+      "variationGroup": "10385554-2bdc-40a6-a7f8-1aadc205528c",
+      "license": {
+        "name": "CC0",
+        "url": "http://creativecommons.org/publicdomain/zero/1.0/",
+        "author": "BFad07"
+      },
+      "source": "wger",
+      "generationEligible": true,
+      "loadMultiplier": 1
+    },
+    {
+      "id": "wger-394",
+      "wgerId": 394,
+      "name": "Long-Pulley (low Row)",
+      "translations": {
+        "en": "Long-Pulley (low Row)",
+        "it": "Pulley basso"
+      },
+      "primary": "back",
+      "secondary": [
+        "biceps",
+        "shoulders"
+      ],
+      "equipment": [
+        "cables"
+      ],
+      "muscleContributions": {
+        "back": 1,
+        "biceps": 0.5,
+        "shoulders": 0.5
+      },
+      "pattern": "horizontal-pull",
+      "compound": true,
+      "selectionPriority": 14,
+      "loadType": "external",
+      "minutes": 9,
+      "variationGroup": "370087d4-a048-4a2e-b4d7-6c0ddee6b61e",
+      "license": {
+        "name": "CC-BY-SA 3",
+        "url": "https://creativecommons.org/licenses/by-sa/3.0/deed.en",
+        "author": "wger.de"
+      },
+      "source": "wger",
+      "generationEligible": true,
+      "loadMultiplier": 1
+    },
+    {
+      "id": "wger-984",
+      "wgerId": 984,
+      "name": "Lunges",
+      "translations": {
+        "en": "Lunges",
+        "it": "Affondi"
+      },
+      "primary": "quads",
+      "secondary": [
+        "glutes"
+      ],
+      "equipment": [
+        "bodyweight"
+      ],
+      "muscleContributions": {
+        "quads": 1,
+        "glutes": 0.5
+      },
+      "pattern": "single-leg",
+      "compound": true,
+      "selectionPriority": 12,
+      "loadType": "bodyweight",
+      "minutes": 9,
+      "variationGroup": "c8727770-8ec1-4fe3-ae70-238a9fc46570",
+      "license": {
+        "name": "CC-BY-SA 4",
+        "url": "https://creativecommons.org/licenses/by-sa/4.0/deed.en",
+        "author": ""
+      },
+      "source": "wger",
+      "generationEligible": true,
+      "loadMultiplier": 1
+    },
+    {
+      "id": "wger-1654",
+      "wgerId": 1654,
+      "name": "Machine Lateral Raise",
+      "translations": {
+        "en": "Machine Lateral Raise"
+      },
+      "primary": "shoulders",
+      "secondary": [],
+      "equipment": [
+        "machines"
+      ],
+      "muscleContributions": {
+        "shoulders": 1
+      },
+      "pattern": "shoulder-isolation",
+      "compound": false,
+      "selectionPriority": 13,
+      "loadType": "external",
+      "minutes": 6,
+      "variationGroup": null,
+      "license": {
+        "name": "CC-BY-SA 4",
+        "url": "https://creativecommons.org/licenses/by-sa/4.0/deed.en",
+        "author": "roneydya"
+      },
+      "source": "wger",
+      "generationEligible": true,
+      "loadMultiplier": 1
+    },
+    {
+      "id": "wger-1136",
+      "wgerId": 1136,
+      "name": "Neutral-grip chest pulldown",
+      "translations": {
+        "en": "Neutral-grip chest pulldown"
+      },
+      "primary": "back",
+      "secondary": [
+        "biceps"
+      ],
+      "equipment": [
+        "cables"
+      ],
+      "muscleContributions": {
+        "back": 1,
+        "biceps": 0.5
+      },
+      "pattern": "vertical-pull",
+      "compound": true,
+      "selectionPriority": 13,
+      "loadType": "external",
+      "minutes": 9,
+      "variationGroup": null,
+      "license": {
+        "name": "CC-BY-SA 4",
+        "url": "https://creativecommons.org/licenses/by-sa/4.0/deed.en",
+        "author": "Franpol"
+      },
+      "source": "wger",
+      "generationEligible": true,
+      "loadMultiplier": 1
+    },
+    {
+      "id": "wger-454",
+      "wgerId": 454,
+      "name": "Pike Push Ups",
+      "translations": {
+        "en": "Pike Push Ups",
+        "it": "Flessioni del luccio"
+      },
+      "primary": "shoulders",
+      "secondary": [
+        "triceps",
+        "chest"
+      ],
+      "equipment": [
+        "bodyweight"
+      ],
+      "muscleContributions": {
+        "shoulders": 1,
+        "triceps": 0.5,
+        "chest": 0.5
+      },
+      "pattern": "vertical-push",
+      "compound": true,
+      "selectionPriority": 10,
+      "loadType": "bodyweight",
+      "minutes": 9,
+      "variationGroup": null,
+      "license": {
+        "name": "CC-BY-SA 4",
+        "url": "https://creativecommons.org/licenses/by-sa/4.0/deed.en",
+        "author": "Nash"
+      },
+      "source": "wger",
+      "generationEligible": true,
+      "loadMultiplier": 1
+    },
+    {
+      "id": "wger-458",
+      "wgerId": 458,
+      "name": "Plank",
+      "translations": {
+        "en": "Plank",
+        "it": "Plank"
+      },
+      "primary": "core",
+      "secondary": [],
+      "equipment": [
+        "bodyweight"
+      ],
+      "muscleContributions": {
+        "core": 1
+      },
+      "pattern": "anti-extension",
+      "compound": false,
+      "selectionPriority": 15,
+      "loadType": "bodyweight",
+      "minutes": 6,
+      "variationGroup": "35343f78-00cf-4b34-9f50-7f45d37555ca",
+      "license": {
+        "name": "CC-BY-SA 3",
+        "url": "https://creativecommons.org/licenses/by-sa/3.0/deed.en",
+        "author": "YYCfit / BFad07"
+      },
+      "source": "wger",
+      "generationEligible": true,
+      "loadMultiplier": 1
+    },
+    {
+      "id": "wger-475",
+      "wgerId": 475,
+      "name": "Pull-ups",
+      "translations": {
+        "en": "Pull-ups",
+        "it": "Pull ups"
+      },
+      "primary": "back",
+      "secondary": [
+        "biceps"
+      ],
+      "equipment": [
+        "pullup"
+      ],
+      "muscleContributions": {
+        "back": 1,
+        "biceps": 0.5
+      },
+      "pattern": "vertical-pull",
+      "compound": true,
+      "selectionPriority": 16,
+      "loadType": "bodyweight",
+      "minutes": 9,
+      "variationGroup": "0e31687f-8dd5-4c68-9dc6-df0d9dbb7590",
+      "license": {
+        "name": "CC-BY-SA 3",
+        "url": "https://creativecommons.org/licenses/by-sa/3.0/deed.en",
+        "author": "wger.de"
+      },
+      "source": "wger",
+      "generationEligible": true,
+      "loadMultiplier": 1
+    },
+    {
+      "id": "wger-1551",
+      "wgerId": 1551,
+      "name": "Push-Up",
+      "translations": {
+        "en": "Push-Up"
+      },
+      "primary": "chest",
+      "secondary": [
+        "shoulders",
+        "triceps"
+      ],
+      "equipment": [
+        "bodyweight"
+      ],
+      "muscleContributions": {
+        "chest": 1,
+        "shoulders": 0.5,
+        "triceps": 0.5
+      },
+      "pattern": "horizontal-push",
+      "compound": true,
+      "selectionPriority": 14,
+      "loadType": "bodyweight",
+      "minutes": 9,
+      "variationGroup": null,
+      "license": {
+        "name": "CC-BY-SA 4",
+        "url": "https://creativecommons.org/licenses/by-sa/4.0/deed.en",
+        "author": "Settebello"
+      },
+      "source": "wger",
+      "generationEligible": true,
+      "loadMultiplier": 1
+    },
+    {
+      "id": "wger-1112",
+      "wgerId": 1112,
+      "name": "Push-Ups | Decline",
+      "translations": {
+        "en": "Push-Ups | Decline"
+      },
+      "primary": "chest",
+      "secondary": [
+        "shoulders",
+        "triceps"
+      ],
+      "equipment": [
+        "bodyweight",
+        "bench"
+      ],
+      "muscleContributions": {
+        "chest": 1,
+        "shoulders": 0.5,
+        "triceps": 0.5
+      },
+      "pattern": "horizontal-push",
+      "compound": true,
+      "selectionPriority": 10,
+      "loadType": "bodyweight",
+      "minutes": 9,
+      "variationGroup": null,
+      "license": {
+        "name": "CC-BY-SA 4",
+        "url": "https://creativecommons.org/licenses/by-sa/4.0/deed.en",
+        "author": "anon1337"
+      },
+      "source": "wger",
+      "generationEligible": true,
+      "loadMultiplier": 1
+    },
+    {
+      "id": "wger-512",
+      "wgerId": 512,
+      "name": "Rowing seated, narrow grip",
+      "translations": {
+        "en": "Rowing seated, narrow grip"
+      },
+      "primary": "back",
+      "secondary": [
+        "biceps",
+        "shoulders"
+      ],
+      "equipment": [
+        "machines"
+      ],
+      "muscleContributions": {
+        "back": 1,
+        "biceps": 0.5,
+        "shoulders": 0.5
+      },
+      "pattern": "horizontal-pull",
+      "compound": true,
+      "selectionPriority": 13,
+      "loadType": "external",
+      "minutes": 9,
+      "variationGroup": "e87bd3db-75b1-44ec-8962-df2f97274109",
+      "license": {
+        "name": "CC-BY-SA 3",
+        "url": "https://creativecommons.org/licenses/by-sa/3.0/deed.en",
+        "author": "wger.de"
+      },
+      "source": "wger",
+      "generationEligible": true,
+      "loadMultiplier": 1
+    },
+    {
+      "id": "wger-1620",
+      "wgerId": 1620,
+      "name": "Seated Dumbbell Calf Raise",
+      "translations": {
+        "en": "Seated Dumbbell Calf Raise"
+      },
+      "primary": "calves",
+      "secondary": [],
+      "equipment": [
+        "dumbbells"
+      ],
+      "muscleContributions": {
+        "calves": 1
+      },
+      "pattern": "calf-raise",
+      "compound": false,
+      "selectionPriority": 13,
+      "loadType": "external",
+      "minutes": 6,
+      "variationGroup": null,
+      "license": {
+        "name": "CC-BY-SA 4",
+        "url": "https://creativecommons.org/licenses/by-sa/4.0/deed.en",
+        "author": "AlucardEvil40"
+      },
+      "source": "wger",
+      "generationEligible": true,
+      "loadMultiplier": 1,
+      "loadUnit": "single-dumbbell"
+    },
+    {
+      "id": "wger-566",
+      "wgerId": 566,
+      "name": "Shoulder Press, Barbell",
+      "translations": {
+        "en": "Shoulder Press, Barbell"
+      },
+      "primary": "shoulders",
+      "secondary": [
+        "triceps",
+        "chest"
+      ],
+      "equipment": [
+        "barbell"
+      ],
+      "muscleContributions": {
+        "shoulders": 1,
+        "triceps": 0.5,
+        "chest": 0.5
+      },
+      "pattern": "vertical-push",
+      "compound": true,
+      "selectionPriority": 16,
+      "loadType": "external",
+      "minutes": 9,
+      "variationGroup": "e3388987-305b-43b8-9e90-c3bce376b203",
+      "license": {
+        "name": "CC-BY-SA 3",
+        "url": "https://creativecommons.org/licenses/by-sa/3.0/deed.en",
+        "author": "wger.de"
+      },
+      "source": "wger",
+      "generationEligible": true,
+      "loadMultiplier": 1
+    },
+    {
+      "id": "wger-567",
+      "wgerId": 567,
+      "name": "Shoulder Press, Dumbbells",
+      "translations": {
+        "en": "Shoulder Press, Dumbbells"
+      },
+      "primary": "shoulders",
+      "secondary": [
+        "triceps",
+        "chest"
+      ],
+      "equipment": [
+        "dumbbells"
+      ],
+      "muscleContributions": {
+        "shoulders": 1,
+        "triceps": 0.5,
+        "chest": 0.5
+      },
+      "pattern": "vertical-push",
+      "compound": true,
+      "selectionPriority": 15,
+      "loadType": "per-dumbbell",
+      "minutes": 9,
+      "variationGroup": "e3388987-305b-43b8-9e90-c3bce376b203",
+      "license": {
+        "name": "CC-BY-SA 3",
+        "url": "https://creativecommons.org/licenses/by-sa/3.0/deed.en",
+        "author": "wger.de"
+      },
+      "source": "wger",
+      "generationEligible": true,
+      "loadMultiplier": 2
+    },
+    {
+      "id": "wger-622",
+      "wgerId": 622,
+      "name": "Standing Calf Raises",
+      "translations": {
+        "en": "Standing Calf Raises",
+        "it": "Sollevamento dei polpacci in piedi"
+      },
+      "primary": "calves",
+      "secondary": [],
+      "equipment": [
+        "bodyweight"
+      ],
+      "muscleContributions": {
+        "calves": 1
+      },
+      "pattern": "calf-raise",
+      "compound": false,
+      "selectionPriority": 14,
+      "loadType": "bodyweight",
+      "minutes": 6,
+      "variationGroup": "4b54f372-2aef-4741-b76d-85e3f376f1d7",
+      "license": {
+        "name": "CC-BY-SA 3",
+        "url": "https://creativecommons.org/licenses/by-sa/3.0/deed.en",
+        "author": "wger.de"
+      },
+      "source": "wger",
+      "generationEligible": true,
+      "loadMultiplier": 1
+    },
+    {
+      "id": "wger-1726",
+      "wgerId": 1726,
+      "name": "Straight-Arm Pulldown (Cable)",
+      "translations": {
+        "en": "Straight-Arm Pulldown (Cable)"
+      },
+      "primary": "back",
+      "secondary": [],
+      "equipment": [
+        "cables"
+      ],
+      "muscleContributions": {
+        "back": 1
+      },
+      "pattern": "straight-arm-pull",
+      "compound": false,
+      "selectionPriority": 14,
+      "loadType": "external",
+      "minutes": 6,
+      "variationGroup": null,
+      "license": {
+        "name": "CC-BY-SA 4",
+        "url": "https://creativecommons.org/licenses/by-sa/4.0/deed.en",
+        "author": "barry"
+      },
+      "source": "wger",
+      "generationEligible": true,
+      "loadMultiplier": 1
+    },
+    {
+      "id": "wger-805",
+      "wgerId": 805,
+      "name": "Tricep Pushdown on Cable",
+      "translations": {
+        "en": "Tricep Pushdown on Cable",
+        "it": "Flessioni dei Tricipiti al Cavo"
+      },
+      "primary": "triceps",
+      "secondary": [],
+      "equipment": [
+        "cables"
+      ],
+      "muscleContributions": {
+        "triceps": 1
+      },
+      "pattern": "elbow-extension",
+      "compound": false,
+      "selectionPriority": 14,
+      "loadType": "external",
+      "minutes": 6,
+      "variationGroup": null,
+      "license": {
+        "name": "CC-BY-SA 4",
+        "url": "https://creativecommons.org/licenses/by-sa/4.0/deed.en",
+        "author": "cshep442"
+      },
+      "source": "wger",
+      "generationEligible": true,
+      "loadMultiplier": 1
+    },
+    {
+      "id": "wger-659",
+      "wgerId": 659,
+      "name": "Triceps Extensions on Cable",
+      "translations": {
+        "en": "Triceps Extensions on Cable"
+      },
+      "primary": "triceps",
+      "secondary": [],
+      "equipment": [
+        "cables"
+      ],
+      "muscleContributions": {
+        "triceps": 1
+      },
+      "pattern": "elbow-extension",
+      "compound": false,
+      "selectionPriority": 15,
+      "loadType": "external",
+      "minutes": 6,
+      "variationGroup": "290582f2-d94c-4eb6-a994-99e38d7251f7",
+      "license": {
+        "name": "CC-BY-SA 3",
+        "url": "https://creativecommons.org/licenses/by-sa/3.0/deed.en",
+        "author": "wger.de"
+      },
+      "source": "wger",
+      "generationEligible": true,
+      "loadMultiplier": 1
+    },
+    {
+      "id": "wger-1336",
+      "wgerId": 1336,
+      "name": "Triceps Overhead (Dumbbell)",
+      "translations": {
+        "en": "Triceps Overhead (Dumbbell)"
+      },
+      "primary": "triceps",
+      "secondary": [],
+      "equipment": [
+        "dumbbells"
+      ],
+      "muscleContributions": {
+        "triceps": 1
+      },
+      "pattern": "elbow-extension",
+      "compound": false,
+      "selectionPriority": 13,
+      "loadType": "external",
+      "minutes": 6,
+      "variationGroup": null,
+      "license": {
+        "name": "CC-BY-SA 4",
+        "url": "https://creativecommons.org/licenses/by-sa/4.0/deed.en",
+        "author": "Anastasious"
+      },
+      "source": "wger",
+      "generationEligible": true,
+      "loadMultiplier": 1,
+      "loadUnit": "single-dumbbell"
+    },
+    {
+      "id": "wger-1185",
+      "wgerId": 1185,
+      "name": "Triceps Pushdown",
+      "translations": {
+        "en": "Triceps Pushdown"
+      },
+      "primary": "triceps",
+      "secondary": [],
+      "equipment": [
+        "cables"
+      ],
+      "muscleContributions": {
+        "triceps": 1
+      },
+      "pattern": "elbow-extension",
+      "compound": false,
+      "selectionPriority": 13,
+      "loadType": "external",
+      "minutes": 6,
+      "variationGroup": null,
+      "license": {
+        "name": "CC-BY-SA 4",
+        "url": "https://creativecommons.org/licenses/by-sa/4.0/deed.en",
+        "author": "anto.kreegyr"
+      },
+      "source": "wger",
+      "generationEligible": true,
+      "loadMultiplier": 1
+    },
+    {
+      "id": "wger-1648",
+      "wgerId": 1648,
+      "name": "Weighted Crunch",
+      "translations": {
+        "en": "Weighted Crunch"
+      },
+      "primary": "core",
+      "secondary": [],
+      "equipment": [
+        "dumbbells"
+      ],
+      "muscleContributions": {
+        "core": 1
+      },
+      "pattern": "trunk-flexion",
+      "compound": false,
+      "selectionPriority": 12,
+      "loadType": "external",
+      "minutes": 6,
+      "variationGroup": null,
+      "license": {
+        "name": "CC-BY-SA 4",
+        "url": "https://creativecommons.org/licenses/by-sa/4.0/deed.en",
+        "author": "AlucardEvil40"
+      },
+      "source": "wger",
+      "generationEligible": true,
+      "loadMultiplier": 1,
+      "loadUnit": "single-dumbbell"
+    }
+  ]
+}

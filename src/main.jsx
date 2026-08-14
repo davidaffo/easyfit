@@ -2,28 +2,37 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { equipmentLabels, exerciseCatalogMeta, exercises, getExerciseName, muscles } from './data/exercises.js';
 import {
+  backupStateFingerprint,
   backupDownloadName,
+  createWebDavUploadQueue,
   downloadWebDavBackup,
+  mergeBackupState,
   parseBackup,
   serializeBackup,
+  synchronizeWebDavBackup,
   uploadWebDavBackup,
 } from './data/backup.js';
 import { getExerciseDetails } from './data/exerciseDetails.js';
 import {
-  advanceFocusCycles,
+  ENGINE_VERSION,
   calibrateBodyweightPrescription,
   generateWorkout,
-  getFocusAnalytics,
+  getExerciseAnalytics,
+  getMuscleTrainingStatus,
   getExerciseHistory,
   getExercisePrescription,
-  getNextFocusExercise,
+  getTrackedExerciseIds,
   getRecovery,
   getSimilarExercises,
   getWorkoutSettingsFingerprint,
   isExerciseAllowed,
+  isCompatibleWorkout,
+  isWorkoutActive,
   removeExercise,
+  recalibrateTrainingTargets,
+  rebuildWorkoutMetadata,
   replaceExercise,
-  suggestFocusExercises,
+  startWorkout,
   willCompleteExercise,
 } from './engine/generator.js';
 import './styles.css';
@@ -32,18 +41,17 @@ const defaultProfile = {
   goal: 'muscle',
   level: 'intermediate',
   equipment: ['bodyweight', 'dumbbells', 'bench'],
+  loadInventory: { dumbbells: [], kettlebell: [], barbell: [], ezbar: [], machines: [], cables: [] },
+  recoveryFeedback: {},
+  trainingAdaptation: {},
   duration: 45,
   targetRir: 2,
   setCaps: { compound: 3, accessory: 4 },
   setCapsVersion: 2,
   exerciseOverrides: {},
-  cloud: { webDavUrl: '', webDavUsername: '' },
+  cloud: { webDavUrl: '', webDavUsername: '', autoSync: false },
   split: 'adaptive',
   exerciseLanguage: 'en',
-  focusEnabled: true,
-  focusExerciseIds: [],
-  focusCycleLength: 4,
-  focusCycleStartedAt: {},
   exerciseFilters: { essentialCatalog: true, preferLoadedVariants: true, excludeDirectCore: false, excludeCalves: false },
   preferences: {},
 };
@@ -57,13 +65,19 @@ function normalizeProfile(profile = {}) {
   const shouldMigrateSetCaps = !profile.setCapsVersion
     && Number(savedSetCaps.compound) === 4
     && Number(savedSetCaps.accessory) === 3;
+  const { focusEnabled, focusExerciseIds, focusCycleLength, focusCycleStartedAt, ...cleanProfile } = profile;
+  const loadInventory = Object.fromEntries(Object.keys(defaultProfile.loadInventory).map((equipment) => [
+    equipment,
+    [...new Set((Array.isArray(profile.loadInventory?.[equipment]) ? profile.loadInventory[equipment] : [])
+      .map(Number).filter((value) => Number.isFinite(value) && value > 0))].sort((a, b) => a - b),
+  ]));
   return {
     ...defaultProfile,
-    ...profile,
+    ...cleanProfile,
     equipment: Array.isArray(profile.equipment) && profile.equipment.length ? profile.equipment : defaultProfile.equipment,
-    focusExerciseIds: Array.isArray(profile.focusExerciseIds) ? profile.focusExerciseIds : [],
-    focusCycleLength: Math.min(8, Math.max(2, Number(profile.focusCycleLength) || 4)),
-    focusCycleStartedAt: isObject(profile.focusCycleStartedAt) ? profile.focusCycleStartedAt : {},
+    loadInventory,
+    recoveryFeedback: isObject(profile.recoveryFeedback) ? profile.recoveryFeedback : {},
+    trainingAdaptation: isObject(profile.trainingAdaptation) ? profile.trainingAdaptation : {},
     preferences: isObject(profile.preferences) ? profile.preferences : {},
     exerciseFilters: isObject(profile.exerciseFilters)
       ? { ...defaultProfile.exerciseFilters, ...profile.exerciseFilters }
@@ -74,6 +88,7 @@ function normalizeProfile(profile = {}) {
     cloud: {
       webDavUrl: profile.cloud?.webDavUrl || '',
       webDavUsername: profile.cloud?.webDavUsername || '',
+      autoSync: Boolean(profile.cloud?.autoSync),
     },
   };
 }
@@ -144,6 +159,9 @@ function Onboarding({ onDone }) {
         : [...current.equipment, id],
     }));
   };
+  const missingLoadEquipment = Object.keys(defaultProfile.loadInventory)
+    .filter((equipment) => profile.equipment.includes(equipment) && !(profile.loadInventory?.[equipment] || []).length);
+  const hasCompatibleExercise = exercises.some((exercise) => isExerciseAllowed(exercise, profile));
 
   if (step === 0) {
     return <main className="onboarding hero-screen">
@@ -186,7 +204,10 @@ function Onboarding({ onDone }) {
           <span>{label}</span><span className="mini-check"><Icon name="check" size={14}/></span>
         </button>)}
       </div>
-      <button className="button primary wide sticky-action" disabled={!profile.equipment.length} onClick={() => setStep(3)}>Continua <Icon name="chevron"/></button>
+      <WeightInventoryEditor profile={profile} setProfile={setProfile}/>
+      {missingLoadEquipment.length > 0 && <p className="inventory-required">Seleziona almeno un carico per {missingLoadEquipment.map((id) => equipmentLabels[id]).join(', ')}.</p>}
+      {!hasCompatibleExercise && <p className="inventory-required">Questa combinazione non permette ancora nessun esercizio completo.</p>}
+      <button className="button primary wide sticky-action" disabled={!profile.equipment.length || missingLoadEquipment.length > 0 || !hasCompatibleExercise} onClick={() => setStep(3)}>Continua <Icon name="chevron"/></button>
     </main>;
   }
 
@@ -220,6 +241,38 @@ function Onboarding({ onDone }) {
   </main>;
 }
 
+const loadPresets = {
+  dumbbells: [2, 3, 4, 5, 6, 7.5, 8, 10, 12, 14, 16, 18, 20, 22, 24, 26, 28, 30, 32, 36, 40],
+  kettlebell: [4, 6, 8, 10, 12, 16, 20, 24, 28, 32, 36, 40],
+  barbell: [10, 15, 20, 25, 30, 35, 40, 45, 50, 60, 70, 80, 90, 100],
+  ezbar: [5, 10, 15, 20, 25, 30, 35, 40, 45, 50],
+  machines: [5, 10, 15, 20, 25, 30, 40, 50, 60, 70, 80, 90, 100],
+  cables: [2.5, 5, 7.5, 10, 12.5, 15, 20, 25, 30, 40, 50],
+};
+
+function WeightInventoryEditor({ profile, setProfile }) {
+  const [custom, setCustom] = useState({});
+  const visible = Object.keys(loadPresets).filter((equipment) => profile.equipment.includes(equipment));
+  if (!visible.length) return null;
+  const toggle = (equipment, load) => {
+    const current = profile.loadInventory?.[equipment] || [];
+    const next = current.includes(load) ? current.filter((value) => value !== load) : [...current, load].sort((a, b) => a - b);
+    setProfile({ ...profile, loadInventory: { ...profile.loadInventory, [equipment]: next } });
+  };
+  const addCustom = (equipment) => {
+    const value = Number(custom[equipment]);
+    if (!Number.isFinite(value) || value <= 0) return;
+    const next = [...new Set([...(profile.loadInventory?.[equipment] || []), value])].sort((a, b) => a - b);
+    setProfile({ ...profile, loadInventory: { ...profile.loadInventory, [equipment]: next } });
+    setCustom({ ...custom, [equipment]: '' });
+  };
+  return <div className="load-inventory"><div><strong>Carichi disponibili</strong><small>La progressione userà soltanto questi pesi.</small></div>{visible.map((equipment) => <section key={equipment}>
+    <label>{equipmentLabels[equipment]} · kg {equipment === 'dumbbells' ? 'per manubrio' : 'totali'}</label>
+    <div className="load-chip-list">{loadPresets[equipment].map((load) => <button type="button" key={load} className={(profile.loadInventory?.[equipment] || []).includes(load) ? 'selected' : ''} onClick={() => toggle(equipment, load)}>{load}</button>)}</div>
+    <div className="custom-load"><input inputMode="decimal" type="number" min="0.5" step="0.5" placeholder="Altro peso" value={custom[equipment] || ''} onChange={(event) => setCustom({ ...custom, [equipment]: event.target.value })}/><button type="button" onClick={() => addCustom(equipment)}>Aggiungi</button></div>
+  </section>)}</div>;
+}
+
 function SetupHeader({ step, title, subtitle, onBack }) {
   return <>
     <div className="setup-nav"><button className="icon-button" onClick={onBack}><Icon name="arrow"/></button><span>{step} / 3</span><Brand/></div>
@@ -236,12 +289,19 @@ function App() {
   const [history, setHistory] = useState(() => load('easyfit-history', []));
   const [workout, setWorkout] = useState(() => {
     const saved = load('easyfit-workout', null);
-    return saved?.exercises?.every((item) => exercises.some((exercise) => exercise.id === item.exerciseId)) ? saved : null;
+    if (!isCompatibleWorkout(saved, profile)) return null;
+    const hasRecordedSets = saved.exercises.some((item) => item.sets?.some((set) => set.done));
+    return hasRecordedSets && !saved.startedAt ? startWorkout(saved, saved.createdAt) : saved;
   });
   const [view, setView] = useState('home');
   const [toast, setToast] = useState('');
   const [installPrompt, setInstallPrompt] = useState(null);
+  const [cloudReady, setCloudReady] = useState(false);
   const previousWorkoutSettings = useRef(null);
+  const lastAutoSyncPayload = useRef('');
+  const autoSyncPullKey = useRef('');
+  const autoUpload = useRef(null);
+  if (!autoUpload.current) autoUpload.current = createWebDavUploadQueue(synchronizeWebDavBackup);
   const settingsFingerprint = profile ? getWorkoutSettingsFingerprint(profile) : '';
 
   useEffect(() => { if (profile) localStorage.setItem('easyfit-profile', JSON.stringify(profile)); }, [profile]);
@@ -250,6 +310,65 @@ function App() {
     if (workout) localStorage.setItem('easyfit-workout', JSON.stringify(workout));
     else localStorage.removeItem('easyfit-workout');
   }, [workout]);
+  useEffect(() => {
+    const cloud = profile?.cloud;
+    const password = localStorage.getItem('easyfit-webdav-secret') || '';
+    if (!cloud?.autoSync || !cloud.webDavUrl || !password || !cloudReady) return undefined;
+    const state = { profile, history, workout };
+    const stateFingerprint = JSON.stringify(state);
+    if (stateFingerprint === lastAutoSyncPayload.current) return undefined;
+    const timeout = setTimeout(() => {
+      autoUpload.current({
+        folderUrl: cloud.webDavUrl,
+        username: cloud.webDavUsername,
+        password,
+        state,
+      }).then((result) => {
+        lastAutoSyncPayload.current = JSON.stringify(result.state);
+        localStorage.setItem('easyfit-webdav-synced-fingerprint', backupStateFingerprint(result.state));
+        if (JSON.stringify(result.state.history) !== JSON.stringify(history)) setHistory(result.state.history);
+        if (!workout && result.state.workout && isCompatibleWorkout(result.state.workout, profile)) setWorkout(result.state.workout);
+      }).catch((error) => {
+        setToast(error.message || 'Sincronizzazione Nextcloud non riuscita');
+      });
+    }, 1800);
+    return () => clearTimeout(timeout);
+  }, [profile, history, workout, cloudReady]);
+  useEffect(() => {
+    const cloud = profile?.cloud;
+    const password = localStorage.getItem('easyfit-webdav-secret') || '';
+    if (!cloud?.autoSync || !cloud.webDavUrl || !password) {
+      autoSyncPullKey.current = '';
+      setCloudReady(false);
+      return;
+    }
+    const pullKey = `${cloud.webDavUrl}\n${cloud.webDavUsername || ''}\n${password}`;
+    if (autoSyncPullKey.current === pullKey) return;
+    autoSyncPullKey.current = pullKey;
+    setCloudReady(false);
+    downloadWebDavBackup({ folderUrl: cloud.webDavUrl, username: cloud.webDavUsername, password })
+      .then((serialized) => parseBackup(serialized))
+      .then((remote) => {
+        const localState = { profile, history, workout };
+        const lastSynced = localStorage.getItem('easyfit-webdav-synced-fingerprint');
+        const preparedOnly = history.length === 0 && (!workout || (!workout.startedAt && !workout.exercises.some((item) => item.sets.some((set) => set.done))));
+        const localClean = lastSynced
+          ? lastSynced === backupStateFingerprint(localState)
+          : preparedOnly;
+        const merged = mergeBackupState(localState, remote, { preferRemoteProfile: localClean });
+        const mergedProfile = normalizeProfile({
+          ...merged.profile,
+          cloud: { ...cloud },
+        });
+        if (JSON.stringify(mergedProfile) !== JSON.stringify(profile)) setProfile(mergedProfile);
+        if (JSON.stringify(merged.history) !== JSON.stringify(history)) setHistory(merged.history);
+        if (!workout && merged.workout && isCompatibleWorkout(merged.workout, mergedProfile)) setWorkout(merged.workout);
+      })
+      .catch((error) => {
+        if (error.code !== 'not-found') setToast(error.message || 'Download Nextcloud non riuscito');
+      })
+      .finally(() => setCloudReady(true));
+  }, [profile?.cloud]);
   useEffect(() => {
     const handler = (event) => { event.preventDefault(); setInstallPrompt(event); };
     window.addEventListener('beforeinstallprompt', handler);
@@ -268,11 +387,26 @@ function App() {
     }
     const previous = previousWorkoutSettings.current;
     previousWorkoutSettings.current = { fingerprint: settingsFingerprint, duration: profile.duration };
-    if (!previous || previous.fingerprint === settingsFingerprint || !workout || view === 'workout') return;
+    if (!previous || previous.fingerprint === settingsFingerprint || !workout || isWorkoutActive(workout)) return;
     const duration = previous.duration !== profile.duration ? profile.duration : workout.duration;
-    setWorkout(generateWorkout(profile, history, { duration, variation: Date.now() }));
-    setToast('Impostazioni applicate: scheda aggiornata');
+    const regenerated = generateWorkout(profile, history, { duration, variation: Date.now() });
+    setWorkout(isCompatibleWorkout(regenerated, profile) ? regenerated : null);
+    setToast(isCompatibleWorkout(regenerated, profile) ? 'Impostazioni applicate: scheda aggiornata' : 'Nessun esercizio compatibile con le nuove impostazioni');
   }, [settingsFingerprint]);
+  useEffect(() => {
+    if (!profile || !workout || workout.completedAt || workout.engine?.version === ENGINE_VERSION) return;
+    // Engine/catalog migrations must never replace a session the user has opened,
+    // even before the first set is recorded.
+    if (isWorkoutActive(workout)) return;
+    const regenerated = generateWorkout(profile, history, { duration: workout.duration || profile.duration, variation: Date.now() });
+    if (!isCompatibleWorkout(regenerated, profile)) {
+      setWorkout(null);
+      setToast('Workout precedente incompatibile: genera una nuova scheda');
+      return;
+    }
+    setWorkout(isWorkoutActive(workout) ? { ...regenerated, startedAt: workout.startedAt } : regenerated);
+    setToast('Motore aggiornato: scheda rigenerata');
+  }, [profile, history, workout?.engine?.version]);
 
   const finishOnboarding = (newProfile) => {
     previousWorkoutSettings.current = { fingerprint: getWorkoutSettingsFingerprint(newProfile), duration: newProfile.duration };
@@ -283,12 +417,35 @@ function App() {
   if (!profile) return <Onboarding onDone={finishOnboarding}/>;
 
   const createWorkout = (duration = profile.duration) => {
-    setWorkout(generateWorkout(profile, history, { duration, variation: Date.now() }));
+    const generated = generateWorkout(profile, history, { duration, variation: Date.now() });
+    if (!generated.exercises.length || !generated.exercises.some((item) => item.sets.length)) {
+      setToast(generated.engine?.recoveryBlocked
+        ? 'Recupero insufficiente: oggi non viene forzato alcun gruppo muscolare'
+        : 'Nessun esercizio compatibile: controlla attrezzatura ed esclusioni');
+      return;
+    }
+    const activeWorkout = startWorkout(generated);
+    localStorage.setItem('easyfit-workout', JSON.stringify(activeWorkout));
+    setWorkout(activeWorkout);
+    setView('workout');
+  };
+  const openWorkout = () => {
+    if (!workout || workout.completedAt) {
+      setWorkout(null);
+      setView('home');
+      setToast('La sessione era già conclusa ed è stata archiviata');
+      return;
+    }
+    setWorkout((current) => {
+      const activeWorkout = startWorkout(current);
+      if (activeWorkout) localStorage.setItem('easyfit-workout', JSON.stringify(activeWorkout));
+      return activeWorkout;
+    });
     setView('workout');
   };
   const showToast = (message) => setToast(message);
   const resetAppData = () => {
-    ['easyfit-profile', 'easyfit-history', 'easyfit-workout'].forEach((key) => localStorage.removeItem(key));
+    ['easyfit-profile', 'easyfit-history', 'easyfit-workout', 'easyfit-webdav-secret', 'easyfit-webdav-synced-fingerprint'].forEach((key) => localStorage.removeItem(key));
     setWorkout(null);
     setHistory([]);
     setProfile(null);
@@ -296,10 +453,8 @@ function App() {
     setToast('');
   };
   const restoreBackup = (backup) => {
-    const restoredWorkout = backup.workout?.exercises?.every((item) => exercises.some((exercise) => exercise.id === item.exerciseId))
-      ? backup.workout
-      : null;
     const restoredProfile = normalizeProfile(backup.profile);
+    const restoredWorkout = isCompatibleWorkout(backup.workout, restoredProfile) ? backup.workout : null;
     previousWorkoutSettings.current = { fingerprint: getWorkoutSettingsFingerprint(restoredProfile), duration: restoredProfile.duration };
     setProfile(restoredProfile);
     setHistory(backup.history);
@@ -309,20 +464,19 @@ function App() {
   };
 
   return <div className="app-shell">
-    {view === 'workout' && workout
-      ? <WorkoutView workout={workout} setWorkout={setWorkout} profile={profile} setProfile={setProfile} history={history} showToast={showToast} onBack={() => setView('home')} onFinish={(completed) => {
+    {isWorkoutActive(workout)
+      ? <WorkoutView workout={workout} setWorkout={setWorkout} profile={profile} setProfile={setProfile} history={history} showToast={showToast} onBack={() => showToast('Termina il workout per uscire dalla sessione')} onFinish={(completed) => {
           const nextHistory = [...history, completed];
-          const focusUpdate = advanceFocusCycles(profile, nextHistory, completed);
           setHistory(nextHistory);
-          setProfile(focusUpdate.profile);
+          setProfile(recalibrateTrainingTargets(profile, nextHistory, completed.completedAt));
           setWorkout(null);
           setView('home');
-          showToast(focusUpdate.rotated.length ? 'Workout completato. Nuovo Focus Exercise scelto!' : 'Workout completato. Carichi ricalibrati!');
+          showToast('Workout completato. Carichi ricalibrati!');
         }}/>
       : <>
         <div className="page-wrap">
-          {view === 'home' && <Home profile={profile} history={history} workout={workout} onOpenWorkout={() => setView('workout')} onGenerate={createWorkout} installPrompt={installPrompt} onInstalled={() => setInstallPrompt(null)}/>} 
-          {view === 'recovery' && <Recovery history={history}/>} 
+          {view === 'home' && <Home profile={profile} history={history} workout={workout} onOpenWorkout={openWorkout} onGenerate={createWorkout} onShowRecovery={() => setView('recovery')} installPrompt={installPrompt} onInstalled={() => setInstallPrompt(null)}/>}
+          {view === 'recovery' && <Recovery history={history} profile={profile} setProfile={setProfile}/>}
           {view === 'history' && <History history={history} profile={profile}/>}
           {view === 'profile' && <Profile profile={profile} setProfile={setProfile} history={history} workout={workout} onRestoreBackup={restoreBackup} installPrompt={installPrompt} onInstalled={() => setInstallPrompt(null)} showToast={showToast} onReset={resetAppData}/>}
         </div>
@@ -332,11 +486,11 @@ function App() {
   </div>;
 }
 
-function Home({ profile, history, workout, onOpenWorkout, onGenerate, installPrompt, onInstalled }) {
-  const recovery = useMemo(() => getRecovery(history), [history]);
+function Home({ profile, history, workout, onOpenWorkout, onGenerate, onShowRecovery, installPrompt, onInstalled }) {
+  const recovery = useMemo(() => getRecovery(history, Date.now(), profile), [history, profile.recoveryFeedback]);
   const fresh = Object.entries(recovery).sort((a, b) => b[1] - a[1]).slice(0, 3);
   const today = new Intl.DateTimeFormat('it-IT', { weekday: 'long', day: 'numeric', month: 'long' }).format(new Date());
-  const completedWeek = history.filter((item) => Date.now() - item.completedAt < 7 * 864e5).length;
+  const completedWeek = history.filter((item) => item.completedAt <= Date.now() && Date.now() - item.completedAt < 7 * 864e5).length;
 
   const install = async () => {
     if (!installPrompt) return;
@@ -350,10 +504,10 @@ function Home({ profile, history, workout, onOpenWorkout, onGenerate, installPro
 
     <section className="recovery-strip">
       <div><span className="section-kicker">PIÙ RECUPERATI</span><div className="fresh-list">{fresh.map(([muscle, value]) => <span key={muscle}><i style={{ '--value': `${value * 3.6}deg` }}/><b>{muscles[muscle]}</b><small>{value}%</small></span>)}</div></div>
-      <button className="round-arrow" aria-label="Vedi recupero"><Icon name="chevron"/></button>
+      <button className="round-arrow" aria-label="Vedi recupero" onClick={onShowRecovery}><Icon name="chevron"/></button>
     </section>
 
-    {workout ? <WorkoutHero workout={workout} onOpen={onOpenWorkout} profile={profile}/> : <EmptyWorkout onGenerate={() => onGenerate(profile.duration)}/>} 
+    {workout ? <WorkoutHero workout={workout} onOpen={onOpenWorkout} profile={profile}/> : <EmptyWorkout onGenerate={() => onGenerate(profile.duration)}/>}
 
     <section className="quick-section">
       <div className="section-heading"><div><span className="section-kicker">REGOLA AL VOLO</span><h2>Quanto tempo hai?</h2></div><span>{profile.duration} min abituali</span></div>
@@ -384,7 +538,7 @@ function WorkoutView({ workout, setWorkout, profile, setProfile, history, showTo
   const [optionsExerciseId, setOptionsExerciseId] = useState(null);
   const [replacementExerciseId, setReplacementExerciseId] = useState(null);
   const [prescriptionExerciseId, setPrescriptionExerciseId] = useState(null);
-  const [startedAt, setStartedAt] = useState(Date.now());
+  const [startedAt] = useState(() => Number(workout.startedAt) || Date.now());
   const totalSets = workout.exercises.reduce((sum, item) => sum + item.sets.length, 0);
   const doneSets = workout.exercises.reduce((sum, item) => sum + item.sets.filter((set) => set.done).length, 0);
 
@@ -398,7 +552,17 @@ function WorkoutView({ workout, setWorkout, profile, setProfile, history, showTo
     setWorkout((current) => ({ ...current, exercises: current.exercises.map((item, itemIndex) => itemIndex !== exerciseIndex ? item : { ...item, sets: item.sets.map((set, index) => index === setIndex ? { ...set, ...patch } : set) }) }));
   };
   const setInitialLoad = (exerciseIndex, weight) => {
-    setWorkout((current) => ({
+    const exercise = exercises.find((candidate) => candidate.id === workout.exercises[exerciseIndex]?.exerciseId);
+    const equipment = ['dumbbells', 'kettlebell', 'barbell', 'ezbar', 'machines', 'cables']
+      .find((id) => exercise?.equipment.includes(id));
+    if (equipment) setProfile((current) => ({
+      ...current,
+      loadInventory: {
+        ...current.loadInventory,
+        [equipment]: [...new Set([...(current.loadInventory?.[equipment] || []), weight])].sort((a, b) => a - b),
+      },
+    }));
+    setWorkout((current) => rebuildWorkoutMetadata({
       ...current,
       exercises: current.exercises.map((item, index) => index !== exerciseIndex ? item : {
         ...item,
@@ -457,7 +621,7 @@ function WorkoutView({ workout, setWorkout, profile, setProfile, history, showTo
     const exercise = exercises.find((candidate) => candidate.id === exerciseId);
     const limits = getExercisePrescription(nextProfile, exercise);
     setProfile(nextProfile);
-    setWorkout((current) => ({
+    setWorkout((current) => rebuildWorkoutMetadata({
       ...current,
       exercises: current.exercises.map((item) => {
         if (item.exerciseId !== exerciseId) return item;
@@ -506,7 +670,6 @@ function WorkoutView({ workout, setWorkout, profile, setProfile, history, showTo
     setProfile((current) => ({
       ...current,
       preferences: { ...current.preferences, [exerciseId]: 'exclude' },
-      focusExerciseIds: (current.focusExerciseIds || []).filter((id) => id !== exerciseId),
     }));
     if (workout.exercises.length > 1) setWorkout((current) => removeExercise(current, exerciseId));
     setOptionsExerciseId(null);
@@ -516,12 +679,15 @@ function WorkoutView({ workout, setWorkout, profile, setProfile, history, showTo
     if (doneSets && !window.confirm('Rigenerando il workout perderai le serie già registrate. Continuare?')) return;
     const refreshed = generateWorkout(profile, history, {
       duration: workout.duration,
-      targets: workout.targetMuscles,
+      ...(profile.split === 'adaptive' ? {} : { targets: workout.targetMuscles }),
       variation: Date.now(),
-      avoidExerciseIds: workout.exercises.filter((item) => !item.isFocus).map((item) => item.exerciseId),
+      avoidExerciseIds: workout.exercises.map((item) => item.exerciseId),
     });
-    setWorkout(refreshed);
-    setStartedAt(Date.now());
+    if (!isCompatibleWorkout(refreshed)) {
+      showToast('Nessuna alternativa completa: il workout attuale è stato mantenuto');
+      return;
+    }
+    setWorkout({ ...refreshed, startedAt });
     setPendingSet(null);
     setRest(0);
     showToast('Workout aggiornato');
@@ -530,18 +696,18 @@ function WorkoutView({ workout, setWorkout, profile, setProfile, history, showTo
 
   return <main className="workout-view">
     <header className="workout-topbar"><button className="icon-button light" onClick={onBack}><Icon name="arrow"/></button><div><span>WORKOUT DI OGGI</span><strong>{workout.duration} min · {workout.exercises.length} esercizi</strong></div><button className="icon-button light" onClick={refreshWorkout} aria-label="Rigenera workout"><Icon name="refresh"/></button></header>
-    <div className="workout-progress"><i style={{ width: `${(doneSets / totalSets) * 100}%` }}/></div>
-    <section className="workout-title"><span className="eyebrow">{workout.engine?.returningFromBreak ? 'RIENTRO GRADUALE · VOLUME RIDOTTO' : 'CREATO SUL TUO RECUPERO'}</span><h1>{workout.targetMuscles.slice(0, 2).map((item) => muscles[item]).join(' + ')}</h1><p>{doneSets} di {totalSets} serie completate</p></section>
+    <div className="workout-progress"><i style={{ width: `${totalSets ? (doneSets / totalSets) * 100 : 0}%` }}/></div>
+    <section className="workout-title"><span className="eyebrow">{workout.engine?.returningFromBreak ? 'RIENTRO GRADUALE · VOLUME RIDOTTO' : workout.engine?.maintenanceMode ? 'TARGET COPERTI · MANTENIMENTO' : 'CREATO SUL TUO RECUPERO'}</span><h1>{workout.targetMuscles.slice(0, 2).map((item) => muscles[item]).join(' + ')}</h1><p>{doneSets} di {totalSets} serie completate</p></section>
     <div className="exercise-list">
       {workout.exercises.map((item, exerciseIndex) => <ExerciseCard key={item.exerciseId} item={item} exerciseIndex={exerciseIndex} language={profile.exerciseLanguage} updateSet={updateSet} setInitialLoad={setInitialLoad} setInitialReps={setInitialReps} toggleSet={toggleSet} onRir={(setIndex) => setPendingSet({ exerciseIndex, setIndex, item, wasDone: item.sets[setIndex].done })} onGuide={() => setGuideExerciseId(item.exerciseId)} onHistory={() => setHistoryExerciseId(item.exerciseId)} onOptions={() => setOptionsExerciseId(item.exerciseId)}/>)}
     </div>
-    <div className="finish-panel"><div><span>{Math.round(doneSets / totalSets * 100)}%</span><small>completato</small></div><button className="button acid" disabled={!doneSets} onClick={complete}><Icon name="trophy"/>Termina workout</button></div>
+    <div className="finish-panel"><div><span>{totalSets ? Math.round(doneSets / totalSets * 100) : 0}%</span><small>completato</small></div><button className="button acid" disabled={!doneSets || !totalSets} onClick={complete}><Icon name="trophy"/>Termina workout</button></div>
     {rest > 0 && <div className="rest-timer"><button onClick={() => setRest(0)}><Icon name="close" size={18}/></button><span>RECUPERO</span><strong>{Math.floor(rest / 60)}:{String(rest % 60).padStart(2, '0')}</strong><small>Prossima serie quando sei pronto</small><button className="skip-rest" onClick={() => setRest(0)}>Salta recupero</button></div>}
-    {pendingSet && <RirSheet item={pendingSet.item} language={profile.exerciseLanguage} onChoose={chooseRir} onClose={() => setPendingSet(null)}/>} 
-    {guideExerciseId && <ExerciseGuideSheet exerciseId={guideExerciseId} language={profile.exerciseLanguage} onClose={() => setGuideExerciseId(null)}/>} 
+    {pendingSet && <RirSheet item={pendingSet.item} language={profile.exerciseLanguage} onChoose={chooseRir} onClose={() => setPendingSet(null)}/>}
+    {guideExerciseId && <ExerciseGuideSheet exerciseId={guideExerciseId} language={profile.exerciseLanguage} onClose={() => setGuideExerciseId(null)}/>}
     {historyExerciseId && <ExerciseHistorySheet exerciseId={historyExerciseId} history={history} language={profile.exerciseLanguage} onClose={() => setHistoryExerciseId(null)}/>}
     {optionsExerciseId && <ExerciseActionsSheet exerciseId={optionsExerciseId} profile={profile} language={profile.exerciseLanguage} onPrescription={() => openPrescriptionEditor(optionsExerciseId)} onReplace={() => openReplacementPicker(optionsExerciseId)} onRemove={() => removeCurrentExercise(optionsExerciseId)} onExclude={() => excludeExercise(optionsExerciseId)} onClose={() => setOptionsExerciseId(null)}/>}
-    {replacementExerciseId && <SimilarExerciseSheet workout={workout} exerciseId={replacementExerciseId} profile={profile} language={profile.exerciseLanguage} onChoose={(selectedId) => replaceCurrentExercise(replacementExerciseId, selectedId)} onClose={() => setReplacementExerciseId(null)}/>} 
+    {replacementExerciseId && <SimilarExerciseSheet workout={workout} exerciseId={replacementExerciseId} profile={profile} language={profile.exerciseLanguage} onChoose={(selectedId) => replaceCurrentExercise(replacementExerciseId, selectedId)} onClose={() => setReplacementExerciseId(null)}/>}
     {prescriptionExerciseId && <ExercisePrescriptionSheet exerciseId={prescriptionExerciseId} profile={profile} language={profile.exerciseLanguage} onSave={(override) => saveExercisePrescription(prescriptionExerciseId, override)} onClose={() => setPrescriptionExerciseId(null)}/>}
   </main>;
 }
@@ -572,11 +738,11 @@ function ExerciseCard({ item, exerciseIndex, language, updateSet, setInitialLoad
   };
 
   return <article className="exercise-card">
-    <header><span className="exercise-index">{String(exerciseIndex + 1).padStart(2, '0')}</span><div><div className="exercise-name-row"><h2>{getExerciseName(exercise, language)}</h2>{item.isFocus && <span className="focus-badge">FOCUS</span>}{item.progressionStep === 'reps' && <span className="progression-badge">+1 REP</span>}{item.progressionStep === 'load' && <span className="progression-badge load">+ CARICO</span>}</div><p>{muscles[exercise.primary]} · {item.sets.length} × {item.sets[0].targetReps || item.sets[0].reps}{item.repRange ? ` · range ${item.repRange.min}–${item.repRange.max}` : ''} · RIR {item.targetRir}</p></div><button className="icon-button" onClick={onOptions} aria-label={`Opzioni per ${getExerciseName(exercise, language)}`}><Icon name="more" size={20}/></button></header>
+    <header><span className="exercise-index">{String(exerciseIndex + 1).padStart(2, '0')}</span><div><div className="exercise-name-row"><h2>{getExerciseName(exercise, language)}</h2>{item.progressionStep === 'reps' && <span className="progression-badge">+1 REP</span>}{item.progressionStep === 'load' && <span className="progression-badge load">+ CARICO</span>}</div><p>{muscles[exercise.primary]} · {item.sets.length} × {item.sets[0].targetReps || item.sets[0].reps}{item.calibrationBelowRange ? ' · range adattato alla capacità' : item.repRange ? ` · range ${item.repRange.min}–${item.repRange.max}` : ''} · RIR {item.targetRir}</p></div><button className="icon-button" onClick={onOptions} aria-label={`Opzioni per ${getExerciseName(exercise, language)}`}><Icon name="more" size={20}/></button></header>
     <ExercisePreview source={details?.image} name={getExerciseName(exercise, language)} onOpen={onGuide}/>
     {needsInitialLoad ? <form className="initial-load" onSubmit={submitInitialLoad}>
       <div><span>PRIMA VOLTA</span><strong>Che carico vuoi usare?</strong><small>Scegli un peso con cui pensi di chiudere le serie a RIR {item.targetRir}.</small></div>
-      <label><input autoFocus inputMode="decimal" type="number" min="0.5" step="0.5" placeholder="0" value={initialLoad} onChange={(event) => setInitialLoadValue(event.target.value)}/><span>kg {exercise.loadType === 'per-dumbbell' ? 'per manubrio' : ''}</span></label>
+      <label><input autoFocus inputMode="decimal" type="number" min="0.5" max="1000" step="0.5" placeholder="0" value={initialLoad} onChange={(event) => setInitialLoadValue(event.target.value)}/><span>kg {exercise.loadType === 'per-dumbbell' ? 'per manubrio' : exercise.loadUnit === 'single-dumbbell' ? 'del manubrio' : ''}</span></label>
       <button className="button dark" disabled={Number(initialLoad) <= 0}>Imposta carico</button>
     </form> : item.needsInitialReps ? <form className="initial-load bodyweight-calibration" onSubmit={submitInitialReps}>
       <div><span>CALIBRAZIONE INIZIALE</span><strong>Quante ripetizioni massime?</strong><small>Inserisci quante ripetizioni pulite riusciresti a fare arrivando a cedimento. Easyfit sottrae il RIR target e rispetta il limite dell’esercizio.</small></div>
@@ -586,8 +752,8 @@ function ExerciseCard({ item, exerciseIndex, language, updateSet, setInitialLoad
       <div className="set-head"><span>SET</span><span>KG</span><span>REPS</span><span>RIR</span><span>FATTO</span></div>
       <div className="sets">{item.sets.map((set, setIndex) => <div className={`set-row ${set.done ? 'done' : ''}`} key={setIndex}>
         <strong>{setIndex + 1}</strong>
-        {!usesWeight ? <span className="bodyweight-value">{exercise.loadType === 'bodyweight' ? 'Corpo' : '—'}</span> : <input aria-label={`Peso set ${setIndex + 1}`} inputMode="decimal" value={set.weight ?? ''} onChange={(event) => updateSet(exerciseIndex, setIndex, { weight: event.target.value === '' ? null : Number(event.target.value) })}/>} 
-        <input aria-label={`Ripetizioni set ${setIndex + 1}`} inputMode="numeric" value={set.reps} onChange={(event) => updateSet(exerciseIndex, setIndex, { reps: Number(event.target.value) })}/>
+        {!usesWeight ? <span className="bodyweight-value">{exercise.loadType === 'bodyweight' ? 'Corpo' : '—'}</span> : <input aria-label={`Peso set ${setIndex + 1}`} type="number" min="0" max="1000" step="0.5" inputMode="decimal" value={set.weight ?? ''} onChange={(event) => updateSet(exerciseIndex, setIndex, { weight: event.target.value === '' ? null : Math.max(0, Math.min(1000, Number(event.target.value) || 0)) })}/>}
+        <input aria-label={`Ripetizioni set ${setIndex + 1}`} type="number" min="0" max="100" step="1" inputMode="numeric" value={set.reps} onChange={(event) => updateSet(exerciseIndex, setIndex, { reps: Math.max(0, Math.min(100, Number(event.target.value) || 0)) })}/>
         <button className={`rir-value ${set.rir != null ? 'recorded' : ''}`} onClick={() => onRir(setIndex)}>{set.rir == null ? '—' : set.rir === 4 ? '4+' : set.rir}</button>
         <button className="set-check" onClick={() => toggleSet(exerciseIndex, setIndex, item)}><Icon name="check" size={18}/></button>
       </div>)}</div>
@@ -771,7 +937,7 @@ function ExerciseHistorySheet({ exerciseId, history, language, onClose }) {
         <div className="exercise-session-list">
           <h3>Sessioni recenti</h3>
           {[...stats.sessions].reverse().slice(0, 8).map((session) => <article key={session.workoutId + session.completedAt}>
-            <div><strong>{formatDate(session.completedAt)}</strong>{session.isFocus && <span className="focus-badge">FOCUS</span>}</div>
+            <div><strong>{formatDate(session.completedAt)}</strong></div>
             <p>{session.sets.map((set) => `${Number(set.weight) > 0 ? `${set.weight} kg` : 'Corpo'} × ${set.reps} · RIR ${set.rir == null ? '—' : set.rir === 4 ? '4+' : set.rir}`).join('  /  ')}</p>
             {session.bestE1rm && <small>e1RM migliore: {Math.round(session.bestE1rm * 10) / 10} kg</small>}
           </article>)}
@@ -781,13 +947,25 @@ function ExerciseHistorySheet({ exerciseId, history, language, onClose }) {
   </div>;
 }
 
-function Recovery({ history }) {
-  const recovery = useMemo(() => getRecovery(history), [history]);
-  const sorted = Object.entries(recovery).sort((a, b) => b[1] - a[1]);
-  return <main className="standard-page"><PageHeader kicker="IL TUO CORPO" title="Recupero" subtitle="Una stima basata sugli ultimi allenamenti."/>
-    <section className="recovery-summary"><div className="recovery-score"><span>{Math.round(sorted.reduce((sum, [, value]) => sum + value, 0) / sorted.length)}<small>%</small></span><p>Recupero medio</p></div><div><strong>Sei in buona forma.</strong><p>I muscoli più freschi avranno priorità nel prossimo workout.</p></div></section>
-    <section className="muscle-list"><div className="list-caption"><span>GRUPPO MUSCOLARE</span><span>RECUPERO</span></div>{sorted.map(([muscle, value]) => <div className="muscle-row" key={muscle}><span className="muscle-dot" style={{ opacity: Math.max(.35, value / 100) }}/><div><strong>{muscles[muscle]}</strong><span className="recovery-bar"><i style={{ width: `${value}%` }}/></span></div><b>{value}%</b></div>)}</section>
-    <p className="info-note">Il recupero è una stima, non un dato medico. Ascolta sempre il tuo corpo e riduci l’intensità in caso di dolore o affaticamento.</p>
+function Recovery({ history, profile, setProfile }) {
+  const status = useMemo(() => getMuscleTrainingStatus(profile, history), [profile, history]);
+  const sorted = Object.entries(status).sort((a, b) => b[1].priority - a[1].priority || b[1].recovery - a[1].recovery);
+  const averageRecovery = Math.round(sorted.reduce((sum, [, item]) => sum + item.recovery, 0) / sorted.length);
+  const priorities = sorted.filter(([, item]) => item.priority >= 45).slice(0, 3).map(([muscle]) => muscles[muscle]);
+  const lastStimulusLabel = (hours) => hours == null ? 'Mai stimolato' : hours < 24 ? 'Stimolato oggi' : hours < 48 ? 'Stimolato ieri' : `${Math.floor(hours / 24)} giorni fa`;
+  const statusLabel = (item) => item.excluded ? 'Escluso' : item.recovery < 55 ? 'In recupero' : item.priority >= 65 ? 'Priorità alta' : item.cycleStimulus >= item.targetStimulus ? 'Target raggiunto' : 'Disponibile';
+  const adjustRecovery = (muscle, amount) => setProfile((current) => ({
+    ...current,
+    recoveryFeedback: {
+      ...current.recoveryFeedback,
+      [muscle]: { adjustment: Math.max(-20, Math.min(20, Number(current.recoveryFeedback?.[muscle]?.adjustment || 0) + amount)), updatedAt: Date.now() },
+    },
+  }));
+  return <main className="standard-page"><PageHeader kicker="IL TUO CORPO" title="Recupero e stimolo" subtitle="Disponibilità, lavoro accumulato e tempo dall’ultimo stimolo."/>
+    <section className="recovery-summary"><div className="recovery-score"><span>{averageRecovery}<small>%</small></span><p>Recupero medio</p></div><div><strong>{priorities.length ? `Priorità: ${priorities.join(', ')}` : 'Recupera prima del prossimo stimolo.'}</strong><p>La priorità non usa soltanto il recupero: aumenta quando manca volume nel ciclo o il muscolo non viene stimolato da più tempo.</p></div></section>
+    <section className="muscle-list training-status-list"><div className="list-caption"><span>GRUPPO MUSCOLARE · FINESTRA MOBILE</span><span>PRIORITÀ</span></div>{sorted.map(([muscle, item]) => <div className="muscle-row" key={muscle}><span className="muscle-dot" style={{ opacity: Math.max(.35, item.recovery / 100) }}/><div><div className="muscle-status-title"><strong>{muscles[muscle]}</strong><small>{statusLabel(item)}</small></div><div className="status-bars"><span className="recovery-bar" title="Recupero"><i style={{ width: `${item.recovery}%` }}/></span><span className="stimulus-bar" title="Stimolo"><i style={{ width: `${Math.min(100, item.cycleStimulus / item.targetStimulus * 100)}%` }}/></span></div><small className="muscle-status-meta">Recupero stimato {item.recovery}% · Stimolo {item.cycleStimulus}/{item.targetStimulus} serie equivalenti · {lastStimulusLabel(item.hoursSinceStimulus)}</small><div className="recovery-feedback"><span>Percezione:</span><button onClick={() => adjustRecovery(muscle, -10)}>Più affaticato</button><button onClick={() => adjustRecovery(muscle, 10)}>Più fresco</button></div></div><b>{item.priority}</b></div>)}</section>
+    <div className="status-legend"><span><i/>Recupero</span><span><i/>Stimolo accumulato</span><span>Priorità 0–100</span></div>
+    <p className="info-note">Lo stimolo vale interamente per sette giorni e sfuma gradualmente fino al decimo, evitando azzeramenti improvvisi. Il recupero è arrotondato e resta una stima, non un dato medico; i pulsanti correggono temporaneamente l’algoritmo e il loro effetto si dimezza ogni 24 ore.</p>
   </main>;
 }
 
@@ -802,24 +980,13 @@ function formatVolume(value) {
   return value >= 1000 ? `${Math.round(value / 100) / 10} t` : `${Math.round(value)} kg`;
 }
 
-function FocusCycleDots({ cycle }) {
-  return <span className="cycle-dots" aria-label={`${cycle.completed} esecuzioni su ${cycle.target}`}>
-    {Array.from({ length: cycle.target }, (_, index) => <i key={index} className={index < cycle.completed ? 'done' : ''}/>)}
-  </span>;
-}
-
 function History({ history, profile }) {
   const [tab, setTab] = useState('summary');
   const [historyExerciseId, setHistoryExerciseId] = useState(null);
-  const focusIds = useMemo(() => [...new Set([
-    ...(profile.focusExerciseIds || []),
-    ...suggestFocusExercises(profile),
-  ])].filter((id) => exercises.some((exercise) => exercise.id === id)).slice(0, 3), [profile]);
-  const analytics = useMemo(() => getFocusAnalytics(history, focusIds, {
-    cycleLength: profile.focusCycleLength,
-    cycleStartedAt: profile.focusCycleStartedAt,
-  }), [history, focusIds.join('|'), profile.focusCycleLength, profile.focusCycleStartedAt]);
-  const totalSets = history.reduce((sum, workout) => sum + workout.exercises.reduce((setSum, item) => setSum + item.sets.filter((set) => set.done).length, 0), 0);
+  const trackedIds = useMemo(() => getTrackedExerciseIds(history), [history]);
+  const analytics = useMemo(() => getExerciseAnalytics(history, trackedIds), [history, trackedIds.join('|')]);
+  const validHistory = history.filter((workout) => Number(workout.completedAt) > 0 && Number(workout.completedAt) <= Date.now());
+  const totalSets = validHistory.reduce((sum, workout) => sum + workout.exercises.reduce((setSum, item) => setSum + item.sets.filter((set) => set.done).length, 0), 0);
   const maxWeeklyVolume = Math.max(1, ...analytics.items.flatMap((item) => [item.currentWeek.volume, item.previousWeek.volume]));
   const exerciseFor = (item) => exercises.find((exercise) => exercise.id === item.exerciseId);
   const metricLabel = (item, value) => value
@@ -833,19 +1000,19 @@ function History({ history, profile }) {
 
     {tab === 'summary' && <>
       <section className="weekly-progress-card">
-        <span className="section-kicker">ULTIMI 7 GIORNI · FOCUS</span>
+        <span className="section-kicker">ULTIMI 7 GIORNI · ESERCIZI RICORRENTI</span>
         <div className="weekly-progress-main"><div><strong>{formatPercent(analytics.week.strengthChange)}</strong><span>forza stimata vs settimana precedente</span></div><Icon name="trophy" size={30}/></div>
-        <div className="weekly-progress-stats"><div><strong>{analytics.week.focusSessions}</strong><span>Esecuzioni</span></div><div><strong>{analytics.week.sets}</strong><span>Serie</span></div><div><strong>{formatVolume(analytics.week.volume)}</strong><span>Volume</span></div></div>
-        {analytics.week.strengthChange === null && <p>Il confronto apparirà quando lo stesso focus avrà dati sia in questa settimana sia nella precedente.</p>}
+        <div className="weekly-progress-stats"><div><strong>{analytics.week.trackedSessions}</strong><span>Esecuzioni</span></div><div><strong>{analytics.week.sets}</strong><span>Serie</span></div><div><strong>{formatVolume(analytics.week.volume)}</strong><span>Volume</span></div></div>
+        {analytics.week.strengthChange === null && <p>Il confronto apparirà quando gli stessi esercizi avranno dati in entrambe le settimane.</p>}
       </section>
       <section className="focus-progress-list">
-        <div className="section-heading compact"><div><span className="section-kicker">CICLO CORRENTE</span><h2>Focus Exercises</h2></div><span>{profile.focusCycleLength || 4} esecuzioni</span></div>
+        <div className="section-heading compact"><div><span className="section-kicker">CONTINUITÀ AUTOMATICA</span><h2>Esercizi ricorrenti</h2></div><span>ultimi registrati</span></div>
         {analytics.items.map((item) => {
           const exercise = exerciseFor(item);
           const latest = item.stats.points.at(-1)?.value;
           return <button key={item.exerciseId} className="focus-progress-card" onClick={() => setHistoryExerciseId(item.exerciseId)}>
             <div className="focus-progress-head"><span className="focus-glyph"><Icon name="spark" size={16}/></span><div><strong>{getExerciseName(exercise, profile.exerciseLanguage)}</strong><small>{muscles[exercise.primary]}</small></div><Icon name="chevron" size={17}/></div>
-            <div className="focus-cycle-row"><FocusCycleDots cycle={item.cycle}/><span>{item.cycle.remaining ? `${item.cycle.remaining} prima del cambio` : 'Cambio al prossimo completamento'}</span></div>
+            <div className="focus-cycle-row"><span>L’engine mantiene lo stesso movimento finché resta utile e compatibile.</span></div>
             <div className="focus-metric-row"><span><small>VALORE ATTUALE</small><strong>{metricLabel(item, latest)}</strong></span><span className={item.overallStrengthChange > 0 ? 'positive' : ''}><small>DA INIZIO STORICO</small><strong>{formatPercent(item.overallStrengthChange)}</strong></span></div>
           </button>;
         })}
@@ -853,7 +1020,7 @@ function History({ history, profile }) {
     </>}
 
     {tab === 'strength' && <section className="progress-section">
-      <div className="progress-intro"><span className="section-kicker">FORZA STIMATA</span><h2>Andamento dei focus</h2><p>L’e1RM combina peso, ripetizioni e RIR. È utile per confrontarti con te stesso, non è un massimale realmente testato.</p></div>
+      <div className="progress-intro"><span className="section-kicker">FORZA STIMATA</span><h2>Andamento degli esercizi ricorrenti</h2><p>L’e1RM combina peso, ripetizioni e RIR. È utile per confrontarti con te stesso, non è un massimale realmente testato.</p></div>
       {analytics.items.map((item) => {
         const exercise = exerciseFor(item);
         const latest = item.stats.points.at(-1)?.value;
@@ -865,7 +1032,7 @@ function History({ history, profile }) {
     </section>}
 
     {tab === 'volume' && <section className="progress-section">
-      <div className="volume-total"><div><span className="section-kicker">VOLUME FOCUS · 7 GIORNI</span><strong>{formatVolume(analytics.week.volume)}</strong></div><span className={analytics.week.volumeChange > 0 ? 'positive' : ''}>{formatPercent(analytics.week.volumeChange)}<small>vs settimana scorsa</small></span></div>
+      <div className="volume-total"><div><span className="section-kicker">VOLUME TRACCIATO · 7 GIORNI</span><strong>{formatVolume(analytics.week.volume)}</strong></div><span className={analytics.week.volumeChange > 0 ? 'positive' : ''}>{formatPercent(analytics.week.volumeChange)}<small>vs settimana scorsa</small></span></div>
       <div className="volume-list">{analytics.items.map((item) => {
         const exercise = exerciseFor(item);
         return <article key={item.exerciseId}><div><strong>{getExerciseName(exercise, profile.exerciseLanguage)}</strong><span>{item.currentWeek.sets} serie</span></div><div className="volume-bars"><span><i style={{ width: `${item.currentWeek.volume / maxWeeklyVolume * 100}%` }}/></span><small>{formatVolume(item.currentWeek.volume)}</small><span className="previous"><i style={{ width: `${item.previousWeek.volume / maxWeeklyVolume * 100}%` }}/></span><small>{formatVolume(item.previousWeek.volume)}</small></div></article>;
@@ -883,8 +1050,8 @@ function History({ history, profile }) {
     </section>}
 
     {tab === 'activity' && <>
-      <section className="stats-grid"><div><strong>{history.length}</strong><span>Workout</span></div><div><strong>{totalSets}</strong><span>Serie totali</span></div><div><strong>{history.reduce((sum, item) => sum + item.duration, 0)}</strong><span>Minuti</span></div></section>
-      <section className="history-list"><h2>Allenamenti recenti</h2>{history.length === 0 ? <div className="history-empty"><Icon name="history" size={30}/><strong>Qui vedrai i tuoi progressi</strong><p>Completa il primo workout per iniziare lo storico.</p></div> : [...history].reverse().map((workout) => <article key={workout.id + workout.completedAt}><div className="history-date"><strong>{new Intl.DateTimeFormat('it-IT', { day: '2-digit' }).format(workout.completedAt)}</strong><span>{new Intl.DateTimeFormat('it-IT', { month: 'short' }).format(workout.completedAt)}</span></div><div><strong>{workout.targetMuscles.slice(0, 3).map((item) => muscles[item]).join(' · ')}</strong><span>{workout.duration} min · {workout.exercises.length} esercizi</span></div><Icon name="chevron"/></article>)}</section>
+      <section className="stats-grid"><div><strong>{validHistory.length}</strong><span>Workout</span></div><div><strong>{totalSets}</strong><span>Serie totali</span></div><div><strong>{validHistory.reduce((sum, item) => sum + Math.max(1, Math.round(((Number(item.completedAt) - Number(item.startedAt)) || Number(item.duration) * 60000) / 60000)), 0)}</strong><span>Minuti</span></div></section>
+      <section className="history-list"><h2>Allenamenti recenti</h2>{validHistory.length === 0 ? <div className="history-empty"><Icon name="history" size={30}/><strong>Qui vedrai i tuoi progressi</strong><p>Completa il primo workout per iniziare lo storico.</p></div> : [...validHistory].reverse().map((workout) => <article key={workout.id + workout.completedAt}><div className="history-date"><strong>{new Intl.DateTimeFormat('it-IT', { day: '2-digit' }).format(workout.completedAt)}</strong><span>{new Intl.DateTimeFormat('it-IT', { month: 'short' }).format(workout.completedAt)}</span></div><div><strong>{workout.targetMuscles.slice(0, 3).map((item) => muscles[item]).join(' · ')}</strong><span>{Math.max(1, Math.round(((Number(workout.completedAt) - Number(workout.startedAt)) || Number(workout.duration) * 60000) / 60000))} min · {workout.exercises.length} esercizi</span></div><Icon name="chevron"/></article>)}</section>
     </>}
     {historyExerciseId && <ExerciseHistorySheet
       exerciseId={historyExerciseId}
@@ -893,48 +1060,6 @@ function History({ history, profile }) {
       onClose={() => setHistoryExerciseId(null)}
     />}
   </main>;
-}
-
-function FocusSettings({ profile, update }) {
-  const availableSaved = (profile.focusExerciseIds || []).filter((id) => {
-    const exercise = exercises.find((candidate) => candidate.id === id);
-    return exercise && isExerciseAllowed(exercise, profile);
-  });
-  const focusIds = [...new Set([...availableSaved, ...suggestFocusExercises(profile)])].slice(0, 3);
-  const setEnabled = () => update(profile.focusEnabled ? { focusEnabled: false } : {
-    focusEnabled: true,
-    focusExerciseIds: focusIds,
-    focusCycleStartedAt: Object.fromEntries(focusIds.map((id) => [id, Date.now()])),
-  });
-  const replaceFocus = (currentId) => {
-    const replacement = getNextFocusExercise(profile, currentId, focusIds);
-    update({
-      focusExerciseIds: focusIds.map((id) => id === currentId ? replacement : id),
-      focusCycleStartedAt: { ...(profile.focusCycleStartedAt || {}), [replacement]: Date.now() },
-    });
-  };
-  const regenerate = () => {
-    const candidates = suggestFocusExercises(profile);
-    const shifted = candidates.map((id, index) => getNextFocusExercise(profile, id, candidates.slice(index + 1)));
-    update({
-      focusEnabled: true,
-      focusExerciseIds: shifted,
-      focusCycleStartedAt: Object.fromEntries(shifted.map((id) => [id, Date.now()])),
-    });
-  };
-
-  return <section className="settings-group focus-settings">
-    <div className="settings-title-row"><div><h2>Focus exercises</h2><p>Movimenti principali che tornano con continuità.</p></div><button className={`switch ${profile.focusEnabled ? 'on' : ''}`} role="switch" aria-checked={profile.focusEnabled} onClick={setEnabled}><i/></button></div>
-    {profile.focusEnabled && <>
-      <div className="focus-list">{focusIds.map((id) => {
-        const exercise = exercises.find((candidate) => candidate.id === id);
-        return <article key={id}><span className="focus-glyph"><Icon name="spark" size={17}/></span><div><strong>{getExerciseName(exercise, profile.exerciseLanguage)}</strong><small>{muscles[exercise.primary]} · {exercise.pattern.replaceAll('-', ' ')}</small></div><button onClick={() => replaceFocus(id)} aria-label={`Cambia ${getExerciseName(exercise, profile.exerciseLanguage)}`}><Icon name="swap" size={17}/></button></article>;
-      })}</div>
-      <div className="focus-cycle-setting"><div><strong>Durata del ciclo</strong><small>Numero di esecuzioni prima del cambio automatico</small></div><div className="stepper"><button onClick={() => update({ focusCycleLength: Math.max(2, (profile.focusCycleLength || 4) - 1) })}>−</button><b>{profile.focusCycleLength || 4}</b><button onClick={() => update({ focusCycleLength: Math.min(8, (profile.focusCycleLength || 4) + 1) })}>+</button></div></div>
-      <button className="regenerate-focus" onClick={regenerate}><Icon name="swap" size={15}/> Cambia tutti</button>
-      <p className="setting-help">Di default ogni focus resta per 4 esecuzioni, circa un mese se ricorre una volta a settimana. Poi viene sostituito automaticamente con un movimento della stessa famiglia.</p>
-    </>}
-  </section>;
 }
 
 function ExerciseFilterSettings({ profile, update }) {
@@ -946,7 +1071,7 @@ function ExerciseFilterSettings({ profile, update }) {
     ['excludeDirectCore', 'Escludi addominali diretti', 'Niente crunch, plank o altri esercizi con il core come target principale.'],
     ['excludeCalves', 'Escludi polpacci diretti', 'Rimuove calf raise e lavoro specifico per i polpacci.'],
   ];
-  return <SettingsGroup title="Filtri automatici"><div className="filter-settings">{items.map(([key, title, text]) => <div key={key}><div><strong>{title}</strong><small>{text}</small></div><button className={`switch ${filters[key] ? 'on' : ''}`} role="switch" aria-checked={filters[key]} onClick={() => toggle(key)}><i/></button></div>)}</div><p className="setting-help">In modalità Massa, movimenti olimpici, balistici e ibridi come snatch, clean, jerk, thruster e burpee sono esclusi automaticamente. Il lavoro diretto per i polpacci resta attivo di default perché gli altri esercizi spesso non forniscono uno stimolo sufficiente; puoi comunque disattivarlo qui.</p></SettingsGroup>;
+  return <SettingsGroup title="Filtri automatici"><div className="filter-settings">{items.map(([key, title, text]) => <div key={key}><div><strong>{title}</strong><small>{text}</small></div><button className={`switch ${filters[key] ? 'on' : ''}`} role="switch" aria-checked={filters[key]} onClick={() => toggle(key)}><i/></button></div>)}</div><p className="setting-help">Il generatore usa soltanto esercizi presenti nel registro revisionato: movimenti olimpici, balistici, ibridi o ambigui non sono prescrivibili in nessuna modalità. Il lavoro diretto per i polpacci resta attivo di default perché gli altri esercizi spesso non forniscono uno stimolo sufficiente; puoi comunque disattivarlo qui.</p></SettingsGroup>;
 }
 
 function ExcludedExercises({ profile, update }) {
@@ -972,7 +1097,7 @@ function ResetDataSheet({ onConfirm, onClose }) {
       <button className="sheet-close" onClick={onClose}><Icon name="close" size={19}/></button>
       <span className="eyebrow">OPERAZIONE IRREVERSIBILE</span>
       <h2>Ripartire da zero?</h2>
-      <p>Verranno cancellati profilo, impostazioni, workout in corso, storico, carichi appresi, Focus Exercises ed esercizi esclusi.</p>
+      <p>Verranno cancellati profilo, impostazioni, workout in corso, storico, carichi appresi ed esercizi esclusi.</p>
       <div className="reset-actions"><button className="button reset-danger" onClick={onConfirm}><Icon name="trash"/> Cancella tutti i dati</button><button className="button reset-cancel" onClick={onClose}>Annulla</button></div>
     </section>
   </div>;
@@ -1000,12 +1125,17 @@ function formatBackupDate(value) {
 function BackupSheet({ profile, history, workout, onRestore, onSaveCloud, showToast, onClose }) {
   const [folderUrl, setFolderUrl] = useState(profile.cloud?.webDavUrl || '');
   const [username, setUsername] = useState(profile.cloud?.webDavUsername || '');
-  const [password, setPassword] = useState('');
+  const [password, setPassword] = useState(() => localStorage.getItem('easyfit-webdav-secret') || '');
+  const [autoSync, setAutoSync] = useState(Boolean(profile.cloud?.autoSync));
   const [busy, setBusy] = useState('');
   const [message, setMessage] = useState('');
   const currentState = { profile, history, workout };
 
-  const saveConnection = () => onSaveCloud({ webDavUrl: folderUrl.trim(), webDavUsername: username.trim() });
+  const saveConnection = () => {
+    if (autoSync && password) localStorage.setItem('easyfit-webdav-secret', password);
+    else localStorage.removeItem('easyfit-webdav-secret');
+    onSaveCloud({ webDavUrl: folderUrl.trim(), webDavUsername: username.trim(), autoSync });
+  };
   const upload = async () => {
     setBusy('upload');
     setMessage('');
@@ -1013,7 +1143,7 @@ function BackupSheet({ profile, history, workout, onRestore, onSaveCloud, showTo
       saveConnection();
       const backupProfile = {
         ...profile,
-        cloud: { webDavUrl: folderUrl.trim(), webDavUsername: username.trim() },
+        cloud: { webDavUrl: folderUrl.trim(), webDavUsername: username.trim(), autoSync },
       };
       await uploadWebDavBackup({
         folderUrl,
@@ -1021,6 +1151,7 @@ function BackupSheet({ profile, history, workout, onRestore, onSaveCloud, showTo
         password,
         serialized: serializeBackup({ ...currentState, profile: backupProfile }),
       });
+      localStorage.setItem('easyfit-webdav-synced-fingerprint', backupStateFingerprint({ ...currentState, profile: backupProfile }));
       setMessage('Backup caricato su Nextcloud. Il file precedente è stato sostituito.');
       showToast('Backup caricato su Nextcloud');
     } catch (error) {
@@ -1036,7 +1167,7 @@ function BackupSheet({ profile, history, workout, onRestore, onSaveCloud, showTo
       saveConnection();
       const serialized = await downloadWebDavBackup({ folderUrl, username, password });
       const backup = parseBackup(serialized);
-      backup.profile.cloud = { webDavUrl: folderUrl.trim(), webDavUsername: username.trim() };
+      backup.profile.cloud = { webDavUrl: folderUrl.trim(), webDavUsername: username.trim(), autoSync };
       const date = formatBackupDate(backup.exportedAt);
       if (!window.confirm(`Ripristinare il backup Nextcloud del ${date}? I dati locali attuali verranno sostituiti.`)) return;
       const result = onRestore(backup);
@@ -1057,9 +1188,16 @@ function BackupSheet({ profile, history, workout, onRestore, onSaveCloud, showTo
       <div className="cloud-fields">
         <label><span>URL CARTELLA WEBDAV</span><input type="url" inputMode="url" value={folderUrl} onChange={(event) => setFolderUrl(event.target.value)} placeholder="https://cloud.example.com/remote.php/dav/files/utente/Easyfit/"/></label>
         <label><span>USERNAME</span><input autoComplete="username" value={username} onChange={(event) => setUsername(event.target.value)} placeholder="utente"/></label>
-        <label><span>APP PASSWORD</span><input type="password" autoComplete="off" value={password} onChange={(event) => setPassword(event.target.value)} placeholder="Non viene salvata"/></label>
+        <label><span>APP PASSWORD</span><input type="password" autoComplete="off" value={password} onChange={(event) => setPassword(event.target.value)} onBlur={saveConnection} placeholder="Solo su questo dispositivo"/></label>
+        <label className="cloud-auto-sync"><input type="checkbox" checked={autoSync} onChange={(event) => {
+          const enabled = event.target.checked;
+          setAutoSync(enabled);
+          if (enabled && password) localStorage.setItem('easyfit-webdav-secret', password);
+          else localStorage.removeItem('easyfit-webdav-secret');
+          onSaveCloud({ webDavUrl: folderUrl.trim(), webDavUsername: username.trim(), autoSync: enabled });
+        }}/><span>Sincronizza automaticamente dopo ogni modifica</span></label>
       </div>
-      <p className="cloud-security"><Icon name="check" size={15}/> URL e username vengono ricordati. L’app password resta soltanto in questa schermata e non entra nel backup.</p>
+      <p className="cloud-security"><Icon name="check" size={15}/> Con la sincronizzazione automatica, l’app password resta salvata solo su questo dispositivo e non entra mai nel backup.</p>
       {message && <div className="cloud-message">{message}</div>}
       <div className="cloud-actions">
         <button className="button dark" disabled={!folderUrl.trim() || busy} onClick={upload}><Icon name="upload" size={18}/>{busy === 'upload' ? 'Caricamento…' : 'Carica / sovrascrivi'}</button>
@@ -1077,12 +1215,7 @@ function Profile({ profile, setProfile, history, workout, onRestoreBackup, insta
   const toggleEquipment = (item) => {
     const equipment = profile.equipment.includes(item) ? profile.equipment.filter((id) => id !== item) : [...profile.equipment, item];
     if (!equipment.length) return showToast('Scegli almeno un tipo di attrezzatura');
-    const nextProfile = { ...profile, equipment };
-    const compatibleFocus = (profile.focusExerciseIds || []).filter((id) => {
-      const exercise = exercises.find((candidate) => candidate.id === id);
-      return exercise && isExerciseAllowed(exercise, nextProfile);
-    });
-    update({ equipment, focusExerciseIds: [...new Set([...compatibleFocus, ...suggestFocusExercises(nextProfile)])].slice(0, 3) });
+    update({ equipment });
   };
   const install = async () => { if (!installPrompt) return; await installPrompt.prompt(); onInstalled(); };
   const exportBackup = () => {
@@ -1112,19 +1245,18 @@ function Profile({ profile, setProfile, history, workout, onRestoreBackup, insta
     <SettingsGroup title="Limiti serie"><div className="type-cap-list">{[['compound', 'Multiarticolari'], ['accessory', 'Isolamento e accessori']].map(([type, label]) => <div key={type}><span>{label}</span><div className="stepper"><button onClick={() => update({ setCaps: { ...profile.setCaps, [type]: Math.max(1, profile.setCaps[type] - 1) } })}>−</button><b>{profile.setCaps[type]}</b><button onClick={() => update({ setCaps: { ...profile.setCaps, [type]: Math.min(6, profile.setCaps[type] + 1) } })}>+</button></div></div>)}</div><p className="setting-help">Sono tetti massimi: durata, volume e prontezza possono comunque prescrivere meno serie.</p></SettingsGroup>
     <SettingsGroup title="Durata"><div className="range-label"><span>Tempo per workout</span><strong>{profile.duration} min</strong></div><input type="range" min="25" max="75" step="5" value={profile.duration} onChange={(event) => setProfile({ ...profile, duration: Number(event.target.value) })} onPointerUp={() => showToast('Durata aggiornata')}/></SettingsGroup>
     <SettingsGroup title="Split"><div className="select-wrap"><select value={profile.split} onChange={(event) => update({ split: event.target.value })}>{Object.entries(splitLabels).map(([id, label]) => <option value={id} key={id}>{label}</option>)}</select><Icon name="chevron"/></div></SettingsGroup>
-    <FocusSettings profile={profile} update={update}/>
     <SettingsGroup title="Nomi degli esercizi"><div className="settings-options language-options">
       <button className={profile.exerciseLanguage === 'en' ? 'selected' : ''} onClick={() => update({ exerciseLanguage: 'en' })}>English <span><Icon name="check" size={14}/></span></button>
       <button className={profile.exerciseLanguage === 'it' ? 'selected' : ''} onClick={() => update({ exerciseLanguage: 'it' })}>Italiano, con fallback inglese <span><Icon name="check" size={14}/></span></button>
     </div><p className="setting-help">L’inglese è il nome canonico. {exerciseCatalogMeta.italianTranslations} esercizi hanno anche una traduzione italiana.</p></SettingsGroup>
-    <SettingsGroup title="Attrezzatura"><div className="tag-list">{Object.entries(equipmentLabels).map(([id, label]) => <button key={id} className={profile.equipment.includes(id) ? 'selected' : ''} onClick={() => toggleEquipment(id)}>{label}{profile.equipment.includes(id) && <Icon name="check" size={14}/>}</button>)}</div></SettingsGroup>
+    <SettingsGroup title="Attrezzatura"><div className="tag-list">{Object.entries(equipmentLabels).map(([id, label]) => <button key={id} className={profile.equipment.includes(id) ? 'selected' : ''} onClick={() => toggleEquipment(id)}>{label}{profile.equipment.includes(id) && <Icon name="check" size={14}/>}</button>)}</div><WeightInventoryEditor profile={profile} setProfile={setProfile}/></SettingsGroup>
     <ExerciseFilterSettings profile={profile} update={update}/>
     <ExcludedExercises profile={profile} update={update}/>
     <SettingsGroup title="Backup e cloud"><div className="backup-options"><button onClick={exportBackup}><span><Icon name="download" size={18}/></span><div><strong>Esporta backup</strong><small>Scarica profilo, storico, workout e preferenze</small></div></button><label><input type="file" accept="application/json,.json" onChange={importBackup}/><span><Icon name="upload" size={18}/></span><div><strong>Importa backup</strong><small>Controlla il file prima di sostituire i dati</small></div></label><button onClick={() => setBackupOpen(true)}><span><Icon name="cloud" size={18}/></span><div><strong>Nextcloud</strong><small>{profile.cloud?.webDavUrl ? 'Connessione WebDAV configurata' : 'Carica o ripristina direttamente dal cloud'}</small></div></button></div><p className="setting-help">Il backup è un JSON versionato. Non contiene immagini del catalogo né credenziali cloud.</p></SettingsGroup>
     <section className="settings-group danger-zone"><h2>Dati dell’app</h2><p>Cancella tutti i dati salvati su questo dispositivo e riapre la configurazione iniziale.</p><button onClick={() => setResetOpen(true)}><Icon name="trash" size={18}/><span><strong>Cancella tutti i dati</strong><small>Profilo, storico, carichi e preferenze</small></span><Icon name="chevron" size={17}/></button></section>
     <div className="catalog-credit">Catalogo: <a href="https://wger.de" target="_blank" rel="noreferrer">wger</a> · {exerciseCatalogMeta.eligible} esercizi compatibili · licenze indicate nei dati sorgente.</div>
-    <div className="version">Easyfit MVP · Motore locale v0.6</div>
-    {resetOpen && <ResetDataSheet onConfirm={onReset} onClose={() => setResetOpen(false)}/>} 
+    <div className="version">Easyfit · Motore locale v{ENGINE_VERSION}</div>
+    {resetOpen && <ResetDataSheet onConfirm={onReset} onClose={() => setResetOpen(false)}/>}
     {backupOpen && <BackupSheet profile={profile} history={history} workout={workout} onRestore={onRestoreBackup} onSaveCloud={(cloud) => setProfile({ ...profile, cloud })} showToast={showToast} onClose={() => setBackupOpen(false)}/>}
   </main>;
 }

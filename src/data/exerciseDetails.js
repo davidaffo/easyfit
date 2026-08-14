@@ -1,4 +1,4 @@
-import detailsCatalog from '../generated/wger-exercise-details.json' with { type: 'json' };
+import detailsCatalog from '../generated/exercise-details.json' with { type: 'json' };
 
 export async function getExerciseDetails(wgerId, language = 'en') {
   const details = detailsCatalog.exercises[String(wgerId)] || null;
