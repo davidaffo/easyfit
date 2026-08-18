@@ -1,15 +1,12 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { equipmentLabels, exerciseCatalogMeta, exercises, getExerciseName, muscles } from './data/exercises.js';
 import {
-  backupStateFingerprint,
+  BACKUP_FILENAME,
   backupDownloadName,
-  createWebDavUploadQueue,
   downloadWebDavBackup,
-  mergeBackupState,
   parseBackup,
   serializeBackup,
-  synchronizeWebDavBackup,
   uploadWebDavBackup,
 } from './data/backup.js';
 import { getExerciseDetails } from './data/exerciseDetails.js';
@@ -24,9 +21,10 @@ import {
   getTrackedExerciseIds,
   getRecovery,
   getSimilarExercises,
-  getWorkoutSettingsFingerprint,
+  getWorkoutExercise,
   isExerciseAllowed,
   isCompatibleWorkout,
+  isPreparedWorkoutStale,
   isWorkoutActive,
   removeExercise,
   recalibrateTrainingTargets,
@@ -49,7 +47,7 @@ const defaultProfile = {
   setCaps: { compound: 3, accessory: 4 },
   setCapsVersion: 2,
   exerciseOverrides: {},
-  cloud: { webDavUrl: '', webDavUsername: '', autoSync: false },
+  cloud: { webDavUrl: '', webDavUsername: '' },
   split: 'adaptive',
   exerciseLanguage: 'en',
   exerciseFilters: { essentialCatalog: true, preferLoadedVariants: true, excludeDirectCore: false, excludeCalves: false },
@@ -88,7 +86,6 @@ function normalizeProfile(profile = {}) {
     cloud: {
       webDavUrl: profile.cloud?.webDavUrl || '',
       webDavUsername: profile.cloud?.webDavUsername || '',
-      autoSync: Boolean(profile.cloud?.autoSync),
     },
   };
 }
@@ -296,13 +293,6 @@ function App() {
   const [view, setView] = useState('home');
   const [toast, setToast] = useState('');
   const [installPrompt, setInstallPrompt] = useState(null);
-  const [cloudReady, setCloudReady] = useState(false);
-  const previousWorkoutSettings = useRef(null);
-  const lastAutoSyncPayload = useRef('');
-  const autoSyncPullKey = useRef('');
-  const autoUpload = useRef(null);
-  if (!autoUpload.current) autoUpload.current = createWebDavUploadQueue(synchronizeWebDavBackup);
-  const settingsFingerprint = profile ? getWorkoutSettingsFingerprint(profile) : '';
 
   useEffect(() => { if (profile) localStorage.setItem('easyfit-profile', JSON.stringify(profile)); }, [profile]);
   useEffect(() => { localStorage.setItem('easyfit-history', JSON.stringify(history)); }, [history]);
@@ -311,64 +301,11 @@ function App() {
     else localStorage.removeItem('easyfit-workout');
   }, [workout]);
   useEffect(() => {
-    const cloud = profile?.cloud;
-    const password = localStorage.getItem('easyfit-webdav-secret') || '';
-    if (!cloud?.autoSync || !cloud.webDavUrl || !password || !cloudReady) return undefined;
-    const state = { profile, history, workout };
-    const stateFingerprint = JSON.stringify(state);
-    if (stateFingerprint === lastAutoSyncPayload.current) return undefined;
-    const timeout = setTimeout(() => {
-      autoUpload.current({
-        folderUrl: cloud.webDavUrl,
-        username: cloud.webDavUsername,
-        password,
-        state,
-      }).then((result) => {
-        lastAutoSyncPayload.current = JSON.stringify(result.state);
-        localStorage.setItem('easyfit-webdav-synced-fingerprint', backupStateFingerprint(result.state));
-        if (JSON.stringify(result.state.history) !== JSON.stringify(history)) setHistory(result.state.history);
-        if (!workout && result.state.workout && isCompatibleWorkout(result.state.workout, profile)) setWorkout(result.state.workout);
-      }).catch((error) => {
-        setToast(error.message || 'Sincronizzazione Nextcloud non riuscita');
-      });
-    }, 1800);
-    return () => clearTimeout(timeout);
-  }, [profile, history, workout, cloudReady]);
-  useEffect(() => {
-    const cloud = profile?.cloud;
-    const password = localStorage.getItem('easyfit-webdav-secret') || '';
-    if (!cloud?.autoSync || !cloud.webDavUrl || !password) {
-      autoSyncPullKey.current = '';
-      setCloudReady(false);
-      return;
-    }
-    const pullKey = `${cloud.webDavUrl}\n${cloud.webDavUsername || ''}\n${password}`;
-    if (autoSyncPullKey.current === pullKey) return;
-    autoSyncPullKey.current = pullKey;
-    setCloudReady(false);
-    downloadWebDavBackup({ folderUrl: cloud.webDavUrl, username: cloud.webDavUsername, password })
-      .then((serialized) => parseBackup(serialized))
-      .then((remote) => {
-        const localState = { profile, history, workout };
-        const lastSynced = localStorage.getItem('easyfit-webdav-synced-fingerprint');
-        const preparedOnly = history.length === 0 && (!workout || (!workout.startedAt && !workout.exercises.some((item) => item.sets.some((set) => set.done))));
-        const localClean = lastSynced
-          ? lastSynced === backupStateFingerprint(localState)
-          : preparedOnly;
-        const merged = mergeBackupState(localState, remote, { preferRemoteProfile: localClean });
-        const mergedProfile = normalizeProfile({
-          ...merged.profile,
-          cloud: { ...cloud },
-        });
-        if (JSON.stringify(mergedProfile) !== JSON.stringify(profile)) setProfile(mergedProfile);
-        if (JSON.stringify(merged.history) !== JSON.stringify(history)) setHistory(merged.history);
-        if (!workout && merged.workout && isCompatibleWorkout(merged.workout, mergedProfile)) setWorkout(merged.workout);
-      })
-      .catch((error) => {
-        if (error.code !== 'not-found') setToast(error.message || 'Download Nextcloud non riuscito');
-      })
-      .finally(() => setCloudReady(true));
-  }, [profile?.cloud]);
+    // Versions before v16 could persist WebDAV credentials and sync metadata.
+    // Manual backup never keeps secrets in browser storage.
+    localStorage.removeItem('easyfit-webdav-secret');
+    localStorage.removeItem('easyfit-webdav-synced-fingerprint');
+  }, []);
   useEffect(() => {
     const handler = (event) => { event.preventDefault(); setInstallPrompt(event); };
     window.addEventListener('beforeinstallprompt', handler);
@@ -381,35 +318,27 @@ function App() {
     return () => clearTimeout(timeout);
   }, [toast]);
   useEffect(() => {
-    if (!profile) {
-      previousWorkoutSettings.current = null;
-      return;
+    if (!profile || !workout || !isPreparedWorkoutStale(workout, profile, history)) return;
+    let generatedProfileDuration = null;
+    try {
+      generatedProfileDuration = JSON.parse(workout.engine?.settingsFingerprint || '{}').duration;
+    } catch {
+      generatedProfileDuration = null;
     }
-    const previous = previousWorkoutSettings.current;
-    previousWorkoutSettings.current = { fingerprint: settingsFingerprint, duration: profile.duration };
-    if (!previous || previous.fingerprint === settingsFingerprint || !workout || isWorkoutActive(workout)) return;
-    const duration = previous.duration !== profile.duration ? profile.duration : workout.duration;
+    const duration = Number(generatedProfileDuration) !== Number(profile.duration)
+      ? profile.duration
+      : workout.duration || profile.duration;
     const regenerated = generateWorkout(profile, history, { duration, variation: Date.now() });
-    setWorkout(isCompatibleWorkout(regenerated, profile) ? regenerated : null);
-    setToast(isCompatibleWorkout(regenerated, profile) ? 'Impostazioni applicate: scheda aggiornata' : 'Nessun esercizio compatibile con le nuove impostazioni');
-  }, [settingsFingerprint]);
-  useEffect(() => {
-    if (!profile || !workout || workout.completedAt || workout.engine?.version === ENGINE_VERSION) return;
-    // Engine/catalog migrations must never replace a session the user has opened,
-    // even before the first set is recorded.
-    if (isWorkoutActive(workout)) return;
-    const regenerated = generateWorkout(profile, history, { duration: workout.duration || profile.duration, variation: Date.now() });
     if (!isCompatibleWorkout(regenerated, profile)) {
       setWorkout(null);
       setToast('Workout precedente incompatibile: genera una nuova scheda');
       return;
     }
-    setWorkout(isWorkoutActive(workout) ? { ...regenerated, startedAt: workout.startedAt } : regenerated);
-    setToast('Motore aggiornato: scheda rigenerata');
-  }, [profile, history, workout?.engine?.version]);
+    setWorkout(regenerated);
+    setToast('Scheda aggiornata con i dati più recenti');
+  }, [profile, history, workout?.engine?.version, workout?.createdAt]);
 
   const finishOnboarding = (newProfile) => {
-    previousWorkoutSettings.current = { fingerprint: getWorkoutSettingsFingerprint(newProfile), duration: newProfile.duration };
     setProfile(newProfile);
     setWorkout(generateWorkout(newProfile, []));
   };
@@ -437,7 +366,10 @@ function App() {
       return;
     }
     setWorkout((current) => {
-      const activeWorkout = startWorkout(current);
+      const prepared = isPreparedWorkoutStale(current, profile, history)
+        ? generateWorkout(profile, history, { duration: current.duration || profile.duration, variation: Date.now() })
+        : current;
+      const activeWorkout = startWorkout(prepared);
       if (activeWorkout) localStorage.setItem('easyfit-workout', JSON.stringify(activeWorkout));
       return activeWorkout;
     });
@@ -455,7 +387,6 @@ function App() {
   const restoreBackup = (backup) => {
     const restoredProfile = normalizeProfile(backup.profile);
     const restoredWorkout = isCompatibleWorkout(backup.workout, restoredProfile) ? backup.workout : null;
-    previousWorkoutSettings.current = { fingerprint: getWorkoutSettingsFingerprint(restoredProfile), duration: restoredProfile.duration };
     setProfile(restoredProfile);
     setHistory(backup.history);
     setWorkout(restoredWorkout);
@@ -720,8 +651,9 @@ function ExercisePreview({ source, name, onOpen }) {
 }
 
 function ExerciseCard({ item, exerciseIndex, language, updateSet, setInitialLoad, setInitialReps, toggleSet, onRir, onGuide, onHistory, onOptions }) {
-  const exercise = exercises.find((candidate) => candidate.id === item.exerciseId);
-  const details = useExerciseDetails(exercise.wgerId, 'en');
+  const exercise = getWorkoutExercise(item);
+  const currentCatalogExercise = exercises.some((candidate) => candidate.id === item.exerciseId);
+  const details = useExerciseDetails(currentCatalogExercise ? exercise.wgerId : null, 'en');
   const [initialLoad, setInitialLoadValue] = useState('');
   const [initialReps, setInitialRepsValue] = useState('');
   const usesWeight = ['external', 'per-dumbbell'].includes(exercise.loadType);
@@ -738,8 +670,8 @@ function ExerciseCard({ item, exerciseIndex, language, updateSet, setInitialLoad
   };
 
   return <article className="exercise-card">
-    <header><span className="exercise-index">{String(exerciseIndex + 1).padStart(2, '0')}</span><div><div className="exercise-name-row"><h2>{getExerciseName(exercise, language)}</h2>{item.progressionStep === 'reps' && <span className="progression-badge">+1 REP</span>}{item.progressionStep === 'load' && <span className="progression-badge load">+ CARICO</span>}</div><p>{muscles[exercise.primary]} · {item.sets.length} × {item.sets[0].targetReps || item.sets[0].reps}{item.calibrationBelowRange ? ' · range adattato alla capacità' : item.repRange ? ` · range ${item.repRange.min}–${item.repRange.max}` : ''} · RIR {item.targetRir}</p></div><button className="icon-button" onClick={onOptions} aria-label={`Opzioni per ${getExerciseName(exercise, language)}`}><Icon name="more" size={20}/></button></header>
-    <ExercisePreview source={details?.image} name={getExerciseName(exercise, language)} onOpen={onGuide}/>
+    <header><span className="exercise-index">{String(exerciseIndex + 1).padStart(2, '0')}</span><div><div className="exercise-name-row"><h2>{getExerciseName(exercise, language)}</h2>{item.progressionStep === 'reps' && <span className="progression-badge">+1 REP</span>}{item.progressionStep === 'load' && <span className="progression-badge load">+ CARICO</span>}</div><p>{muscles[exercise.primary] || 'Esercizio salvato'} · {item.sets.length} × {item.sets[0].targetReps || item.sets[0].reps}{item.calibrationBelowRange ? ' · range adattato alla capacità' : item.repRange ? ` · range ${item.repRange.min}–${item.repRange.max}` : ''} · RIR {item.targetRir}</p></div>{currentCatalogExercise && <button className="icon-button" onClick={onOptions} aria-label={`Opzioni per ${getExerciseName(exercise, language)}`}><Icon name="more" size={20}/></button>}</header>
+    {currentCatalogExercise && <ExercisePreview source={details?.image} name={getExerciseName(exercise, language)} onOpen={onGuide}/>}
     {needsInitialLoad ? <form className="initial-load" onSubmit={submitInitialLoad}>
       <div><span>PRIMA VOLTA</span><strong>Che carico vuoi usare?</strong><small>Scegli un peso con cui pensi di chiudere le serie a RIR {item.targetRir}.</small></div>
       <label><input autoFocus inputMode="decimal" type="number" min="0.5" max="1000" step="0.5" placeholder="0" value={initialLoad} onChange={(event) => setInitialLoadValue(event.target.value)}/><span>kg {exercise.loadType === 'per-dumbbell' ? 'per manubrio' : exercise.loadUnit === 'single-dumbbell' ? 'del manubrio' : ''}</span></label>
@@ -758,12 +690,12 @@ function ExerciseCard({ item, exerciseIndex, language, updateSet, setInitialLoad
         <button className="set-check" onClick={() => toggleSet(exerciseIndex, setIndex, item)}><Icon name="check" size={18}/></button>
       </div>)}</div>
     </>}
-    <footer><span><Icon name="clock" size={16}/> {item.rest >= 60 ? `${Math.floor(item.rest / 60)}:${String(item.rest % 60).padStart(2, '0')}` : `${item.rest}s`} recupero{item.estimatedOneRepMax ? ` · e1RM ${Math.round(item.estimatedOneRepMax)} kg` : ''}</span><div className="exercise-actions"><button onClick={onGuide}><Icon name="guide" size={15}/> Guida</button><button onClick={onHistory}><Icon name="history" size={15}/> Storico</button><button onClick={onOptions} aria-label="Opzioni"><Icon name="more" size={15}/></button></div></footer>
+    <footer><span><Icon name="clock" size={16}/> {item.rest >= 60 ? `${Math.floor(item.rest / 60)}:${String(item.rest % 60).padStart(2, '0')}` : `${item.rest}s`} recupero{item.estimatedOneRepMax ? ` · e1RM ${Math.round(item.estimatedOneRepMax)} kg` : ''}</span>{currentCatalogExercise && <div className="exercise-actions"><button onClick={onGuide}><Icon name="guide" size={15}/> Guida</button><button onClick={onHistory}><Icon name="history" size={15}/> Storico</button><button onClick={onOptions} aria-label="Opzioni"><Icon name="more" size={15}/></button></div>}</footer>
   </article>;
 }
 
 function RirSheet({ item, language, onChoose, onClose }) {
-  const exercise = exercises.find((candidate) => candidate.id === item.exerciseId);
+  const exercise = getWorkoutExercise(item);
   return <div className="sheet-backdrop" onMouseDown={(event) => event.target === event.currentTarget && onClose()}>
     <section className="rir-sheet" role="dialog" aria-modal="true" aria-label="Registra RIR">
       <button className="sheet-close" onClick={onClose}><Icon name="close" size={19}/></button>
@@ -1125,25 +1057,23 @@ function formatBackupDate(value) {
 function BackupSheet({ profile, history, workout, onRestore, onSaveCloud, showToast, onClose }) {
   const [folderUrl, setFolderUrl] = useState(profile.cloud?.webDavUrl || '');
   const [username, setUsername] = useState(profile.cloud?.webDavUsername || '');
-  const [password, setPassword] = useState(() => localStorage.getItem('easyfit-webdav-secret') || '');
-  const [autoSync, setAutoSync] = useState(Boolean(profile.cloud?.autoSync));
+  const [password, setPassword] = useState('');
   const [busy, setBusy] = useState('');
   const [message, setMessage] = useState('');
   const currentState = { profile, history, workout };
 
   const saveConnection = () => {
-    if (autoSync && password) localStorage.setItem('easyfit-webdav-secret', password);
-    else localStorage.removeItem('easyfit-webdav-secret');
-    onSaveCloud({ webDavUrl: folderUrl.trim(), webDavUsername: username.trim(), autoSync });
+    onSaveCloud({ webDavUrl: folderUrl.trim(), webDavUsername: username.trim() });
   };
   const upload = async () => {
+    if (!window.confirm(`Caricare il backup corrente su Nextcloud? L'eventuale ${BACKUP_FILENAME} esistente verrà sostituito.`)) return;
     setBusy('upload');
     setMessage('');
     try {
       saveConnection();
       const backupProfile = {
         ...profile,
-        cloud: { webDavUrl: folderUrl.trim(), webDavUsername: username.trim(), autoSync },
+        cloud: { webDavUrl: folderUrl.trim(), webDavUsername: username.trim() },
       };
       await uploadWebDavBackup({
         folderUrl,
@@ -1151,7 +1081,6 @@ function BackupSheet({ profile, history, workout, onRestore, onSaveCloud, showTo
         password,
         serialized: serializeBackup({ ...currentState, profile: backupProfile }),
       });
-      localStorage.setItem('easyfit-webdav-synced-fingerprint', backupStateFingerprint({ ...currentState, profile: backupProfile }));
       setMessage('Backup caricato su Nextcloud. Il file precedente è stato sostituito.');
       showToast('Backup caricato su Nextcloud');
     } catch (error) {
@@ -1167,7 +1096,7 @@ function BackupSheet({ profile, history, workout, onRestore, onSaveCloud, showTo
       saveConnection();
       const serialized = await downloadWebDavBackup({ folderUrl, username, password });
       const backup = parseBackup(serialized);
-      backup.profile.cloud = { webDavUrl: folderUrl.trim(), webDavUsername: username.trim(), autoSync };
+      backup.profile.cloud = { webDavUrl: folderUrl.trim(), webDavUsername: username.trim() };
       const date = formatBackupDate(backup.exportedAt);
       if (!window.confirm(`Ripristinare il backup Nextcloud del ${date}? I dati locali attuali verranno sostituiti.`)) return;
       const result = onRestore(backup);
@@ -1188,16 +1117,9 @@ function BackupSheet({ profile, history, workout, onRestore, onSaveCloud, showTo
       <div className="cloud-fields">
         <label><span>URL CARTELLA WEBDAV</span><input type="url" inputMode="url" value={folderUrl} onChange={(event) => setFolderUrl(event.target.value)} placeholder="https://cloud.example.com/remote.php/dav/files/utente/Easyfit/"/></label>
         <label><span>USERNAME</span><input autoComplete="username" value={username} onChange={(event) => setUsername(event.target.value)} placeholder="utente"/></label>
-        <label><span>APP PASSWORD</span><input type="password" autoComplete="off" value={password} onChange={(event) => setPassword(event.target.value)} onBlur={saveConnection} placeholder="Solo su questo dispositivo"/></label>
-        <label className="cloud-auto-sync"><input type="checkbox" checked={autoSync} onChange={(event) => {
-          const enabled = event.target.checked;
-          setAutoSync(enabled);
-          if (enabled && password) localStorage.setItem('easyfit-webdav-secret', password);
-          else localStorage.removeItem('easyfit-webdav-secret');
-          onSaveCloud({ webDavUrl: folderUrl.trim(), webDavUsername: username.trim(), autoSync: enabled });
-        }}/><span>Sincronizza automaticamente dopo ogni modifica</span></label>
+        <label><span>APP PASSWORD</span><input type="password" autoComplete="off" value={password} onChange={(event) => setPassword(event.target.value)} onBlur={saveConnection} placeholder="Richiesta per questa operazione"/></label>
       </div>
-      <p className="cloud-security"><Icon name="check" size={15}/> Con la sincronizzazione automatica, l’app password resta salvata solo su questo dispositivo e non entra mai nel backup.</p>
+      <p className="cloud-security"><Icon name="check" size={15}/> Upload e ripristino avvengono solo quando premi il relativo pulsante. L’app password resta in memoria soltanto finché questo pannello è aperto.</p>
       {message && <div className="cloud-message">{message}</div>}
       <div className="cloud-actions">
         <button className="button dark" disabled={!folderUrl.trim() || busy} onClick={upload}><Icon name="upload" size={18}/>{busy === 'upload' ? 'Caricamento…' : 'Carica / sovrascrivi'}</button>

@@ -1,4 +1,4 @@
-const CACHE = 'easyfit-v15';
+const CACHE = 'easyfit-v16';
 const BASE = new URL('./', self.location.href);
 const fromBase = (path) => new URL(path, BASE).href;
 const CORE = ['', 'manifest.webmanifest', 'icon.svg', 'icon-192.png', 'icon-512.png'].map(fromBase);
@@ -36,6 +36,8 @@ self.addEventListener('activate', (event) => {
 
 self.addEventListener('fetch', (event) => {
   if (event.request.method !== 'GET') return;
+  const requestUrl = new URL(event.request.url);
+  if (requestUrl.origin !== self.location.origin || event.request.headers.has('Authorization')) return;
   event.respondWith(
     fetch(event.request)
       .then((response) => {

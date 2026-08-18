@@ -2,12 +2,12 @@
   "source": "wger",
   "sourceUrl": "https://wger.de",
   "syncedAt": "2026-08-08T09:38:35.897Z",
-  "curatedAt": "2026-08-13T14:25:36.296Z",
+  "curatedAt": "2026-08-18T09:41:55.471Z",
   "schemaVersion": 2,
   "curation": "explicit-wger-id-registry",
   "sourceCount": 787,
-  "count": 54,
-  "eligible": 54,
+  "count": 51,
+  "eligible": 51,
   "exercises": [
     {
       "id": "wger-1573",
@@ -1302,37 +1302,6 @@
       "loadMultiplier": 1
     },
     {
-      "id": "wger-458",
-      "wgerId": 458,
-      "name": "Plank",
-      "translations": {
-        "en": "Plank",
-        "it": "Plank"
-      },
-      "primary": "core",
-      "secondary": [],
-      "equipment": [
-        "bodyweight"
-      ],
-      "muscleContributions": {
-        "core": 1
-      },
-      "pattern": "anti-extension",
-      "compound": false,
-      "selectionPriority": 15,
-      "loadType": "bodyweight",
-      "minutes": 6,
-      "variationGroup": "35343f78-00cf-4b34-9f50-7f45d37555ca",
-      "license": {
-        "name": "CC-BY-SA 3",
-        "url": "https://creativecommons.org/licenses/by-sa/3.0/deed.en",
-        "author": "YYCfit / BFad07"
-      },
-      "source": "wger",
-      "generationEligible": true,
-      "loadMultiplier": 1
-    },
-    {
       "id": "wger-475",
       "wgerId": 475,
       "name": "Pull-ups",
@@ -1635,37 +1604,6 @@
       "loadMultiplier": 1
     },
     {
-      "id": "wger-805",
-      "wgerId": 805,
-      "name": "Tricep Pushdown on Cable",
-      "translations": {
-        "en": "Tricep Pushdown on Cable",
-        "it": "Flessioni dei Tricipiti al Cavo"
-      },
-      "primary": "triceps",
-      "secondary": [],
-      "equipment": [
-        "cables"
-      ],
-      "muscleContributions": {
-        "triceps": 1
-      },
-      "pattern": "elbow-extension",
-      "compound": false,
-      "selectionPriority": 14,
-      "loadType": "external",
-      "minutes": 6,
-      "variationGroup": null,
-      "license": {
-        "name": "CC-BY-SA 4",
-        "url": "https://creativecommons.org/licenses/by-sa/4.0/deed.en",
-        "author": "cshep442"
-      },
-      "source": "wger",
-      "generationEligible": true,
-      "loadMultiplier": 1
-    },
-    {
       "id": "wger-659",
       "wgerId": 659,
       "name": "Triceps Extensions on Cable",
@@ -1725,36 +1663,6 @@
       "generationEligible": true,
       "loadMultiplier": 1,
       "loadUnit": "single-dumbbell"
-    },
-    {
-      "id": "wger-1185",
-      "wgerId": 1185,
-      "name": "Triceps Pushdown",
-      "translations": {
-        "en": "Triceps Pushdown"
-      },
-      "primary": "triceps",
-      "secondary": [],
-      "equipment": [
-        "cables"
-      ],
-      "muscleContributions": {
-        "triceps": 1
-      },
-      "pattern": "elbow-extension",
-      "compound": false,
-      "selectionPriority": 13,
-      "loadType": "external",
-      "minutes": 6,
-      "variationGroup": null,
-      "license": {
-        "name": "CC-BY-SA 4",
-        "url": "https://creativecommons.org/licenses/by-sa/4.0/deed.en",
-        "author": "anto.kreegyr"
-      },
-      "source": "wger",
-      "generationEligible": true,
-      "loadMultiplier": 1
     },
     {
       "id": "wger-1648",

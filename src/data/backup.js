@@ -17,7 +17,6 @@ export function createBackup({ profile, history, workout }) {
     cloud: {
       webDavUrl: profile.cloud?.webDavUrl || '',
       webDavUsername: profile.cloud?.webDavUsername || '',
-      autoSync: Boolean(profile.cloud?.autoSync),
     },
   };
   return {
@@ -34,20 +33,6 @@ export function createBackup({ profile, history, workout }) {
 
 export function serializeBackup(state) {
   return JSON.stringify(createBackup(state), null, 2);
-}
-
-export function backupStateFingerprint(state) {
-  const value = JSON.stringify({
-    profile: state?.profile || null,
-    history: state?.history || [],
-    workout: state?.workout || null,
-  });
-  let hash = 2166136261;
-  for (let index = 0; index < value.length; index += 1) {
-    hash ^= value.charCodeAt(index);
-    hash = Math.imul(hash, 16777619);
-  }
-  return `${value.length}:${(hash >>> 0).toString(16)}`;
 }
 
 export function isWorkoutRecord(workout) {
@@ -165,14 +150,12 @@ async function webDavRequest(url, options, fetcher) {
   }
 }
 
-export async function uploadWebDavBackup({ folderUrl, username = '', password = '', serialized, etag = null, createOnly = false, fetcher = fetch }) {
+export async function uploadWebDavBackup({ folderUrl, username = '', password = '', serialized, fetcher = fetch }) {
   const url = buildWebDavFileUrl(folderUrl);
   await webDavRequest(url, {
     method: 'PUT',
     headers: {
       ...webDavHeaders(username, password, true),
-      ...(etag ? { 'If-Match': etag } : {}),
-      ...(createOnly ? { 'If-None-Match': '*' } : {}),
     },
     body: serialized,
   }, fetcher);
@@ -180,74 +163,10 @@ export async function uploadWebDavBackup({ folderUrl, username = '', password = 
 }
 
 export async function downloadWebDavBackup({ folderUrl, username = '', password = '', fetcher = fetch }) {
-  return (await fetchWebDavBackup({ folderUrl, username, password, fetcher })).serialized;
-}
-
-export async function fetchWebDavBackup({ folderUrl, username = '', password = '', fetcher = fetch }) {
   const url = buildWebDavFileUrl(folderUrl);
   const response = await webDavRequest(url, {
     method: 'GET',
     headers: webDavHeaders(username, password),
   }, fetcher);
-  return {
-    serialized: await response.text(),
-    etag: response.headers?.get?.('etag') || null,
-  };
-}
-
-export function createWebDavUploadQueue(uploader = uploadWebDavBackup) {
-  let tail = Promise.resolve();
-  return (request) => {
-    const task = tail.catch(() => {}).then(() => uploader(request));
-    tail = task;
-    return task;
-  };
-}
-
-export function mergeBackupState(localState, remoteBackup, options = {}) {
-  const history = new Map();
-  [...(remoteBackup?.history || []), ...(localState?.history || [])].forEach((workout) => {
-    const fallbackKey = `${Number(workout.completedAt) || 0}:${(workout.exercises || []).map((item) => item.exerciseId).join(',')}`;
-    const key = workout.id || fallbackKey;
-    const previous = history.get(key);
-    const previousSets = previous?.exercises?.reduce((sum, item) => sum + (item.sets || []).filter((set) => set.done).length, 0) || 0;
-    const currentSets = workout?.exercises?.reduce((sum, item) => sum + (item.sets || []).filter((set) => set.done).length, 0) || 0;
-    if (!previous || currentSets >= previousSets) history.set(key, workout);
-  });
-  const localWorkout = localState?.workout && !localState.workout.completedAt ? localState.workout : null;
-  const remoteWorkout = remoteBackup?.workout && !remoteBackup.workout.completedAt ? remoteBackup.workout : null;
-  // Never replace a session currently present on this device. A remote session is
-  // adopted only when there is no local one, so a pull cannot interrupt training.
-  const workout = localWorkout || remoteWorkout || null;
-  return {
-    profile: options.preferRemoteProfile
-      ? remoteBackup?.profile || localState?.profile || null
-      : localState?.profile || remoteBackup?.profile || null,
-    history: [...history.values()].sort((a, b) => Number(a.completedAt) - Number(b.completedAt)),
-    workout,
-  };
-}
-
-export async function synchronizeWebDavBackup(request, attempts = 2) {
-  const { folderUrl, username = '', password = '', state, fetcher = fetch } = request;
-  let remote = null;
-  let etag = null;
-  let createOnly = false;
-  try {
-    const downloaded = await fetchWebDavBackup({ folderUrl, username, password, fetcher });
-    remote = parseBackup(downloaded.serialized);
-    etag = downloaded.etag;
-  } catch (error) {
-    if (error.code !== 'not-found') throw error;
-    createOnly = true;
-  }
-  const merged = mergeBackupState(state, remote);
-  const serialized = serializeBackup(merged);
-  try {
-    await uploadWebDavBackup({ folderUrl, username, password, serialized, etag, createOnly, fetcher });
-  } catch (error) {
-    if (error.code === 'conflict' && attempts > 1) return synchronizeWebDavBackup(request, attempts - 1);
-    throw error;
-  }
-  return { state: merged, serialized };
+  return response.text();
 }

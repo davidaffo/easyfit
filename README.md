@@ -95,9 +95,9 @@ Da **Impostazioni → Backup e cloud** si può:
 - importare un backup locale, validato prima della conferma e della sostituzione dei dati;
 - caricare o ripristinare `easyfit-backup.json` direttamente da una cartella Nextcloud tramite WebDAV.
 
-Per un account Nextcloud normale si usa l’URL mostrato in **File → Impostazioni WebDAV**, per esempio `https://cloud.example.com/remote.php/dav/files/USERNAME/Easyfit/`, insieme a username e app password. Le condivisioni pubbliche scrivibili recenti usano `/public.php/dav/files/TOKEN`; se sono protette, si usa `anonymous` come username e la password della condivisione. Se si abilita la sincronizzazione automatica, l'app password viene conservata soltanto nel `localStorage` del dispositivo corrente; viene sempre rimossa dal JSON esportato.
+Per un account Nextcloud normale si usa l’URL mostrato in **File → Impostazioni WebDAV**, per esempio `https://cloud.example.com/remote.php/dav/files/USERNAME/Easyfit/`, insieme a username e app password. Le condivisioni pubbliche scrivibili recenti usano `/public.php/dav/files/TOKEN`; se sono protette, si usa `anonymous` come username e la password della condivisione. L’app password non viene salvata: resta in memoria soltanto finché il pannello Nextcloud è aperto e non entra mai nel JSON esportato.
 
-**Carica / sovrascrivi** usa `PUT`, mentre **Ripristina dal cloud** usa `GET` e richiede conferma prima di sostituire i dati locali. L'opzione automatica scarica e unisce storico e workout remoto, serializza gli upload e usa `ETag`/`If-Match` con retry per non sovrascrivere una revisione concorrente. WebDAV richiede HTTPS, salvo server locali. Essendo una PWA statica, una Nextcloud su un dominio differente deve consentire dal browser le richieste WebDAV/CORS provenienti dal dominio dell’app; in caso contrario import ed export locali continuano a funzionare senza configurazioni server.
+**Carica / sovrascrivi** usa `PUT`, mentre **Ripristina dal cloud** usa `GET` e richiede conferma prima di sostituire i dati locali. Non esistono sincronizzazione, merge o upload in background: entrambe le operazioni partono esclusivamente dai pulsanti del pannello. WebDAV richiede HTTPS, salvo server locali. Essendo una PWA statica, una Nextcloud su un dominio differente deve consentire dal browser le richieste WebDAV/CORS provenienti dal dominio dell’app; in caso contrario import ed export locali continuano a funzionare senza configurazioni server.
 
 ## Funzioni incluse
 
@@ -122,7 +122,7 @@ Per un account Nextcloud normale si usa l’URL mostrato in **File → Impostazi
 - timer di recupero;
 - area Progressi con riepilogo settimanale degli esercizi ricorrenti, schede Forza, Volume, Record e Attività, più storico del singolo esercizio;
 - menu Impostazioni completo e reset confermato di profilo, storico, workout e preferenze locali;
-- backup JSON con import/export, upload/ripristino e sincronizzazione automatica opzionale Nextcloud WebDAV;
+- backup JSON con import/export e upload/ripristino manuale Nextcloud WebDAV;
 - installazione PWA e uso offline.
 
-Tutti i dati utente restano in `localStorage` per impostazione predefinita. Vengono inviati fuori dal dispositivo quando l’utente preme **Carica / sovrascrivi** o abilita esplicitamente la sincronizzazione automatica.
+Tutti i dati utente restano in `localStorage` per impostazione predefinita. Vengono inviati fuori dal dispositivo soltanto quando l’utente preme esplicitamente **Carica / sovrascrivi**.

@@ -3,14 +3,10 @@ import { readFile } from 'node:fs/promises';
 import { catalogExercises, exercises } from '../src/data/exercises.js';
 import {
   BACKUP_FILENAME,
-  backupStateFingerprint,
   buildWebDavFileUrl,
-  createWebDavUploadQueue,
   downloadWebDavBackup,
-  mergeBackupState,
   parseBackup,
   serializeBackup,
-  synchronizeWebDavBackup,
   uploadWebDavBackup,
 } from '../src/data/backup.js';
 import { getExerciseDetails } from '../src/data/exerciseDetails.js';
@@ -38,8 +34,10 @@ import {
   getWeeklyTargets,
   getWorkoutCompositionLimits,
   getWorkoutSettingsFingerprint,
+  getWorkoutExercise,
   isExerciseAllowed,
   isCompatibleWorkout,
+  isPreparedWorkoutStale,
   isEssentialExercise,
   isLowerBodyExercise,
   isReturningAfterBreak,
@@ -67,6 +65,10 @@ for (const exercise of exercises) {
 const serviceWorkerSource = await readFile(new URL('../public/sw.js', import.meta.url), 'utf8');
 assert(serviceWorkerSource.includes('cache.addAll(images)'), 'The service worker install must fail atomically if any bundled guide image cannot be cached');
 assert(!serviceWorkerSource.includes('Promise.allSettled(images'), 'Offline installation must not silently ignore missing guide images');
+assert(serviceWorkerSource.includes("requestUrl.origin !== self.location.origin"), 'The service worker must never intercept cross-origin WebDAV traffic');
+assert(serviceWorkerSource.includes("headers.has('Authorization')"), 'Authenticated responses must never enter the PWA cache');
+assert(!exercises.some((exercise) => exercise.wgerId === 458), 'Rep-based prescriptions must not include a time-based plank');
+assert.equal(exercises.filter((exercise) => [659, 805, 1185].includes(exercise.wgerId)).length, 1, 'Near-identical cable triceps duplicates must collapse to one canonical exercise');
 
 const benchVariantProfile = {
   goal: 'muscle',
@@ -127,6 +129,8 @@ oneSetHistory[0].exercises[0].sets = oneSetHistory[0].exercises[0].sets.slice(0,
 assert.equal(getWeeklyMuscleLoad(oneSetHistory).volume.shoulders, 0.5, 'A single indirect set must retain fractional volume');
 assert.equal(getWeeklyMuscleLoad(oneSetHistory).frequency.shoulders, 0, 'A token half-set must not inflate weekly frequency');
 assert.equal(getWeeklyMovementFrequency(oneSetHistory).push, 1, 'A completed push movement must count as one structural exposure');
+const tokenMovementHistory = [{ completedAt: Date.now() - 1000, exercises: [{ exerciseId: bench.id, exerciseSnapshot: bench, sets: [{ ...baseSet, targetReps: 12, reps: 1, rir: 10 }] }] }];
+assert.equal(getWeeklyMovementFrequency(tokenMovementHistory).push, 0, 'A token set must not count as a productive structural exposure');
 const targetEffortSet = [{ completedAt: Date.now() - 1000, exercises: [{ exerciseId: bench.id, sets: [{ ...baseSet, reps: 8, rir: 2 }] }] }];
 const failureEffortSet = [{ completedAt: Date.now() - 1000, exercises: [{ exerciseId: bench.id, sets: [{ ...baseSet, reps: 8, rir: 0 }] }] }];
 assert.equal(getWeeklyMuscleLoad(failureEffortSet).volume.chest, getWeeklyMuscleLoad(targetEffortSet).volume.chest, 'Going closer to failure must raise fatigue without subtracting productive stimulus');
@@ -246,9 +250,12 @@ const activeLegacyBench = {
 assert.equal(isCompatibleWorkout(activeLegacyBench, { ...profile, equipment: ['barbell', 'bench'] }), true, 'An active known workout must survive stricter equipment rules introduced by an engine update');
 assert.equal(isCompatibleWorkout({ ...activeLegacyBench, startedAt: null, exercises: [{ ...activeLegacyBench.exercises[0], sets: [{ ...baseSet, done: false }] }] }, { ...profile, equipment: ['barbell', 'bench'] }), false, 'An unopened incompatible workout may be regenerated safely');
 assert.equal(isCompatibleWorkout({ ...activeLegacyBench, completedAt: Date.now() }), false, 'A completed workout must never be accepted as the current session');
+const removedCatalogExercise = { id: 'removed-catalog-id', startedAt: Date.now() - 1000, exercises: [{ exerciseId: 'removed-id', sets: [{ ...baseSet, done: false }] }] };
+assert.equal(isCompatibleWorkout(removedCatalogExercise, profile), true, 'An active workout must survive even if a catalog revision removed its exercise');
+assert.equal(getWorkoutExercise(removedCatalogExercise.exercises[0]).legacy, true, 'A removed exercise must have a safe legacy display fallback');
 
 const backupState = {
-  profile: { ...profile, cloud: { webDavUrl: 'https://cloud.example.test/remote.php/dav/files/user/Easyfit', webDavUsername: 'user', webDavPassword: 'app-password' } },
+  profile: { ...profile, cloud: { webDavUrl: 'https://cloud.example.test/remote.php/dav/files/user/Easyfit', webDavUsername: 'user', webDavPassword: 'app-password', autoSync: true } },
   history: hardHistory,
   workout: null,
 };
@@ -307,61 +314,7 @@ const downloadedBackup = await downloadWebDavBackup({
 assert.equal(downloadMethod, 'GET', 'Nextcloud restore must use WebDAV GET');
 assert.deepEqual(parseBackup(downloadedBackup).history[0].exercises, hardHistory[0].exercises, 'A cloud download must remain a valid Easyfit backup');
 
-const uploadOrder = [];
-let releaseFirst;
-const firstUploadGate = new Promise((resolve) => { releaseFirst = resolve; });
-const queuedUpload = createWebDavUploadQueue(async ({ serialized }) => {
-  uploadOrder.push(`start-${serialized}`);
-  if (serialized === 'old') await firstUploadGate;
-  uploadOrder.push(`end-${serialized}`);
-});
-const oldUpload = queuedUpload({ serialized: 'old' });
-const newUpload = queuedUpload({ serialized: 'new' });
-await new Promise((resolve) => setImmediate(resolve));
-assert.deepEqual(uploadOrder, ['start-old'], 'A newer WebDAV upload must wait while an older request is still in flight');
-releaseFirst();
-await Promise.all([oldUpload, newUpload]);
-assert.deepEqual(uploadOrder, ['start-old', 'end-old', 'start-new', 'end-new'], 'WebDAV writes must finish in state order so stale data cannot overwrite a newer backup');
-
-const remoteOne = { ...hardHistory[0], id: 'remote-one', completedAt: Date.now() - 3000 };
-const remoteTwo = { ...hardHistory[0], id: 'remote-two', completedAt: Date.now() - 2000 };
-let conditionalGets = 0;
-let conditionalPuts = 0;
-let finalConditionalUpload;
-const conditionalSync = await synchronizeWebDavBackup({
-  folderUrl: 'https://cloud.example.test/remote.php/dav/files/user/Easyfit',
-  username: 'user',
-  password: 'app-password',
-  state: { profile, history: hardHistory, workout: null },
-  fetcher: async (_url, options) => {
-    if (options.method === 'GET') {
-      conditionalGets += 1;
-      const remoteHistory = conditionalGets === 1 ? [remoteOne] : [remoteOne, remoteTwo];
-      return {
-        ok: true,
-        status: 200,
-        headers: { get: (name) => name.toLowerCase() === 'etag' ? `etag-${conditionalGets}` : null },
-        text: async () => serializeBackup({ profile, history: remoteHistory, workout: null }),
-      };
-    }
-    conditionalPuts += 1;
-    if (conditionalPuts === 1) return { ok: false, status: 412 };
-    finalConditionalUpload = options;
-    return { ok: true, status: 204 };
-  },
-});
-assert.equal(conditionalGets, 2, 'A WebDAV conflict must re-read the newer remote state before retrying');
-assert.equal(finalConditionalUpload.headers['If-Match'], 'etag-2', 'A synchronized upload must be conditional on the remote revision it merged');
-assert.equal(conditionalSync.state.history.length, 3, 'Conflict retry must preserve local history and every remote revision');
-
-const mergedCloud = mergeBackupState(
-  { profile, history: hardHistory, workout: activeWorkoutState },
-  { profile: {}, history: [{ ...hardHistory[0], id: 'remote-session', completedAt: Date.now() - 1000 }], workout: { id: 'remote-active', createdAt: Date.now(), exercises: [{ exerciseId: bench.id, sets: [{ ...baseSet, done: false }] }] } },
-);
-assert.equal(mergedCloud.history.length, 2, 'Automatic cloud pull must merge non-duplicate history instead of replacing local data');
-assert.equal(mergedCloud.workout.id, activeWorkoutState.id, 'Automatic cloud pull must never replace the workout active on this device');
-assert.equal(mergeBackupState({ profile, history: [], workout: null }, { profile: { goal: 'strength' }, history: [], workout: null }, { preferRemoteProfile: true }).profile.goal, 'strength', 'A clean device must be able to restore cloud settings automatically');
-assert.equal(backupStateFingerprint({ profile, history: hardHistory, workout: null }), backupStateFingerprint({ profile, history: hardHistory, workout: null }), 'Cloud conflict detection must use a stable local-state fingerprint');
+assert.equal(parseBackup(serializedBackup).profile.cloud.autoSync, undefined, 'Backups must not retain the retired automatic-sync setting');
 
 assert.deepEqual(getWeeklyTargets(profile), { sets: 8, frequency: 2 }, 'Adaptive hypertrophy must start from a moderate dose and aim for two exposures');
 assert.equal(getWeeklyTargets({ ...profile, level: 'beginner' }).sets, 8, 'A declared level alone must not arbitrarily change muscle volume');
@@ -522,6 +475,12 @@ const settingsFingerprint = getWorkoutSettingsFingerprint(focusProfile);
 assert.equal(getWorkoutSettingsFingerprint({ ...focusProfile, exerciseLanguage: 'it', cloud: { webDavUrl: 'https://example.test' } }), settingsFingerprint, 'Language and cloud settings must not invalidate an existing workout');
 assert.notEqual(getWorkoutSettingsFingerprint({ ...focusProfile, targetRir: 1 }), settingsFingerprint, 'A training setting such as target RIR must invalidate an existing workout');
 assert.notEqual(getWorkoutSettingsFingerprint({ ...focusProfile, exerciseFilters: { excludeDirectCore: true } }), settingsFingerprint, 'Exercise filters must invalidate an existing workout');
+const preparedAt = Date.now() - 2 * 36e5;
+const freshPrepared = generateWorkout(focusProfile, [], { now: preparedAt, variation: 1 });
+assert.equal(isPreparedWorkoutStale(freshPrepared, focusProfile, [], preparedAt + 1000), false, 'A newly prepared workout must remain reusable');
+assert.equal(isPreparedWorkoutStale(freshPrepared, { ...focusProfile, targetRir: 1 }, [], preparedAt + 1000), true, 'Changed training settings must stale a prepared workout');
+assert.equal(isPreparedWorkoutStale(freshPrepared, focusProfile, [{ ...hardHistory[0], completedAt: preparedAt + 1000 }], preparedAt + 2000), true, 'New completed training data must stale an older prepared workout');
+assert.equal(isPreparedWorkoutStale({ ...freshPrepared, startedAt: preparedAt + 500 }, { ...focusProfile, targetRir: 1 }, [], preparedAt + 1000), false, 'An opened workout must never be regenerated underneath the user');
 
 adaptiveWithTwoLegacyDays.completedAt = Date.now() - 36e5;
 adaptiveWithTwoLegacyDays.exercises.forEach((item) => item.sets.forEach((set) => { set.done = true; set.rir = 2; }));
@@ -733,6 +692,14 @@ assert(calibratedBodyweight.sets.every((set, index, sets) => index === 0 || set.
 const weakBodyweightCalibration = calibrateBodyweightPrescription(uncalibratedBodyWorkout.exercises[0], 5);
 assert.equal(weakBodyweightCalibration.sets[0].reps, 3, 'Bodyweight calibration must never prescribe more than tested maximum minus target RIR');
 assert.equal(weakBodyweightCalibration.calibrationBelowRange, true, 'A capacity below the nominal range must remain visible without falsifying the prescription');
+const weakCalibrationHistory = [{
+  id: 'weak-bodyweight-calibration',
+  completedAt: Date.now() - 1000,
+  exercises: [{ ...weakBodyweightCalibration, sets: weakBodyweightCalibration.sets.map((set) => ({ ...set, rir: 2, done: true })) }],
+}];
+const weakNextWorkout = generateWorkout({ ...profile, equipment: ['bodyweight'], preferences: bodyPreferences }, weakCalibrationHistory, { targets: ['quads'], duration: 25 });
+assert(weakNextWorkout.exercises[0].sets[0].reps <= 3, 'A low bodyweight calibration must persist into the following session instead of jumping to the nominal minimum');
+assert(Number.isInteger(weakNextWorkout.exercises[0].sets[0].reps), 'Bodyweight progression must always prescribe an integer repetition target');
 const bodyWorkout = generateWorkout({ ...profile, equipment: ['bodyweight'], preferences: bodyPreferences }, bodyweightHistory, { targets: ['quads'], duration: 25 });
 assert(bodyWorkout.exercises[0].sets[0].reps > 8, 'Bodyweight reps must adapt to demonstrated capacity');
 

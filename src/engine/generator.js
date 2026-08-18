@@ -5,7 +5,7 @@ const DAY = 864e5;
 const FULL_STIMULUS_DAYS = 7;
 const STIMULUS_HORIZON_DAYS = 10;
 const MIN_TRAINING_READINESS = 45;
-export const ENGINE_VERSION = 15;
+export const ENGINE_VERSION = 16;
 
 const muscleBaseImportance = {
   chest: 100,
@@ -105,6 +105,35 @@ export function startWorkout(workout, startedAt = Date.now()) {
   return { ...workout, startedAt: Number(startedAt) || Date.now() };
 }
 
+function resolveRecordedExercise(item) {
+  const current = exercises.find((exercise) => exercise.id === item?.exerciseId);
+  if (current) return current;
+  const snapshot = item?.exerciseSnapshot;
+  return snapshot
+    && typeof snapshot.id === 'string'
+    && typeof snapshot.name === 'string'
+    && typeof snapshot.primary === 'string'
+    && Array.isArray(snapshot.equipment)
+    ? snapshot
+    : null;
+}
+
+export function getWorkoutExercise(item) {
+  return resolveRecordedExercise(item) || {
+    id: item?.exerciseId || 'legacy-exercise',
+    name: `Legacy exercise (${item?.exerciseId || 'unknown'})`,
+    translations: {},
+    primary: 'core',
+    equipment: [],
+    pattern: 'legacy',
+    compound: false,
+    loadType: item?.sets?.some((set) => Number(set.weight) > 0) ? 'external' : 'bodyweight',
+    loadUnit: 'total',
+    muscleContributions: {},
+    legacy: true,
+  };
+}
+
 export function isCompatibleWorkout(workout, profile = null) {
   const validRecord = Boolean(workout
     && typeof workout === 'object'
@@ -115,8 +144,11 @@ export function isCompatibleWorkout(workout, profile = null) {
   if (!validRecord || workout.completedAt) return false;
   const hasRecordedSets = workout.exercises.some((item) => item.sets.some((set) => set?.done));
   const mustPreserveSession = Boolean(workout.startedAt || hasRecordedSets);
-  return workout.exercises.every((item) => exercises.some((exercise) => exercise.id === item.exerciseId
-    && (!profile || mustPreserveSession || isExerciseAllowed(exercise, profile))));
+  return workout.exercises.every((item) => {
+    const exercise = resolveRecordedExercise(item);
+    if (!exercise) return mustPreserveSession;
+    return !profile || mustPreserveSession || isExerciseAllowed(exercise, profile);
+  });
 }
 
 function stimulusWindowWeight(completedAt, now) {
@@ -290,7 +322,7 @@ function setAdherenceQuality(set) {
 function getWorkoutMuscleStimulusDetails(workout) {
   const details = Object.fromEntries(allMuscles.map((muscle) => [muscle, { stimulus: 0, potential: 0, adherence: 0 }]));
   (workout.exercises || []).forEach((item) => {
-    const exercise = exercises.find((candidate) => candidate.id === item.exerciseId);
+    const exercise = resolveRecordedExercise(item);
     if (!exercise) return;
     const contributions = getExerciseMuscleContributions(exercise);
     (item.sets || []).filter((set) => set.done).forEach((set) => {
@@ -339,9 +371,12 @@ export function getWeeklyMovementFrequency(history = [], now = Date.now()) {
     const covered = new Set();
     workout.exercises.forEach((item) => {
       if (!item.sets.some((set) => set.done)) return;
-      const exercise = exercises.find((candidate) => candidate.id === item.exerciseId);
+      const exercise = resolveRecordedExercise(item);
       const family = getMovementFamily(exercise);
-      if (family) covered.add(family);
+      const productiveStimulus = item.sets
+        .filter((set) => set.done)
+        .reduce((sum, set) => sum + setStimulusQuality(set), 0);
+      if (family && productiveStimulus >= .75) covered.add(family);
     });
     covered.forEach((family) => { frequency[family] += windowWeight; });
   });
@@ -364,7 +399,7 @@ export function getRecovery(history = [], now = Date.now(), profile = {}) {
     if (!validCompletedWorkout(workout, now)) return;
     const ageHours = (now - workout.completedAt) / 36e5;
     workout.exercises.forEach((item) => {
-      const exercise = exercises.find((candidate) => candidate.id === item.exerciseId);
+      const exercise = resolveRecordedExercise(item);
       if (!exercise) return;
       item.sets.filter((set) => set.done).forEach((set) => {
         const effort = setEffort(set);
@@ -401,7 +436,7 @@ function musclePerformanceTrend(history, muscle, now) {
   const byExercise = new Map();
   history.filter((workout) => validCompletedWorkout(workout, now) && workout.completedAt >= now - 28 * DAY)
     .forEach((workout) => (workout.exercises || []).forEach((item) => {
-      const exercise = exercises.find((candidate) => candidate.id === item.exerciseId);
+      const exercise = resolveRecordedExercise(item);
       if (exercise?.primary !== muscle) return;
       const value = exerciseSessionMetric(item, exercise);
       if (!value) return;
@@ -458,7 +493,7 @@ export function recalibrateTrainingTargets(profile, history = [], now = Date.now
     const primaryExposures = history.filter((workout) => validCompletedWorkout(workout, now)
       && workout.completedAt > lastEvaluatedAt
       && (workout.exercises || []).some((item) => {
-        const exercise = exercises.find((candidate) => candidate.id === item.exerciseId);
+        const exercise = resolveRecordedExercise(item);
         return exercise?.primary === muscle && (item.sets || []).some((set) => set.done);
       })).length;
     // Sparse or purely indirect observations are not enough to change a dose.
@@ -620,7 +655,15 @@ function doubleProgression(exercise, profile, progress, limits, intensity) {
     ? reconcilePerformedLoad(progress.lastWeight, exercise, profile)
     : { weight: null, adjusted: false, unsafeIncrease: false };
   const lastAvailableWeight = reconciledLoad.weight;
-  const previousTarget = clamp(Number(progress.latestTargetReps) || limits.minReps, limits.minReps, limits.maxReps);
+  const demonstratedBelowRange = !usesWeight && progress.sessions > 0
+    && Number(progress.latestTargetReps) > 0
+    && Number(progress.latestTargetReps) < limits.minReps;
+  const progressionMinimum = demonstratedBelowRange ? 1 : limits.minReps;
+  const previousTarget = clamp(
+    Math.round(Number(progress.latestTargetReps) || limits.minReps),
+    progressionMinimum,
+    limits.maxReps,
+  );
   const supportedReps = progress.latestSupportedReps;
   const minimumSupportedReps = progress.minimumSupportedReps;
   const completedPrescription = progress.latestCompletionRate == null || progress.latestCompletionRate >= .8;
@@ -714,6 +757,21 @@ function prescription(exercise, profile, history, context = {}) {
 
   return {
     exerciseId: exercise.id,
+    exerciseSnapshot: {
+      id: exercise.id,
+      wgerId: exercise.wgerId,
+      name: exercise.name,
+      translations: exercise.translations,
+      primary: exercise.primary,
+      equipment: exercise.equipment,
+      pattern: exercise.pattern,
+      compound: exercise.compound,
+      loadType: exercise.loadType,
+      loadUnit: exercise.loadUnit,
+      loadMultiplier: exercise.loadMultiplier,
+      muscleContributions: exercise.muscleContributions,
+      license: exercise.license,
+    },
     rest: rule.rest,
     targetRir,
     repRange: { min: limits.minReps, max: limits.maxReps },
@@ -818,7 +876,7 @@ export function getExerciseContinuity(history = [], now = Date.now()) {
     .forEach((workout) => {
       (workout.exercises || []).forEach((item) => {
         if (!(item.sets || []).some((set) => set.done && setStimulusQuality(set) >= .7)) return;
-        const exercise = exercises.find((candidate) => candidate.id === item.exerciseId);
+        const exercise = resolveRecordedExercise(item);
         if (!exercise) return;
         const previous = state[exercise.pattern];
         state[exercise.pattern] = {
@@ -1064,6 +1122,16 @@ export function getWorkoutSettingsFingerprint(profile = {}) {
   });
 }
 
+export function isPreparedWorkoutStale(workout, profile, history = [], now = Date.now()) {
+  if (!workout || workout.completedAt || isWorkoutActive(workout)) return false;
+  if (workout.engine?.version !== ENGINE_VERSION) return true;
+  if (workout.engine?.settingsFingerprint !== getWorkoutSettingsFingerprint(profile)) return true;
+  const createdAt = Number(workout.createdAt) || 0;
+  if (!createdAt || Number(now) - createdAt > DAY) return true;
+  return history.some((entry) => validCompletedWorkout(entry, now)
+    && Number(entry.completedAt) > createdAt);
+}
+
 export function generateWorkout(profile, history = [], options = {}) {
   const now = Number(options.now) || Date.now();
   const recovery = getRecovery(history, now, profile);
@@ -1255,12 +1323,12 @@ export function generateWorkout(profile, history = [], options = {}) {
 export function rebuildWorkoutMetadata(workout) {
   if (!workout?.exercises) return workout;
   const selected = workout.exercises
-    .map((item) => exercises.find((exercise) => exercise.id === item.exerciseId))
+    .map(resolveRecordedExercise)
     .filter(Boolean);
   const compositionLimits = getWorkoutCompositionLimits(workout.duration);
   const movementFamilyIds = [...new Set(selected.map(getMovementFamily).filter(Boolean))];
   const estimatedMinutes = 7 + workout.exercises.reduce((sum, item) => {
-    const exercise = exercises.find((candidate) => candidate.id === item.exerciseId);
+    const exercise = resolveRecordedExercise(item);
     return exercise ? sum + estimatePrescriptionMinutes(exercise, item) : sum;
   }, 0);
   return {

@@ -208,15 +208,6 @@
       "image": "/exercise-images/454.webp",
       "sourceUpdatedAt": "2026-06-06T13:35:29.120812+02:00"
     },
-    "458": {
-      "uuid": "c9e57bbe-e839-44c6-861d-1c8dd2845e36",
-      "descriptions": {
-        "en": "Get into a position on the floor supporting your weight on your forearms and toes. Arms are bent and directly below the shoulder.\nKeep your body straight at all times and hold this position as long as possible. To increase difficulty an arm or leg can be raised while performing this exercise.",
-        "it": "Mettiti in posizione sul pavimento sostenendo il tuo peso sugli avambracci e sulle dita dei piedi. Le braccia sono piegate e direttamente sotto la spalla.\nTieni il corpo sempre dritto e mantieni questa posizione il più a lungo possibile. Per aumentare la difficoltà, è possibile sollevare un braccio o una gamba durante l'esecuzione di questo esercizio."
-      },
-      "image": "/exercise-images/458.webp",
-      "sourceUpdatedAt": "2026-04-15T22:23:56.746559+02:00"
-    },
     "475": {
       "uuid": "8e420408-0682-4ab6-89f5-2681e54c7ce0",
       "descriptions": {
@@ -266,15 +257,6 @@
       },
       "image": "/exercise-images/659.webp",
       "sourceUpdatedAt": "2026-07-23T12:36:19.710591+02:00"
-    },
-    "805": {
-      "uuid": "ea63d85c-8579-4dda-b99f-c4c8930f9af6",
-      "descriptions": {
-        "en": "The cable rope push-down is a popular exercise targeting the triceps muscles. It's easy to learn and perform, making it a favorite for everyone from beginners to advanced lifters. It is usually performed for moderate to high reps, such as 8-12 reps or more per set, as part of an upper-body or arm-focused workout.",
-        "it": "Il push-down con la corda è un esercizio molto popolare per i tricipiti. È facile da imparare e da eseguire, per cui è il preferito da tutti, dai sollevatori principianti agli esperti. Di solito viene eseguito con ripetizioni moderate o elevate, come 8-12 ripetizioni o più per serie, parte di un allenamento per la parte superiore del corpo o incentrato per le braccia."
-      },
-      "image": "/exercise-images/805.webp",
-      "sourceUpdatedAt": "2026-07-23T12:36:22.247848+02:00"
     },
     "822": {
       "uuid": "5d244235-cd56-472a-876e-6e530a899ef2",
@@ -334,14 +316,6 @@
       },
       "image": "/exercise-images/1136.webp",
       "sourceUpdatedAt": "2026-07-23T12:36:26.761073+02:00"
-    },
-    "1185": {
-      "uuid": "6ebb138e-bb0a-402e-84e5-68fe0896e897",
-      "descriptions": {
-        "en": "Triceps pushdown on cable using lat bar."
-      },
-      "image": "/exercise-images/1185.webp",
-      "sourceUpdatedAt": "2026-07-23T12:36:27.994993+02:00"
     },
     "1336": {
       "uuid": "19133a0d-e6b2-4d57-8a84-8aac3d962a99",
