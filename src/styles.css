@@ -506,10 +506,14 @@ input[type="range"] { width: 100%; height: 4px; margin: 22px 0 10px; accent-colo
 .load-inventory section label { font-weight: 800; letter-spacing: .5px; text-transform: uppercase; }
 .load-chip-list { display: flex; flex-wrap: wrap; gap: 5px; }
 .load-chip-list button { min-width: 34px; height: 30px; padding: 0 8px; border: 1px solid var(--line); border-radius: 16px; background: var(--white); color: var(--ink); font-size: 9px; font-weight: 700; }
-.load-chip-list button.selected { border-color: var(--ink); background: var(--ink); color: var(--acid); }
+.saved-loads { margin-top: 1px; }
+.saved-loads button { display: inline-flex; align-items: center; gap: 7px; border-color: var(--ink); background: var(--ink); color: var(--white); }
+.saved-loads button span { color: var(--acid); font-size: 15px; line-height: 1; }
+.empty-loads { margin: 0; color: var(--muted); font-size: 9px; }
 .custom-load { display: grid; grid-template-columns: 1fr auto; gap: 6px; }
 .custom-load input { min-width: 0; height: 34px; padding: 0 10px; border: 1px solid var(--line); border-radius: 7px; background: var(--white); font-size: 10px; }
 .custom-load button { padding: 0 11px; border: 0; border-radius: 7px; background: var(--ink); color: white; font-size: 9px; font-weight: 700; }
+.custom-load button:disabled { opacity: .35; }
 .inventory-required { margin: 10px 2px 78px; color: #9a392f; font-size: 9px; line-height: 1.45; }
 .setting-help { color: var(--muted); font-size: 9px; line-height: 1.45; margin: 9px 2px 0; }
 .catalog-credit { padding: 20px 15px; margin-top: 20px; border-radius: 6px; background: #e8e6df; color: #74786f; text-align: center; font-size: 9px; line-height: 1.5; }

@@ -238,22 +238,12 @@ function Onboarding({ onDone }) {
   </main>;
 }
 
-const loadPresets = {
-  dumbbells: [2, 3, 4, 5, 6, 7.5, 8, 10, 12, 14, 16, 18, 20, 22, 24, 26, 28, 30, 32, 36, 40],
-  kettlebell: [4, 6, 8, 10, 12, 16, 20, 24, 28, 32, 36, 40],
-  barbell: [10, 15, 20, 25, 30, 35, 40, 45, 50, 60, 70, 80, 90, 100],
-  ezbar: [5, 10, 15, 20, 25, 30, 35, 40, 45, 50],
-  machines: [5, 10, 15, 20, 25, 30, 40, 50, 60, 70, 80, 90, 100],
-  cables: [2.5, 5, 7.5, 10, 12.5, 15, 20, 25, 30, 40, 50],
-};
-
 function WeightInventoryEditor({ profile, setProfile }) {
   const [custom, setCustom] = useState({});
-  const visible = Object.keys(loadPresets).filter((equipment) => profile.equipment.includes(equipment));
+  const visible = Object.keys(defaultProfile.loadInventory).filter((equipment) => profile.equipment.includes(equipment));
   if (!visible.length) return null;
-  const toggle = (equipment, load) => {
-    const current = profile.loadInventory?.[equipment] || [];
-    const next = current.includes(load) ? current.filter((value) => value !== load) : [...current, load].sort((a, b) => a - b);
+  const remove = (equipment, load) => {
+    const next = (profile.loadInventory?.[equipment] || []).filter((value) => value !== load);
     setProfile({ ...profile, loadInventory: { ...profile.loadInventory, [equipment]: next } });
   };
   const addCustom = (equipment) => {
@@ -263,10 +253,12 @@ function WeightInventoryEditor({ profile, setProfile }) {
     setProfile({ ...profile, loadInventory: { ...profile.loadInventory, [equipment]: next } });
     setCustom({ ...custom, [equipment]: '' });
   };
-  return <div className="load-inventory"><div><strong>Carichi disponibili</strong><small>La progressione userà soltanto questi pesi.</small></div>{visible.map((equipment) => <section key={equipment}>
+  return <div className="load-inventory"><div><strong>Carichi disponibili</strong><small>La progressione userà soltanto i pesi che inserisci.</small></div>{visible.map((equipment) => <section key={equipment}>
     <label>{equipmentLabels[equipment]} · kg {equipment === 'dumbbells' ? 'per manubrio' : 'totali'}</label>
-    <div className="load-chip-list">{loadPresets[equipment].map((load) => <button type="button" key={load} className={(profile.loadInventory?.[equipment] || []).includes(load) ? 'selected' : ''} onClick={() => toggle(equipment, load)}>{load}</button>)}</div>
-    <div className="custom-load"><input inputMode="decimal" type="number" min="0.5" step="0.5" placeholder="Altro peso" value={custom[equipment] || ''} onChange={(event) => setCustom({ ...custom, [equipment]: event.target.value })}/><button type="button" onClick={() => addCustom(equipment)}>Aggiungi</button></div>
+    <form className="custom-load" onSubmit={(event) => { event.preventDefault(); addCustom(equipment); }}><input aria-label={`Peso disponibile per ${equipmentLabels[equipment]}`} inputMode="decimal" type="number" min="0.5" max="1000" step="0.5" placeholder={equipment === 'dumbbells' ? 'Es. 10 kg per manubrio' : 'Es. 20 kg'} value={custom[equipment] || ''} onChange={(event) => setCustom({ ...custom, [equipment]: event.target.value })}/><button type="submit" disabled={!Number.isFinite(Number(custom[equipment])) || Number(custom[equipment]) <= 0}>Aggiungi</button></form>
+    {(profile.loadInventory?.[equipment] || []).length
+      ? <div className="load-chip-list saved-loads" aria-label={`Pesi salvati per ${equipmentLabels[equipment]}`}>{profile.loadInventory[equipment].map((load) => <button type="button" key={load} onClick={() => remove(equipment, load)} aria-label={`Rimuovi ${load} kg`}><strong>{load} kg</strong><span aria-hidden="true">×</span></button>)}</div>
+      : <p className="empty-loads">Nessun peso inserito</p>}
   </section>)}</div>;
 }
 
