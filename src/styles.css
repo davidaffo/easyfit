@@ -142,6 +142,8 @@ input[type="range"] { width: 100%; height: 4px; margin: 22px 0 10px; accent-colo
 .workout-meta small { color: #8f9388; font-size: 9px; margin-top: 1px; }
 .workout-meta i { width: 1px; height: 24px; background: #363932; }
 .play-disc { display: grid; place-items: center; width: 28px; height: 28px; background: var(--ink); color: var(--acid); border-radius: 50%; }
+.workout-hero-actions { position: relative; z-index: 1; display: grid; gap: 10px; }
+.discard-workout { justify-self: center; padding: 4px 7px; border: 0; border-bottom: 1px solid #777b71; background: transparent; color: #b7baaf; display: flex; align-items: center; gap: 6px; font-size: 9px; font-weight: 700; cursor: pointer; }
 .quick-section { padding: 34px 0 5px; }
 .section-heading { display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 15px; }
 .section-heading h2 { font: 700 19px Inter; letter-spacing: -.6px; margin: 4px 0 0; }
@@ -235,6 +237,7 @@ input[type="range"] { width: 100%; height: 4px; margin: 22px 0 10px; accent-colo
 .history-sheet { width: 100%; max-height: 88vh; overflow-y: auto; padding: 25px 17px calc(24px + env(safe-area-inset-bottom)); border-radius: 13px 13px 0 0; background: var(--paper); position: relative; animation: sheet-in .22s ease-out; }
 .similar-sheet { width: 100%; max-height: 90vh; overflow-y: auto; padding: 25px 17px calc(24px + env(safe-area-inset-bottom)); border-radius: 13px 13px 0 0; background: var(--paper); position: relative; animation: sheet-in .22s ease-out; }
 .guide-sheet { width: 100%; max-height: 92vh; overflow-y: auto; padding: 25px 17px calc(24px + env(safe-area-inset-bottom)); border-radius: 13px 13px 0 0; background: var(--paper); position: relative; animation: sheet-in .22s ease-out; }
+.refresh-workout-sheet { width: 100%; max-height: 90vh; overflow-y: auto; padding: 25px 17px calc(24px + env(safe-area-inset-bottom)); border-radius: 13px 13px 0 0; background: var(--paper); position: relative; animation: sheet-in .22s ease-out; }
 .sheet-close { position: absolute; top: 13px; right: 13px; width: 38px; height: 38px; border: 0; border-radius: 50%; background: #e5e3dc; display: grid; place-items: center; cursor: pointer; }
 .rir-sheet .eyebrow { max-width: calc(100% - 45px); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .rir-sheet h2 { font: 700 28px/1.08 Inter; letter-spacing: -1.2px; margin: 12px 0 8px; }
@@ -256,6 +259,18 @@ input[type="range"] { width: 100%; height: 4px; margin: 22px 0 10px; accent-colo
 .exercise-option-list small { color: var(--muted); font-size: 8px; line-height: 1.35; }
 .exercise-option-list .danger { color: #9f3028; }
 .exercise-option-list .danger > span { background: #f5dfdb; }
+.refresh-workout-sheet > h2 { font: 700 27px/1.1 Inter; letter-spacing: -1px; margin: 11px 0 6px; }
+.refresh-workout-sheet > p { max-width: 430px; color: var(--muted); font-size: 10px; line-height: 1.45; margin: 0; }
+.refresh-type-list { display: grid; gap: 7px; margin-top: 19px; }
+.refresh-type-list > button { min-height: 73px; padding: 11px 10px 11px 13px; border: 1px solid var(--line); border-radius: 8px; background: var(--white); display: grid; grid-template-columns: 1fr auto auto 18px; align-items: center; gap: 10px; color: var(--ink); text-align: left; cursor: pointer; }
+.refresh-type-list > button > div { display: flex; flex-direction: column; gap: 4px; }
+.refresh-type-list > button > div strong { font-size: 12px; }
+.refresh-type-list > button > div small { color: var(--muted); font-size: 8px; }
+.refresh-type-list > button > span { display: flex; flex-direction: column; align-items: flex-end; }
+.refresh-type-list > button > span b { color: #567121; font-size: 11px; }
+.refresh-type-list > button > span small { color: var(--muted); font-size: 7px; text-transform: uppercase; }
+.refresh-type-list > button > i { padding: 4px 6px; border-radius: 4px; background: #eceae3; color: var(--muted); font-size: 7px; font-style: normal; white-space: nowrap; }
+.refresh-workout-sheet .refresh-empty { margin-top: 18px; padding: 14px; border-radius: 7px; background: #eceae3; color: var(--ink); }
 .prescription-sheet > h2 { max-width: calc(100% - 48px); font: 700 25px/1.1 Inter; letter-spacing: -1px; margin: 11px 0 6px; }
 .prescription-sheet > p { color: var(--muted); font-size: 10px; line-height: 1.45; margin: 0; }
 .prescription-controls { margin-top: 18px; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; background: var(--white); }

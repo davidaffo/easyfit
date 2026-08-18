@@ -30,14 +30,14 @@ npm test
 
 Il motore locale v15 separa due decisioni:
 
-1. **Exercise selector** — filtra per attrezzatura, split e preferenze globali. Soltanto gli ID Wger presenti nel registro revisionato manualmente possono entrare nel generatore: non esiste classificazione tramite parole nel nome. Ogni esercizio approvato deve avere già nel bundle guida inglese e immagine locale. Il Catalogo essenziale usa un solo rappresentante per famiglia wger, pattern e attrezzatura, evitando che pause, prese o angoli appena diversi affollino la generazione. In modalità adattiva sceglie fino a una famiglia upper e una lower realmente pronte, in base al debito reale; spinta/tirata e ginocchio/anca ruotano indipendentemente. Le sedute più lunghe aumentano serie e accessori senza privilegiare strutturalmente l’upper body. Non chiede quanti giorni a settimana l’utente intenda allenarsi.
+1. **Exercise selector** — filtra per attrezzatura e preferenze globali. Soltanto gli ID Wger presenti nel registro revisionato manualmente possono entrare nel generatore: non esiste classificazione tramite parole nel nome. Ogni esercizio approvato deve avere già nel bundle guida inglese e immagine locale. Il Catalogo essenziale usa un solo rappresentante per famiglia wger, pattern e attrezzatura, evitando che pause, prese o angoli appena diversi affollino la generazione. Il motore adattivo sceglie fino a una famiglia upper e una lower realmente pronte, in base al debito reale; i pattern ruotano indipendentemente. Le sedute più lunghe aumentano serie e accessori senza privilegiare strutturalmente l’upper body. Non esistono split selezionabili e non viene chiesto quanti giorni a settimana l’utente intenda allenarsi.
 2. **Prescription** — distribuisce il volume del ciclo mobile sulle esposizioni ancora necessarie e applica una doppia progressione individuale a serie, ripetizioni, RIR, recupero e carico.
 
 Il volume usa serie equivalenti senza falsa precisione: una serie vale `1` per il muscolo direttamente allenato e `0,5` per un sinergista significativo. Stimolo produttivo, aderenza alla prescrizione e fatica sono tre segnali distinti: andare a cedimento non sottrae stimolo, ma aumenta la fatica. Per l’ipertrofia il target iniziale è 8 serie equivalenti e può adattarsi persistentemente nel range 6–10. Un miglioramento conferma la dose corrente; l'aumento richiede invece almeno tre esposizioni primarie, aderenza alta, recupero adeguato, un plateau misurabile e almeno 21 giorni dall'ultima variazione. Lo stimolo vale interamente per sette giorni e sfuma fino al decimo, evitando il salto artificiale di una finestra rigida. La priorità combina deficit di volume, una frequenza pesata in modo diverso per obiettivo, tempo dall’ultimo stimolo e recupero. Dopo più di dieci giorni di pausa si attiva un rientro graduale con massimo due serie per esercizio.
 
 La durata impone anche un tetto semplice al numero di esercizi: massimo 3 fino a 30 minuti, 6 a 45 minuti, 7 a 60 minuti e 8 oltre i 60. La stima include sette minuti iniziali, setup per ogni esercizio, tempi di esecuzione e recuperi prescritti.
 
-La composizione limita anche la fatica sistemica: fino a 30 minuti usa normalmente 2 multiarticolari e 1 accessorio; sotto i 60 minuti non supera 2 multiarticolari e da 60 minuti non supera 3. Ogni prescrizione viene ridotta o esclusa prima dell'inserimento se non entra nel budget, con una tolleranza massima di due minuti. Il carico pianificato viene aggiornato dopo ogni scelta, così gli accessori non ignorano lo stimolo già assegnato dai multiarticolari. Se cambia un’impostazione che influenza la prescrizione — obiettivo, livello, RIR, attrezzatura, carichi disponibili, durata, split, filtri o limiti — la scheda pronta viene rigenerata automaticamente. Lingua e configurazione del backup non la invalidano; un workout già aperto non viene sostituito durante l’esecuzione.
+La composizione limita anche la fatica sistemica: fino a 30 minuti usa normalmente 2 multiarticolari e 1 accessorio; sotto i 60 minuti non supera 2 multiarticolari e da 60 minuti non supera 3. Ogni prescrizione viene ridotta o esclusa prima dell'inserimento se non entra nel budget, con una tolleranza massima di due minuti. Il carico pianificato viene aggiornato dopo ogni scelta, così gli accessori non ignorano lo stimolo già assegnato dai multiarticolari. Se cambia un’impostazione che influenza la prescrizione — obiettivo, livello, RIR, attrezzatura, carichi disponibili, durata, filtri o limiti — la scheda pronta viene rigenerata automaticamente. Lingua e configurazione del backup non la invalidano; un workout già aperto non viene sostituito durante l’esecuzione.
 
 La prontezza stimata non pretende di misurare il recupero biologico. È arrotondata a passi di 5 e decresce con volume, vicinanza al cedimento e sovraperformance nelle ripetizioni; sotto la soglia di sicurezza esclude il movimento dalla generazione adattiva, senza modificare di nascosto il RIR scelto. Nella schermata Recupero l’utente può indicare “più affaticato” o “più fresco” per ogni gruppo: la correzione entra nel ranking e si dimezza automaticamente ogni 24 ore.
 
@@ -102,9 +102,9 @@ Per un account Nextcloud normale si usa l’URL mostrato in **File → Impostazi
 ## Funzioni incluse
 
 - onboarding in tre passaggi senza previsione artificiale dei giorni settimanali;
-- generazione per prontezza stimata, volume frazionario, frequenza misurata, split, durata e attrezzatura;
+- generazione esclusivamente adattiva per prontezza stimata, volume frazionario, frequenza misurata, durata e attrezzatura;
 - rigenerazione automatica della scheda pronta quando cambiano le impostazioni di allenamento;
-- sessione iniziata persistente: resta aperta fino al completamento anche cambiando tab, ricaricando o riaprendo la PWA;
+- sessione iniziata persistente: può essere messa in pausa tornando alla navigazione, ripresa dalla home oppure scartata con conferma; sopravvive anche al reload della PWA;
 - equilibrio per durata tra multiarticolari prioritari e accessori mirati;
 - multifrequenza adattiva con massimo una famiglia upper e una lower per sessione e rotazione basata sullo storico reale;
 - calibrazione del primo carico, delle ripetizioni massime a corpo libero ed e1RM progressivo;
@@ -113,7 +113,7 @@ Per un account Nextcloud normale si usa l’URL mostrato in **File → Impostazi
 - rientro graduale automatico dopo oltre dieci giorni di pausa;
 - sostituzione di un esercizio con uno compatibile;
 - menu esercizio con lista ricercabile di sostituzioni compatibili, rimozione dal workout o esclusione permanente ripristinabile;
-- refresh dell’intero workout mantenendo durata e muscoli target;
+- refresh con scelta esplicita fra le tipologie di workout compatibili con recupero e attrezzatura attuali;
 - continuità automatica per pattern, senza Focus configurabili o stato duplicato;
 - registrazione modificabile di serie, ripetizioni, peso e RIR;
 - stato per gruppo muscolare con recupero, stimolo nel ciclo mobile, recenza e priorità 0–100;

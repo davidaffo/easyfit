@@ -55,7 +55,6 @@ const defaultProfile = {
 };
 
 const goalLabels = { muscle: 'Massa muscolare', strength: 'Forza', fitness: 'Forma fisica' };
-const splitLabels = { adaptive: 'Multifrequenza adattiva', full: 'Full body', 'upper-lower': 'Upper / Lower', ppl: 'Push / Pull / Legs' };
 
 function normalizeProfile(profile = {}) {
   const isObject = (value) => value && typeof value === 'object' && !Array.isArray(value);
@@ -83,6 +82,7 @@ function normalizeProfile(profile = {}) {
     setCaps: shouldMigrateSetCaps ? defaultProfile.setCaps : { ...defaultProfile.setCaps, ...savedSetCaps },
     setCapsVersion: 2,
     exerciseOverrides: isObject(profile.exerciseOverrides) ? profile.exerciseOverrides : {},
+    split: 'adaptive',
     cloud: {
       webDavUrl: profile.cloud?.webDavUrl || '',
       webDavUsername: profile.cloud?.webDavUsername || '',
@@ -166,7 +166,7 @@ function Onboarding({ onDone }) {
       <div className="hero-visual" aria-hidden="true">
         <div className="orbit orbit-one"/><div className="orbit orbit-two"/>
         <div className="hero-number">01</div>
-        <div className="hero-card"><Icon name="spark"/><span>Creato per te</span><strong>45 min · Full body</strong></div>
+        <div className="hero-card"><Icon name="spark"/><span>Creato per te</span><strong>45 min · Adattivo</strong></div>
       </div>
       <div className="hero-copy">
         <h1>Meno scelte.<br/><em>Più risultati.</em></h1>
@@ -225,14 +225,6 @@ function Onboarding({ onDone }) {
       <label>RIR target</label>
       <div className="segmented rir-segmented">{[0, 1, 2, 3, 4].map((rir) => <button key={rir} className={profile.targetRir === rir ? 'selected' : ''} onClick={() => setProfile({ ...profile, targetRir: rir })}>{rir === 4 ? '4+' : rir}</button>)}</div>
       <p className="form-help">0 significa cedimento. Fermarsi a 1–2 mantiene spesso lo stimolo con meno fatica.</p>
-    </section>
-    <section className="form-section">
-      <label>Organizzazione</label>
-      <div className="select-wrap">
-        <select value={profile.split} onChange={(event) => setProfile({ ...profile, split: event.target.value })}>
-          <option value="adaptive">Multifrequenza adattiva</option><option value="full">Full body</option><option value="upper-lower">Upper / Lower</option><option value="ppl">Push / Pull / Legs</option>
-        </select><Icon name="chevron"/>
-      </div>
     </section>
     <button className="button primary wide sticky-action" onClick={() => onDone(profile)}>Crea il mio workout <Icon name="spark"/></button>
   </main>;
@@ -368,6 +360,14 @@ function App() {
     setView('workout');
   };
   const showToast = (message) => setToast(message);
+  const discardWorkout = () => {
+    if (!workout) return;
+    const doneSets = workout.exercises.reduce((sum, item) => sum + item.sets.filter((set) => set.done).length, 0);
+    if (!window.confirm(`Scartare questo workout${doneSets ? ` e le ${doneSets} serie registrate` : ''}? Non verrà aggiunto allo storico.`)) return;
+    setWorkout(null);
+    setView('home');
+    setToast('Workout scartato');
+  };
   const resetAppData = () => {
     ['easyfit-profile', 'easyfit-history', 'easyfit-workout', 'easyfit-webdav-secret', 'easyfit-webdav-synced-fingerprint'].forEach((key) => localStorage.removeItem(key));
     setWorkout(null);
@@ -387,8 +387,8 @@ function App() {
   };
 
   return <div className="app-shell">
-    {isWorkoutActive(workout)
-      ? <WorkoutView workout={workout} setWorkout={setWorkout} profile={profile} setProfile={setProfile} history={history} showToast={showToast} onBack={() => showToast('Termina il workout per uscire dalla sessione')} onFinish={(completed) => {
+    {view === 'workout' && isWorkoutActive(workout)
+      ? <WorkoutView workout={workout} setWorkout={setWorkout} profile={profile} setProfile={setProfile} history={history} showToast={showToast} onBack={() => setView('home')} onFinish={(completed) => {
           const nextHistory = [...history, completed];
           setHistory(nextHistory);
           setProfile(recalibrateTrainingTargets(profile, nextHistory, completed.completedAt));
@@ -398,7 +398,7 @@ function App() {
         }}/>
       : <>
         <div className="page-wrap">
-          {view === 'home' && <Home profile={profile} history={history} workout={workout} onOpenWorkout={openWorkout} onGenerate={createWorkout} onShowRecovery={() => setView('recovery')} installPrompt={installPrompt} onInstalled={() => setInstallPrompt(null)}/>}
+          {view === 'home' && <Home profile={profile} history={history} workout={workout} onOpenWorkout={openWorkout} onDiscardWorkout={discardWorkout} onGenerate={createWorkout} onShowRecovery={() => setView('recovery')} installPrompt={installPrompt} onInstalled={() => setInstallPrompt(null)}/>}
           {view === 'recovery' && <Recovery history={history} profile={profile} setProfile={setProfile}/>}
           {view === 'history' && <History history={history} profile={profile}/>}
           {view === 'profile' && <Profile profile={profile} setProfile={setProfile} history={history} workout={workout} onRestoreBackup={restoreBackup} installPrompt={installPrompt} onInstalled={() => setInstallPrompt(null)} showToast={showToast} onReset={resetAppData}/>}
@@ -409,7 +409,7 @@ function App() {
   </div>;
 }
 
-function Home({ profile, history, workout, onOpenWorkout, onGenerate, onShowRecovery, installPrompt, onInstalled }) {
+function Home({ profile, history, workout, onOpenWorkout, onDiscardWorkout, onGenerate, onShowRecovery, installPrompt, onInstalled }) {
   const recovery = useMemo(() => getRecovery(history, Date.now(), profile), [history, profile.recoveryFeedback]);
   const fresh = Object.entries(recovery).sort((a, b) => b[1] - a[1]).slice(0, 3);
   const today = new Intl.DateTimeFormat('it-IT', { weekday: 'long', day: 'numeric', month: 'long' }).format(new Date());
@@ -430,27 +430,87 @@ function Home({ profile, history, workout, onOpenWorkout, onGenerate, onShowReco
       <button className="round-arrow" aria-label="Vedi recupero" onClick={onShowRecovery}><Icon name="chevron"/></button>
     </section>
 
-    {workout ? <WorkoutHero workout={workout} onOpen={onOpenWorkout} profile={profile}/> : <EmptyWorkout onGenerate={() => onGenerate(profile.duration)}/>}
+    {workout ? <WorkoutHero workout={workout} onOpen={onOpenWorkout} onDiscard={onDiscardWorkout}/> : <EmptyWorkout onGenerate={() => onGenerate(profile.duration)}/>}
 
-    <section className="quick-section">
+    {!isWorkoutActive(workout) && <section className="quick-section">
       <div className="section-heading"><div><span className="section-kicker">REGOLA AL VOLO</span><h2>Quanto tempo hai?</h2></div><span>{profile.duration} min abituali</span></div>
       <div className="duration-row">{[30, 45, 60].map((duration) => <button key={duration} onClick={() => onGenerate(duration)}><Icon name="clock" size={19}/><strong>{duration}</strong><small>min</small></button>)}</div>
-    </section>
+    </section>}
   </main>;
 }
 
-function WorkoutHero({ workout, onOpen, profile }) {
+function WorkoutHero({ workout, onOpen, onDiscard }) {
+  const active = isWorkoutActive(workout);
   const names = workout.targetMuscles.slice(0, 3).map((item) => muscles[item]).join(' · ');
   return <section className="workout-hero">
-    <div className="hero-noise"/><div className="workout-card-head"><span className="today-pill">OGGI</span><span>{splitLabels[profile.split]}</span></div>
-    <div className="workout-card-copy"><h2>Il tuo workout<br/>è pronto.</h2><p>{names}</p></div>
+    <div className="hero-noise"/><div className="workout-card-head"><span className="today-pill">{active ? 'IN CORSO' : 'OGGI'}</span><span>Multifrequenza adattiva</span></div>
+    <div className="workout-card-copy"><h2>{active ? <>Workout<br/>in pausa.</> : <>Il tuo workout<br/>è pronto.</>}</h2><p>{names}</p></div>
     <div className="workout-meta"><span><b>{workout.duration}</b><small>minuti</small></span><i/><span><b>{workout.exercises.length}</b><small>esercizi</small></span><i/><span><b>{workout.exercises.reduce((sum, item) => sum + item.sets.length, 0)}</b><small>serie</small></span></div>
-    <button className="button acid wide" onClick={onOpen}><span className="play-disc"><Icon name="play" size={18}/></span>Inizia allenamento</button>
+    <div className="workout-hero-actions"><button className="button acid wide" onClick={onOpen}><span className="play-disc"><Icon name="play" size={18}/></span>{active ? 'Riprendi allenamento' : 'Inizia allenamento'}</button>{active && <button className="discard-workout" onClick={onDiscard}><Icon name="trash" size={16}/> Scarta workout</button>}</div>
   </section>;
 }
 
 function EmptyWorkout({ onGenerate }) {
   return <section className="empty-workout"><span className="empty-icon"><Icon name="spark" size={30}/></span><h2>Pronto quando vuoi</h2><p>Genera un workout adatto al tuo recupero di oggi.</p><button className="button dark" onClick={onGenerate}>Genera workout</button></section>;
+}
+
+function buildRefreshWorkoutOptions(profile, history, workout, seed) {
+  const now = Date.now();
+  const recovery = getRecovery(history, now, profile);
+  const adaptiveProfile = { ...profile, split: 'adaptive' };
+  const oldExerciseIds = workout.exercises.map((item) => item.exerciseId);
+  const minimumExerciseCount = Math.min(2, workout.exercises.length);
+  const options = [];
+  const signatures = new Set();
+  let avoidedExerciseIds = [...oldExerciseIds];
+  for (let attempt = 0; attempt < 12 && options.length < 3; attempt += 1) {
+    const generationOptions = {
+      duration: workout.duration,
+      variation: seed + attempt * 997,
+      ...(attempt < 8 ? { avoidExerciseIds: avoidedExerciseIds } : {}),
+    };
+    let candidate = generateWorkout(adaptiveProfile, history, { ...generationOptions, now });
+    if (!isCompatibleWorkout(candidate, adaptiveProfile) || candidate.exercises.length < minimumExerciseCount) {
+      candidate = generateWorkout(adaptiveProfile, history, { duration: workout.duration, variation: seed + attempt * 997, now });
+    }
+    if (!isCompatibleWorkout(candidate, adaptiveProfile) || candidate.exercises.length < minimumExerciseCount) continue;
+    const signature = candidate.exercises.map((item) => item.exerciseId).sort().join('|');
+    if (signatures.has(signature)) continue;
+    signatures.add(signature);
+    const readiness = candidate.targetMuscles.length
+      ? Math.round(candidate.targetMuscles.reduce((sum, muscle) => sum + (recovery[muscle] || 0), 0) / candidate.targetMuscles.length)
+      : 0;
+    options.push({
+      id: signature,
+      title: `Proposta adattiva ${options.length + 1}`,
+      text: candidate.targetMuscles.slice(0, 4).map((muscle) => muscles[muscle]).join(' · '),
+      readiness,
+      workout: candidate,
+    });
+    avoidedExerciseIds = [...new Set([...avoidedExerciseIds, ...candidate.exercises.map((item) => item.exerciseId)])];
+  }
+  return options;
+}
+
+function RefreshWorkoutSheet({ profile, history, workout, seed, onChoose, onClose }) {
+  const options = useMemo(
+    () => buildRefreshWorkoutOptions(profile, history, workout, seed),
+    [profile, history, workout.id, workout.duration, seed],
+  );
+  return <div className="sheet-backdrop" onMouseDown={(event) => event.target === event.currentTarget && onClose()}>
+    <section className="refresh-workout-sheet" role="dialog" aria-modal="true" aria-label="Cambia tipo di workout">
+      <button className="sheet-close" onClick={onClose}><Icon name="close" size={19}/></button>
+      <span className="eyebrow">REFRESH WORKOUT</span>
+      <h2>Scegli una proposta adattiva</h2>
+      <p>Sono alternative complete dello stesso motore: cambiano gli esercizi, non la logica basata su recupero, stimolo, recenza e rotazione.</p>
+      <div className="refresh-type-list">{options.map((option) => <button key={option.id} onClick={() => onChoose(option)}>
+        <div><strong>{option.title}</strong><small>{option.text}</small></div>
+        <span><b>{option.readiness}%</b><small>recupero</small></span>
+        <i>{option.workout.exercises.length} esercizi</i><Icon name="chevron" size={18}/>
+      </button>)}</div>
+      {!options.length && <p className="refresh-empty">Nessuna alternativa adattiva completa disponibile con il recupero attuale.</p>}
+    </section>
+  </div>;
 }
 
 function WorkoutView({ workout, setWorkout, profile, setProfile, history, showToast, onBack, onFinish }) {
@@ -461,6 +521,7 @@ function WorkoutView({ workout, setWorkout, profile, setProfile, history, showTo
   const [optionsExerciseId, setOptionsExerciseId] = useState(null);
   const [replacementExerciseId, setReplacementExerciseId] = useState(null);
   const [prescriptionExerciseId, setPrescriptionExerciseId] = useState(null);
+  const [refreshSeed, setRefreshSeed] = useState(null);
   const [startedAt] = useState(() => Number(workout.startedAt) || Date.now());
   const totalSets = workout.exercises.reduce((sum, item) => sum + item.sets.length, 0);
   const doneSets = workout.exercises.reduce((sum, item) => sum + item.sets.filter((set) => set.done).length, 0);
@@ -598,27 +659,19 @@ function WorkoutView({ workout, setWorkout, profile, setProfile, history, showTo
     setOptionsExerciseId(null);
     showToast(workout.exercises.length > 1 ? 'Esercizio escluso e rimosso' : 'Esercizio escluso dai prossimi workout');
   };
-  const refreshWorkout = () => {
+  const refreshWorkout = (option) => {
     if (doneSets && !window.confirm('Rigenerando il workout perderai le serie già registrate. Continuare?')) return;
-    const refreshed = generateWorkout(profile, history, {
-      duration: workout.duration,
-      ...(profile.split === 'adaptive' ? {} : { targets: workout.targetMuscles }),
-      variation: Date.now(),
-      avoidExerciseIds: workout.exercises.map((item) => item.exerciseId),
-    });
-    if (!isCompatibleWorkout(refreshed)) {
-      showToast('Nessuna alternativa completa: il workout attuale è stato mantenuto');
-      return;
-    }
+    const refreshed = option.workout;
     setWorkout({ ...refreshed, startedAt });
     setPendingSet(null);
     setRest(0);
-    showToast('Workout aggiornato');
+    setRefreshSeed(null);
+    showToast('Alternativa adattiva caricata');
   };
   const complete = () => onFinish({ ...workout, startedAt, completedAt: Date.now() });
 
   return <main className="workout-view">
-    <header className="workout-topbar"><button className="icon-button light" onClick={onBack}><Icon name="arrow"/></button><div><span>WORKOUT DI OGGI</span><strong>{workout.duration} min · {workout.exercises.length} esercizi</strong></div><button className="icon-button light" onClick={refreshWorkout} aria-label="Rigenera workout"><Icon name="refresh"/></button></header>
+    <header className="workout-topbar"><button className="icon-button light" onClick={onBack} aria-label="Metti in pausa e torna indietro"><Icon name="arrow"/></button><div><span>WORKOUT DI OGGI</span><strong>{workout.duration} min · {workout.exercises.length} esercizi</strong></div><button className="icon-button light" onClick={() => setRefreshSeed(Date.now())} aria-label="Cambia tipo di workout"><Icon name="refresh"/></button></header>
     <div className="workout-progress"><i style={{ width: `${totalSets ? (doneSets / totalSets) * 100 : 0}%` }}/></div>
     <section className="workout-title"><span className="eyebrow">{workout.engine?.returningFromBreak ? 'RIENTRO GRADUALE · VOLUME RIDOTTO' : workout.engine?.maintenanceMode ? 'TARGET COPERTI · MANTENIMENTO' : 'CREATO SUL TUO RECUPERO'}</span><h1>{workout.targetMuscles.slice(0, 2).map((item) => muscles[item]).join(' + ')}</h1><p>{doneSets} di {totalSets} serie completate</p></section>
     <div className="exercise-list">
@@ -631,7 +684,21 @@ function WorkoutView({ workout, setWorkout, profile, setProfile, history, showTo
     {historyExerciseId && <ExerciseHistorySheet exerciseId={historyExerciseId} history={history} language={profile.exerciseLanguage} onClose={() => setHistoryExerciseId(null)}/>}
     {optionsExerciseId && <ExerciseActionsSheet exerciseId={optionsExerciseId} profile={profile} language={profile.exerciseLanguage} onPrescription={() => openPrescriptionEditor(optionsExerciseId)} onReplace={() => openReplacementPicker(optionsExerciseId)} onRemove={() => removeCurrentExercise(optionsExerciseId)} onExclude={() => excludeExercise(optionsExerciseId)} onClose={() => setOptionsExerciseId(null)}/>}
     {replacementExerciseId && <SimilarExerciseSheet workout={workout} exerciseId={replacementExerciseId} profile={profile} language={profile.exerciseLanguage} onChoose={(selectedId) => replaceCurrentExercise(replacementExerciseId, selectedId)} onClose={() => setReplacementExerciseId(null)}/>}
-    {prescriptionExerciseId && <ExercisePrescriptionSheet exerciseId={prescriptionExerciseId} profile={profile} language={profile.exerciseLanguage} onSave={(override) => saveExercisePrescription(prescriptionExerciseId, override)} onClose={() => setPrescriptionExerciseId(null)}/>}
+    {prescriptionExerciseId && <ExercisePrescriptionSheet
+      exerciseId={prescriptionExerciseId}
+      profile={profile}
+      language={profile.exerciseLanguage}
+      onSave={(override) => saveExercisePrescription(prescriptionExerciseId, override)}
+      onClose={() => setPrescriptionExerciseId(null)}
+    />}
+    {refreshSeed != null && <RefreshWorkoutSheet
+      profile={profile}
+      history={history}
+      workout={workout}
+      seed={refreshSeed}
+      onChoose={refreshWorkout}
+      onClose={() => setRefreshSeed(null)}
+    />}
   </main>;
 }
 
@@ -1158,7 +1225,6 @@ function Profile({ profile, setProfile, history, workout, onRestoreBackup, insta
     <SettingsGroup title="RIR target"><div className="rir-setting">{[0, 1, 2, 3, 4].map((rir) => <button key={rir} className={profile.targetRir === rir ? 'selected' : ''} onClick={() => update({ targetRir: rir })}><strong>{rir === 4 ? '4+' : rir}</strong><small>{rir === 0 ? 'Cedimento' : `${rir} in riserva`}</small></button>)}</div><p className="setting-help">È il target globale. RIR 0 resta disponibile, ma 1–2 offre normalmente un rapporto stimolo/fatica migliore. Puoi cambiarlo per un singolo esercizio dal suo menu.</p></SettingsGroup>
     <SettingsGroup title="Limiti serie"><div className="type-cap-list">{[['compound', 'Multiarticolari'], ['accessory', 'Isolamento e accessori']].map(([type, label]) => <div key={type}><span>{label}</span><div className="stepper"><button onClick={() => update({ setCaps: { ...profile.setCaps, [type]: Math.max(1, profile.setCaps[type] - 1) } })}>−</button><b>{profile.setCaps[type]}</b><button onClick={() => update({ setCaps: { ...profile.setCaps, [type]: Math.min(6, profile.setCaps[type] + 1) } })}>+</button></div></div>)}</div><p className="setting-help">Sono tetti massimi: durata, volume e prontezza possono comunque prescrivere meno serie.</p></SettingsGroup>
     <SettingsGroup title="Durata"><div className="range-label"><span>Tempo per workout</span><strong>{profile.duration} min</strong></div><input type="range" min="25" max="75" step="5" value={profile.duration} onChange={(event) => setProfile({ ...profile, duration: Number(event.target.value) })} onPointerUp={() => showToast('Durata aggiornata')}/></SettingsGroup>
-    <SettingsGroup title="Split"><div className="select-wrap"><select value={profile.split} onChange={(event) => update({ split: event.target.value })}>{Object.entries(splitLabels).map(([id, label]) => <option value={id} key={id}>{label}</option>)}</select><Icon name="chevron"/></div></SettingsGroup>
     <SettingsGroup title="Nomi degli esercizi"><div className="settings-options language-options">
       <button className={profile.exerciseLanguage === 'en' ? 'selected' : ''} onClick={() => update({ exerciseLanguage: 'en' })}>English <span><Icon name="check" size={14}/></span></button>
       <button className={profile.exerciseLanguage === 'it' ? 'selected' : ''} onClick={() => update({ exerciseLanguage: 'it' })}>Italiano, con fallback inglese <span><Icon name="check" size={14}/></span></button>

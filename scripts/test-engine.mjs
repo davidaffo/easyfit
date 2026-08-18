@@ -63,12 +63,15 @@ for (const exercise of exercises) {
   assert(guide?.description && guide?.image?.includes('/exercise-images/'), `Approved exercise ${exercise.name} must ship with its complete offline guide`);
 }
 const serviceWorkerSource = await readFile(new URL('../public/sw.js', import.meta.url), 'utf8');
+const appSource = await readFile(new URL('../src/main.jsx', import.meta.url), 'utf8');
 assert(serviceWorkerSource.includes('cache.addAll(images)'), 'The service worker install must fail atomically if any bundled guide image cannot be cached');
 assert(!serviceWorkerSource.includes('Promise.allSettled(images'), 'Offline installation must not silently ignore missing guide images');
 assert(serviceWorkerSource.includes("requestUrl.origin !== self.location.origin"), 'The service worker must never intercept cross-origin WebDAV traffic');
 assert(serviceWorkerSource.includes("headers.has('Authorization')"), 'Authenticated responses must never enter the PWA cache');
 assert(!exercises.some((exercise) => exercise.wgerId === 458), 'Rep-based prescriptions must not include a time-based plank');
 assert.equal(exercises.filter((exercise) => [659, 805, 1185].includes(exercise.wgerId)).length, 1, 'Near-identical cable triceps duplicates must collapse to one canonical exercise');
+assert(!appSource.includes('Push / Pull / Legs') && !appSource.includes('Upper / Lower'), 'The app must expose only adaptive scheduling, without selectable split modes');
+assert(appSource.includes('Proposta adattiva') && !appSource.includes("title: 'Spinta'"), 'Workout refresh must offer complete adaptive alternatives instead of targeted muscle splits');
 
 const benchVariantProfile = {
   goal: 'muscle',
