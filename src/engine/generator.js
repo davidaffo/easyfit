@@ -9,7 +9,7 @@ const MIN_CYCLE_HOURS = 36;
 const MIN_TRAINING_READINESS = 45;
 const CONTINUITY_HISTORY_DAYS = 90;
 const CONTINUITY_BREAK_DAYS = 28;
-export const ENGINE_VERSION = 21;
+export const ENGINE_VERSION = 22;
 
 const muscleBaseImportance = {
   chest: 100,
@@ -54,6 +54,69 @@ export const trainingRules = {
     targetRir: 3,
   },
 };
+
+export const trainingStyles = {
+  intense: {
+    label: 'Essenziale intenso',
+    description: 'Due serie molto vicine al limite, con recuperi completi.',
+    classes: {
+      'high-fatigue-compound': { targetRirs: [1, 0], rest: 210 },
+      'stable-compound': { targetRirs: [1, 0], rest: 180 },
+      isolation: { targetRirs: [0, 0], rest: 120 },
+    },
+  },
+  balanced: {
+    label: 'Equilibrato',
+    description: 'Volume e sforzo bilanciati per progredire con fatica gestibile.',
+    recommended: true,
+    classes: {
+      'high-fatigue-compound': { targetRirs: [2, 2, 1], rest: 180 },
+      'stable-compound': { targetRirs: [2, 2, 1], rest: 150 },
+      isolation: { targetRirs: [2, 1, 1], rest: 90 },
+    },
+  },
+  volume: {
+    label: 'Volume controllato',
+    description: 'Più serie, mantenendo maggiore margine nelle ripetizioni.',
+    classes: {
+      'high-fatigue-compound': { targetRirs: [3, 3, 2], rest: 165 },
+      'stable-compound': { targetRirs: [3, 2, 2], rest: 135 },
+      isolation: { targetRirs: [2, 2, 1, 1], rest: 90 },
+    },
+  },
+};
+
+const validTrainingStyle = (value) => Object.hasOwn(trainingStyles, value) ? value : 'balanced';
+
+export function getExerciseEffortClass(exercise) {
+  return ['high-fatigue-compound', 'stable-compound', 'isolation'].includes(exercise?.effortClass)
+    ? exercise.effortClass
+    : exercise?.compound ? 'stable-compound' : 'isolation';
+}
+
+function styleRuleFor(profile, exercise) {
+  const style = trainingStyles[validTrainingStyle(profile.trainingStyle)];
+  const effortClass = getExerciseEffortClass(exercise);
+  const base = style.classes[effortClass];
+  // Failure has no consistent strength advantage and is particularly costly
+  // on high-fatigue compounds, so the strength goal keeps one extra RIR there.
+  const targetRirs = profile.goal === 'strength' && effortClass === 'high-fatigue-compound'
+    ? base.targetRirs.map((rir) => clamp(rir + 1, 0, 4))
+    : base.targetRirs;
+  const goalRestAdjustment = profile.goal === 'strength' ? 30 : profile.goal === 'fitness' ? -15 : 0;
+  return {
+    effortClass,
+    targetRirs,
+    rest: clamp(base.rest + goalRestAdjustment, 60, 300),
+  };
+}
+
+function targetRirsForSetCount(targetRirs, count) {
+  if (count <= 0) return [];
+  if (count === 1) return [targetRirs.at(-1)];
+  if (count >= targetRirs.length) return Array.from({ length: count }, (_, index) => targetRirs[index] ?? targetRirs.at(-1));
+  return [targetRirs[0], ...targetRirs.slice(-(count - 1))];
+}
 
 const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
 
@@ -208,35 +271,45 @@ function observedWeeklySessionRate(history, now) {
   return typicalGap ? clamp(7 / typicalGap, 0.5, 7) : null;
 }
 
-function lowerSetCapacity(muscle, profile, history, now, recovery) {
+function exerciseSetCapacity(exercise, muscle, profile, history, now, recovery) {
   const targetMinutes = Number(profile.duration) || 45;
-  let maximum = targetMinutes <= 30 ? 2 : 3;
-  if (isReturningAfterBreak(history, now)) maximum = Math.min(maximum, 2);
-  if (profile.level === 'beginner' || Number(recovery?.[muscle]) < 50) maximum = Math.min(maximum, 2);
-  const configuredCap = clamp(Number(profile.setCaps?.compound) || 3, 1, 6);
-  maximum = Math.min(maximum, configuredCap);
-  if (profile.level === 'advanced' && targetMinutes >= 40 && Number(recovery?.[muscle]) >= 65) {
-    maximum = Math.min(configuredCap, Math.max(maximum, 4));
-  }
-  if (!Array.isArray(profile.equipment)) return maximum;
-  const compatibleCaps = exercises
-    .filter((exercise) => exercise.compound && isLowerBodyExercise(exercise))
+  let maximum = getExercisePrescription(profile, exercise).maxSets;
+  if (targetMinutes <= 30 || isReturningAfterBreak(history, now) || profile.level === 'beginner') maximum = Math.min(maximum, 2);
+  if (Number(recovery?.[muscle]) < 50) maximum = Math.min(maximum, 2);
+  return maximum * Number(getExerciseMuscleContributions(exercise)[muscle] || 0);
+}
+
+function muscleSessionCapacity(muscle, profile, history, now, recovery) {
+  if (!Array.isArray(profile.equipment)) return 0;
+  const candidates = exercises
     .filter((exercise) => Number(getExerciseMuscleContributions(exercise)[muscle]) > 0)
-    .filter((exercise) => isExerciseAllowed(exercise, profile) && isEssentialExercise(exercise, profile))
-    .map((exercise) => getExercisePrescription(profile, exercise).maxSets);
-  return compatibleCaps.length ? Math.min(maximum, Math.max(...compatibleCaps)) : maximum;
+    .filter((exercise) => isExerciseAllowed(exercise, profile) && isEssentialExercise(exercise, profile));
+  const capacities = candidates.map((exercise) => ({
+    exercise,
+    capacity: exerciseSetCapacity(exercise, muscle, profile, history, now, recovery),
+  }));
+  if (['quads', 'hamstrings', 'glutes'].includes(muscle)) {
+    // The session-wide lower-body guard permits only one lower exercise.
+    return Math.max(0, ...capacities.filter(({ exercise }) => isLowerBodyExercise(exercise)).map(({ capacity }) => capacity));
+  }
+  const compound = Math.max(0, ...capacities.filter(({ exercise }) => exercise.compound).map(({ capacity }) => capacity));
+  const accessory = Math.max(0, ...capacities.filter(({ exercise }) => !exercise.compound).map(({ capacity }) => capacity));
+  return compound + accessory;
+}
+
+function expectedFamilyShare(muscle, targetMinutes) {
+  if (muscle === 'core' || muscle === 'calves') return Number(targetMinutes) >= 40 ? .5 : .15;
+  if (muscle === 'glutes') return Number(targetMinutes) >= 60 ? .75 : .6;
+  if (Number(targetMinutes) >= 60 && ['chest', 'shoulders', 'triceps', 'back', 'biceps'].includes(muscle)) return 1;
+  return .5;
 }
 
 function constraintAdjustedTarget(muscle, desiredTarget, profile, history, now, recovery) {
-  if (!['quads', 'hamstrings', 'glutes'].includes(muscle)) return desiredTarget;
   const weeklySessions = observedWeeklySessionRate(history, now);
   if (!weeklySessions) return desiredTarget;
-  const compoundCap = lowerSetCapacity(muscle, profile, history, now, recovery);
-  // Only one lower exercise is allowed per workout. Knee and hip families
-  // therefore receive roughly half of the observed sessions each, while
-  // glutes also receive fractional work from both families.
-  const familyShare = muscle === 'glutes' ? 0.75 : 0.5;
-  const feasibleDose = Math.round(weeklySessions * familyShare * compoundCap * 2) / 2;
+  const sessionCapacity = muscleSessionCapacity(muscle, profile, history, now, recovery);
+  const familyShare = expectedFamilyShare(muscle, profile.duration);
+  const feasibleDose = Math.round(weeklySessions * familyShare * sessionCapacity * 2) / 2;
   return Math.min(desiredTarget, Math.max(0.5, feasibleDose));
 }
 
@@ -270,7 +343,9 @@ export function getExerciseProgress(history = [], exerciseId, now = Date.now()) 
       const comparableSets = workingWeight == null
         ? completed
         : completed.filter((set) => Math.abs(Number(set.weight) - workingWeight) / workingWeight <= 0.03);
-      const supportedReps = comparableSets.map((set) => Number(set.reps) + recordedRir(set) - Number(set.targetRir ?? 2));
+      const repCapacities = comparableSets.map((set) => Number(set.reps) + recordedRir(set));
+      const targetRirs = comparableSets.map((set) => Number(set.targetRir ?? 2));
+      const supportedReps = comparableSets.map((set, index) => repCapacities[index] - targetRirs[index]);
       const prescribedSets = Math.max(completed.length, item.sets?.length || 0);
       const completionRate = prescribedSets ? completed.length / prescribedSets : 0;
       return {
@@ -281,6 +356,9 @@ export function getExerciseProgress(history = [], exerciseId, now = Date.now()) 
         targetReps: median(comparableSets.map((set) => Number(set.targetReps)).filter((value) => value > 0)),
         supportedReps: median(supportedReps),
         minimumSupportedReps: supportedReps.length ? Math.min(...supportedReps) : null,
+        repCapacities,
+        targetRirs,
+        targetRir: median(targetRirs),
         completionRate,
         completedSets: completed.length,
       };
@@ -298,6 +376,9 @@ export function getExerciseProgress(history = [], exerciseId, now = Date.now()) 
     latestTargetReps: latest?.targetReps ?? null,
     latestSupportedReps: latest?.supportedReps ?? null,
     minimumSupportedReps: latest?.minimumSupportedReps ?? null,
+    latestRepCapacities: latest?.repCapacities || [],
+    latestTargetRirs: latest?.targetRirs || [],
+    latestTargetRir: latest?.targetRir ?? null,
     latestCompletionRate: latest?.completionRate ?? null,
     trend: latest?.e1rm && previous?.e1rm ? (latest.e1rm - previous.e1rm) / previous.e1rm : null,
   };
@@ -712,19 +793,33 @@ export function getExercisePrescription(profile, exercise) {
   const goal = trainingRules[profile.goal] || trainingRules.muscle;
   const rule = exercise.compound ? goal.compound : goal.accessory;
   const override = profile.exerciseOverrides?.[exercise.id] || {};
-  const typeCap = exercise.compound ? profile.setCaps?.compound : profile.setCaps?.accessory;
+  const styleRule = styleRuleFor(profile, exercise);
+  const legacyTypeCap = exercise.compound ? profile.setCaps?.compound : profile.setCaps?.accessory;
+  const styleEnabled = Object.hasOwn(trainingStyles, profile.trainingStyle);
+  const defaultMaxSets = styleEnabled
+    ? styleRule.targetRirs.length
+    : Number(legacyTypeCap) || (exercise.compound ? 3 : 4);
   const minReps = clamp(Number(override.minReps) || rule.reps, 1, 50);
   const maxReps = clamp(Number(override.maxReps) || rule.maxReps, minReps, 50);
+  const maxSets = clamp(Number(override.maxSets) || defaultMaxSets, 1, 6);
+  const targetRirs = override.targetRir != null
+    ? Array.from({ length: maxSets }, () => clamp(Number(override.targetRir), 0, 4))
+    : styleEnabled
+      ? targetRirsForSetCount(styleRule.targetRirs, maxSets)
+      : Array.from({ length: maxSets }, () => clamp(profile.targetRir ?? goal.targetRir, 0, 4));
   return {
     minReps,
     maxReps,
-    maxSets: clamp(Number(override.maxSets) || Number(typeCap) || (exercise.compound ? 3 : 4), 1, 6),
-    targetRir: clamp(override.targetRir ?? profile.targetRir ?? goal.targetRir, 0, 4),
+    maxSets,
+    targetRir: targetRirs.at(-1),
+    targetRirs,
+    rest: styleEnabled ? styleRule.rest : rule.rest,
+    effortClass: styleRule.effortClass,
     customRir: override.targetRir ?? null,
   };
 }
 
-function doubleProgression(exercise, profile, progress, limits, intensity) {
+function doubleProgression(exercise, profile, progress, limits, intensity, setCount) {
   const usesWeight = ['external', 'per-dumbbell'].includes(exercise.loadType);
   const reconciledLoad = progress.lastWeight
     ? reconcilePerformedLoad(progress.lastWeight, exercise, profile)
@@ -744,8 +839,26 @@ function doubleProgression(exercise, profile, progress, limits, intensity) {
   const completedPrescription = progress.latestCompletionRate == null || progress.latestCompletionRate >= .8;
   const reachedTop = completedPrescription && minimumSupportedReps != null && minimumSupportedReps >= limits.maxReps;
   const canAddRep = completedPrescription && minimumSupportedReps != null && minimumSupportedReps >= previousTarget;
+  const desiredRirs = targetRirsForSetCount(limits.targetRirs, Math.max(1, progress.latestRepCapacities.length || setCount));
+  const previousRir = Number(progress.latestTargetRir);
+  const nextRir = median(desiredRirs);
+  const effortChanged = progress.sessions > 0 && Number.isFinite(previousRir) && Number.isFinite(nextRir)
+    && Math.abs(previousRir - nextRir) >= .5;
+  const supportedAtNewEffort = progress.latestRepCapacities.map((capacity, index) => (
+    Number(capacity) - Number(desiredRirs[index] ?? desiredRirs.at(-1))
+  ));
+  const demonstratedAtNewEffort = supportedAtNewEffort.length
+    ? Math.floor(Math.min(...supportedAtNewEffort))
+    : null;
 
   if (!usesWeight) {
+    if (effortChanged && demonstratedAtNewEffort != null) {
+      return {
+        weight: 0,
+        reps: clamp(demonstratedAtNewEffort, 1, limits.maxReps),
+        step: 'effort-adjustment',
+      };
+    }
     return {
       weight: 0,
       reps: reachedTop ? limits.maxReps : canAddRep ? Math.min(limits.maxReps, previousTarget + 1) : previousTarget,
@@ -759,6 +872,20 @@ function doubleProgression(exercise, profile, progress, limits, intensity) {
   }
   if (lastAvailableWeight && reconciledLoad.adjusted) {
     return { weight: lastAvailableWeight, reps: previousTarget, step: 'load-adjustment' };
+  }
+
+  if (effortChanged && lastAvailableWeight && demonstratedAtNewEffort != null) {
+    if (demonstratedAtNewEffort < limits.minReps) {
+      const lowerLoad = getAvailableLoads(exercise, profile).filter((load) => load < lastAvailableWeight - .001).at(-1);
+      return lowerLoad
+        ? { weight: lowerLoad, reps: limits.minReps, step: 'effort-adjustment' }
+        : { weight: null, reps: limits.minReps, step: 'recalibrate-load' };
+    }
+    return {
+      weight: lastAvailableWeight,
+      reps: clamp(demonstratedAtNewEffort, limits.minReps, limits.maxReps),
+      step: 'effort-adjustment',
+    };
   }
 
   if (lastAvailableWeight && reachedTop) {
@@ -828,7 +955,8 @@ function prescription(exercise, profile, history, context = {}) {
   const targetRir = limits.targetRir;
   const progress = getExerciseProgress(history, exercise.id, context.now || Date.now());
   const adjustedIntensity = rule.intensity - Math.max(0, targetRir - goal.targetRir) * 0.03;
-  const progression = doubleProgression(exercise, profile, progress, limits, adjustedIntensity);
+  const progression = doubleProgression(exercise, profile, progress, limits, adjustedIntensity, sets);
+  const targetRirs = targetRirsForSetCount(limits.targetRirs, sets);
 
   return {
     exerciseId: exercise.id,
@@ -844,20 +972,23 @@ function prescription(exercise, profile, history, context = {}) {
       loadType: exercise.loadType,
       loadUnit: exercise.loadUnit,
       loadMultiplier: exercise.loadMultiplier,
+      effortClass: exercise.effortClass,
+      intensifierEligible: exercise.intensifierEligible,
       muscleContributions: exercise.muscleContributions,
       license: exercise.license,
     },
-    rest: rule.rest,
-    targetRir,
+    rest: limits.rest,
+    targetRir: targetRirs.at(-1) ?? targetRir,
+    targetRirs,
     repRange: { min: limits.minReps, max: limits.maxReps },
     progressionStep: progression.step,
     estimatedOneRepMax: progress.latestE1rm,
     needsInitialLoad: ['external', 'per-dumbbell'].includes(exercise.loadType) && progression.weight == null,
     needsInitialReps: exercise.loadType === 'bodyweight' && progress.sessions === 0,
-    sets: Array.from({ length: sets }, () => ({
+    sets: Array.from({ length: sets }, (_, index) => ({
       targetReps: progression.reps,
       targetWeight: progression.weight,
-      targetRir,
+      targetRir: targetRirs[index] ?? targetRir,
       reps: progression.reps,
       weight: progression.weight,
       rir: null,
@@ -870,27 +1001,44 @@ export function calibrateBodyweightPrescription(item, maximumReps) {
   const testedMaximum = clamp(Math.round(Number(maximumReps) || 0), 1, 100);
   const nominalMinimum = Number(item.repRange?.min) || 1;
   const maximum = Number(item.repRange?.max) || 50;
-  const workingReps = clamp(testedMaximum - Number(item.targetRir || 0), 1, maximum);
+  const targetRirs = targetRirsForSetCount(
+    item.targetRirs?.length ? item.targetRirs : [item.targetRir || 0],
+    item.sets.length,
+  );
   return {
     ...item,
     needsInitialReps: false,
     calibrationMaxReps: testedMaximum,
-    calibrationBelowRange: workingReps < nominalMinimum,
+    calibrationBelowRange: testedMaximum - targetRirs[0] < nominalMinimum,
     progressionStep: 'calibrated',
     sets: item.sets.map((set, index) => ({
       ...set,
-      targetReps: clamp(workingReps - index, 1, maximum),
-      reps: clamp(workingReps - index, 1, maximum),
+      targetRir: targetRirs[index],
+      targetReps: clamp(testedMaximum - targetRirs[index] - index, 1, maximum),
+      reps: clamp(testedMaximum - targetRirs[index] - index, 1, maximum),
       weight: 0,
       targetWeight: 0,
     })),
   };
 }
 
-function estimatePrescriptionMinutes(exercise, item) {
-  const workSeconds = exercise.compound ? 42 : 35;
-  const setupMinutes = exercise.compound ? 3 : 2;
-  return setupMinutes + item.sets.length * workSeconds / 60 + Math.max(0, item.sets.length - 1) * item.rest / 60;
+export function estimatePrescriptionMinutes(exercise, item) {
+  const timeProfiles = {
+    'high-fatigue-compound': { setupSeconds: 210, secondsPerRep: 4, setTransitionSeconds: 12 },
+    'stable-compound': { setupSeconds: 150, secondsPerRep: 3.5, setTransitionSeconds: 10 },
+    isolation: { setupSeconds: 90, secondsPerRep: 3, setTransitionSeconds: 8 },
+  };
+  const profile = timeProfiles[getExerciseEffortClass(exercise)];
+  const workSeconds = item.sets.reduce((sum, set) => {
+    const repetitions = clamp(Number(set.targetReps ?? set.reps) || 1, 1, 50);
+    const grindingAllowance = Number(set.targetRir) <= 0 ? 8 : Number(set.targetRir) <= 1 ? 4 : 0;
+    return sum + profile.setTransitionSeconds + repetitions * profile.secondsPerRep + grindingAllowance;
+  }, 0);
+  const restSeconds = item.sets.slice(0, -1).reduce(
+    (sum, set) => sum + Number(set.restAfter ?? item.rest ?? 0),
+    0,
+  );
+  return (profile.setupSeconds + workSeconds + restSeconds) / 60;
 }
 
 export function hasAvailableEquipment(exercise, profile) {
@@ -906,7 +1054,6 @@ function hasLoadedEquivalent(exercise, profile) {
     && candidate.pattern === exercise.pattern
     && ['external', 'per-dumbbell'].includes(candidate.loadType)
     && hasAvailableEquipment(candidate, profile)
-    && getAvailableLoads(candidate, profile).length > 0
     && profile.preferences?.[candidate.id] !== 'exclude');
 }
 
@@ -1186,7 +1333,16 @@ export function getWorkoutCompositionLimits(targetMinutes = 45) {
 
 function fitPrescriptionToMinutes(exercise, item, remainingMinutes) {
   for (let setCount = item.sets.length; setCount >= 1; setCount -= 1) {
-    const candidate = { ...item, sets: item.sets.slice(0, setCount) };
+    const targetRirs = targetRirsForSetCount(item.targetRirs || [item.targetRir], setCount);
+    const candidate = {
+      ...item,
+      targetRir: targetRirs.at(-1),
+      targetRirs,
+      sets: item.sets.slice(0, setCount).map((set, index) => ({
+        ...set,
+        targetRir: targetRirs[index],
+      })),
+    };
     if (estimatePrescriptionMinutes(exercise, candidate) <= remainingMinutes + .001) return candidate;
   }
   return null;
@@ -1200,6 +1356,7 @@ export function getWorkoutSettingsFingerprint(profile = {}) {
   return JSON.stringify({
     goal: profile.goal,
     level: profile.level,
+    trainingStyle: validTrainingStyle(profile.trainingStyle),
     equipment: [...(profile.equipment || [])].sort(),
     duration: Number(profile.duration) || 45,
     targetRir: profile.targetRir,
@@ -1348,7 +1505,7 @@ export function generateWorkout(profile, history = [], options = {}) {
     if (!addExercise(next)) break;
   }
 
-  while (usedMinutes < targetMinutes - 4 && chosen.length < maxExercises) {
+  while (profile.trainingStyle !== 'intense' && usedMinutes < targetMinutes - 4 && chosen.length < maxExercises) {
     const ranked = rankCandidates().filter(({ exercise }) => !exercise.compound);
     if (!ranked.length) break;
     const next = ranked[0].exercise;
@@ -1411,7 +1568,7 @@ export function generateWorkout(profile, history = [], options = {}) {
       recoveryBlocked: !chosen.length && !options.targets,
       maintenanceMode,
       estimatedMinutes: Math.round(usedMinutes),
-      evidenceProfile: 'V21-HEURISTIC-ADAPTIVE-DOSE-ADHERENCE-FATIGUE',
+      evidenceProfile: 'V22-STYLE-AWARE-ADAPTIVE-DOSE-TIME',
     },
   };
 }

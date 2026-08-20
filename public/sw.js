@@ -1,4 +1,4 @@
-const CACHE = 'easyfit-v21';
+const CACHE = 'easyfit-v22';
 const BASE = new URL('./', self.location.href);
 const fromBase = (path) => new URL(path, BASE).href;
 const CORE = ['', 'manifest.webmanifest', 'icon.svg', 'icon-192.png', 'icon-512.png'].map(fromBase);

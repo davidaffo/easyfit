@@ -30,12 +30,25 @@ function item(shape, equipment, priority = 10, extra = {}) {
     : equipment.some((value) => ['barbell', 'ezbar', 'cables', 'machines', 'kettlebell'].includes(value)) ? 'external'
       : equipment.includes('bodyweight') ? 'bodyweight' : 'reps-only');
   const loadMultiplier = extra.loadMultiplier ?? (loadType === 'per-dumbbell' ? 2 : 1);
-  return { pattern, primary, compound, muscleContributions, equipment, loadType, loadMultiplier, selectionPriority: priority, ...extra };
+  const effortClass = extra.effortClass || (compound ? 'stable-compound' : 'isolation');
+  return {
+    pattern,
+    primary,
+    compound,
+    muscleContributions,
+    equipment,
+    loadType,
+    loadMultiplier,
+    effortClass,
+    intensifierEligible: effortClass !== 'high-fatigue-compound',
+    selectionPriority: priority,
+    ...extra,
+  };
 }
 
 export const curatedExercises = {
   // Spinta orizzontale
-  73: item('hp', ['barbell', 'bench', 'rack'], 16),
+  73: item('hp', ['barbell', 'bench', 'rack'], 16, { effortClass: 'high-fatigue-compound' }),
   75: item('hp', ['dumbbells', 'bench'], 15),
   129: item('hp', ['machines'], 13),
   1831: item('hp', ['machines'], 12),
@@ -49,11 +62,11 @@ export const curatedExercises = {
 
   // Spinta verticale
   567: item('vp', ['dumbbells'], 15),
-  566: item('vp', ['barbell', 'rack'], 16),
+  566: item('vp', ['barbell', 'rack'], 16, { effortClass: 'high-fatigue-compound' }),
   454: item('vp', ['bodyweight'], 10, { muscleContributions: { shoulders: 1, triceps: .5, chest: .25, core: .25 } }),
 
   // Tirata orizzontale
-  83: item('hr', ['barbell'], 16),
+  83: item('hr', ['barbell'], 16, { effortClass: 'high-fatigue-compound' }),
   81: item('hr', ['dumbbells'], 15),
   394: item('hr', ['cables'], 14),
   512: item('hr', ['machines'], 13),
@@ -65,19 +78,19 @@ export const curatedExercises = {
   1136: item('vr', ['cables'], 15),
 
   // Accosciata e lavoro unilaterale
-  1801: item('sq', ['barbell', 'rack'], 16),
+  1801: item('sq', ['barbell', 'rack'], 16, { effortClass: 'high-fatigue-compound' }),
   371: item('sq', ['machines'], 15),
   977: item('sq', ['bodyweight', 'bench'], 13),
-  1706: item('sl', ['dumbbells', 'bench'], 13),
+  1706: item('sl', ['dumbbells', 'bench'], 13, { effortClass: 'high-fatigue-compound' }),
   203: item('sq', ['dumbbells'], 15, { loadType: 'external', loadMultiplier: 1, loadUnit: 'single-dumbbell' }),
-  1830: item('sl', ['barbell', 'rack'], 12),
-  206: item('sl', ['dumbbells'], 14),
+  1830: item('sl', ['barbell', 'rack'], 12, { effortClass: 'high-fatigue-compound' }),
+  206: item('sl', ['dumbbells'], 14, { effortClass: 'high-fatigue-compound' }),
   984: item('sl', ['bodyweight'], 12),
 
   // Hinge ed estensione d'anca
-  1652: item('hi', ['dumbbells'], 15),
-  184: item('hi', ['barbell'], 13),
-  1003: item('hi', ['kettlebell'], 13),
+  1652: item('hi', ['dumbbells'], 15, { effortClass: 'high-fatigue-compound' }),
+  184: item('hi', ['barbell'], 13, { effortClass: 'high-fatigue-compound' }),
+  1003: item('hi', ['kettlebell'], 13, { effortClass: 'high-fatigue-compound' }),
   1642: item('he', ['dumbbells', 'bench'], 13, { loadType: 'external', loadMultiplier: 1, loadUnit: 'single-dumbbell' }),
   265: item('he', ['bodyweight'], 15),
 

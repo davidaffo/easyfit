@@ -16,6 +16,7 @@ const profile = {
   recoveryFeedback: {},
   trainingAdaptation: {},
   duration: 45,
+  trainingStyle: 'balanced',
   targetRir: 2,
   setCaps: { compound: 3, accessory: 4 },
   setCapsVersion: 2,
@@ -128,6 +129,18 @@ test('a manually added dumbbell load is immediately visible and persisted', asyn
   await user.click(within(input.closest('form')).getByRole('button', { name: 'Aggiungi' }));
   expect(screen.getByRole('button', { name: 'Rimuovi 12.5 kg' })).toBeTruthy();
   await waitFor(() => expect(JSON.parse(localStorage.getItem('easyfit-profile')).loadInventory.dumbbells).toContain(12.5));
+});
+
+test('training style replaces global RIR and set-cap controls and persists as one choice', async () => {
+  const user = userEvent.setup();
+  saveState();
+  render(<App/>);
+  await user.click(screen.getByRole('button', { name: 'Impostazioni' }));
+  expect(screen.getByRole('heading', { name: 'Stile di allenamento' })).toBeTruthy();
+  expect(screen.queryByRole('heading', { name: 'RIR target' })).toBeNull();
+  expect(screen.queryByRole('heading', { name: 'Limite serie per esercizio' })).toBeNull();
+  await user.click(screen.getByRole('button', { name: /Essenziale intenso/ }));
+  await waitFor(() => expect(JSON.parse(localStorage.getItem('easyfit-profile')).trainingStyle).toBe('intense'));
 });
 
 test('a load entered during a workout is added to the available inventory', async () => {

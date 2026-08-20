@@ -101,6 +101,14 @@ const incompleteGuides = Object.keys(curatedExercises).filter((id) => {
 if (incompleteGuides.length) throw new Error(`Curated Wger IDs without a useful bundled English guide and image: ${incompleteGuides.join(', ')}`);
 
 const eligibleCatalog = catalog.filter((item) => item.generationEligible);
+const invalidProgrammingMetadata = eligibleCatalog.filter((item) => (
+  !['high-fatigue-compound', 'stable-compound', 'isolation'].includes(item.effortClass)
+  || typeof item.intensifierEligible !== 'boolean'
+  || (item.effortClass === 'high-fatigue-compound' && item.intensifierEligible)
+));
+if (invalidProgrammingMetadata.length) {
+  throw new Error(`Curated exercises with invalid effort metadata: ${invalidProgrammingMetadata.map((item) => item.wgerId).join(', ')}`);
+}
 const eligibleIds = new Set(eligibleCatalog.map((item) => String(item.wgerId)));
 const appDetails = {
   source: details.source,

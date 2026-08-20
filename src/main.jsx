@@ -35,6 +35,7 @@ import {
   rebuildWorkoutMetadata,
   replaceExercise,
   startWorkout,
+  trainingStyles,
   willCompleteExercise,
 } from './engine/generator.js';
 import './styles.css';
@@ -48,6 +49,7 @@ const defaultProfile = {
   recoveryFeedback: {},
   trainingAdaptation: {},
   duration: 45,
+  trainingStyle: 'balanced',
   targetRir: 2,
   setCaps: { compound: 3, accessory: 4 },
   setCapsVersion: 2,
@@ -60,6 +62,11 @@ const defaultProfile = {
 };
 
 const goalLabels = { muscle: 'Massa muscolare', strength: 'Forza', fitness: 'Forma fisica' };
+const trainingStyleSummaries = {
+  intense: '2 serie · molto vicine al limite',
+  balanced: '3 serie · fatica ben distribuita',
+  volume: '3–4 serie · maggiore margine',
+};
 
 function normalizeProfile(profile = {}) {
   const isObject = (value) => value && typeof value === 'object' && !Array.isArray(value);
@@ -67,6 +74,13 @@ function normalizeProfile(profile = {}) {
   const shouldMigrateSetCaps = !profile.setCapsVersion
     && Number(savedSetCaps.compound) === 4
     && Number(savedSetCaps.accessory) === 3;
+  const inferredTrainingStyle = Object.hasOwn(trainingStyles, profile.trainingStyle)
+    ? profile.trainingStyle
+    : Number(profile.targetRir) <= 1 && Number(savedSetCaps.compound) <= 2
+      ? 'intense'
+      : Number(profile.targetRir) >= 3 || Number(savedSetCaps.compound) >= 4
+        ? 'volume'
+        : 'balanced';
   const { focusEnabled, focusExerciseIds, focusCycleLength, focusCycleStartedAt, ...cleanProfile } = profile;
   const loadInventory = Object.fromEntries(Object.keys(defaultProfile.loadInventory).map((equipment) => [
     equipment,
@@ -92,6 +106,7 @@ function normalizeProfile(profile = {}) {
     setCaps: shouldMigrateSetCaps ? defaultProfile.setCaps : { ...defaultProfile.setCaps, ...savedSetCaps },
     setCapsVersion: 2,
     exerciseOverrides: isObject(profile.exerciseOverrides) ? profile.exerciseOverrides : {},
+    trainingStyle: inferredTrainingStyle,
     split: 'adaptive',
     cloud: {
       webDavUrl: profile.cloud?.webDavUrl || '',
@@ -275,9 +290,11 @@ function Onboarding({ onDone }) {
       <div className="range-scale"><span>25 min</span><span>75 min</span></div>
     </section>
     <section className="form-section">
-      <label>RIR target</label>
-      <div className="segmented rir-segmented">{[0, 1, 2, 3, 4].map((rir) => <button key={rir} className={profile.targetRir === rir ? 'selected' : ''} onClick={() => setProfile({ ...profile, targetRir: rir })}>{rir === 4 ? '4+' : rir}</button>)}</div>
-      <p className="form-help">0 significa cedimento. Fermarsi a 1–2 mantiene spesso lo stimolo con meno fatica.</p>
+      <label>Come ti piace allenarti?</label>
+      <div className="training-style-list">{Object.entries(trainingStyles).map(([id, style]) => <button key={id} className={profile.trainingStyle === id ? 'selected' : ''} onClick={() => setProfile({ ...profile, trainingStyle: id })}>
+        <span><strong>{style.label}{style.recommended ? ' · Consigliato' : ''}</strong><small>{trainingStyleSummaries[id]}</small></span><span className="radio"><i/></span>
+      </button>)}</div>
+      <p className="form-help">Easyfit traduce lo stile in serie, RIR e recuperi diversi per multiarticolari e isolamenti.</p>
     </section>
     <button className="button primary wide sticky-action" onClick={() => onDone(profile)}>Crea il mio workout <Icon name="spark"/></button>
   </main>;
@@ -598,12 +615,18 @@ function applyExercisePrescriptionLimits(item, limits) {
   const visibleSets = hasCompletedSets
     ? item.sets.filter((set) => set.done || unfinishedSlots-- > 0)
     : item.sets.slice(0, limits.maxSets);
+  const targetRirs = limits.targetRirs?.length
+    ? (visibleSets.length === 1
+      ? [limits.targetRirs.at(-1)]
+      : [limits.targetRirs[0], ...limits.targetRirs.slice(-(visibleSets.length - 1))])
+    : Array.from({ length: visibleSets.length }, () => limits.targetRir);
   return {
     ...item,
-    targetRir: limits.targetRir,
+    targetRir: targetRirs.at(-1) ?? limits.targetRir,
+    targetRirs,
     repRange: { min: limits.minReps, max: limits.maxReps },
     progressionStep: 'custom',
-    sets: visibleSets.map((set) => {
+    sets: visibleSets.map((set, index) => {
       if (set.done) {
         return {
           ...set,
@@ -614,7 +637,7 @@ function applyExercisePrescriptionLimits(item, limits) {
       return {
         ...set,
         targetReps,
-        targetRir: limits.targetRir,
+        targetRir: targetRirs[index] ?? limits.targetRir,
         reps: Math.min(limits.maxReps, Math.max(limits.minReps, Number(set.reps) || targetReps)),
       };
     }),
@@ -887,7 +910,7 @@ function ExerciseCard({ item, exerciseIndex, language, updateSet, recordAvailabl
         <strong>{setIndex + 1}</strong>
         {!usesWeight ? <span className="bodyweight-value">{exercise.loadType === 'bodyweight' ? 'Corpo' : '—'}</span> : <input aria-label={`Peso set ${setIndex + 1}`} type="number" min="0" max="1000" step="0.5" inputMode="decimal" value={set.weight ?? ''} onChange={(event) => updateSet(exerciseIndex, setIndex, { weight: event.target.value === '' ? null : Math.max(0, Math.min(1000, Number(event.target.value) || 0)) })} onBlur={(event) => recordAvailableLoad(exerciseIndex, event.target.value)}/>}
         <input aria-label={`Ripetizioni set ${setIndex + 1}`} type="number" min="0" max="100" step="1" inputMode="numeric" value={set.reps} onChange={(event) => updateSet(exerciseIndex, setIndex, { reps: Math.max(0, Math.min(100, Number(event.target.value) || 0)) })}/>
-        <button className={`rir-value ${set.rir != null ? 'recorded' : ''}`} onClick={() => onRir(setIndex)}>{set.rir == null ? '—' : set.rir === 4 ? '4+' : set.rir}</button>
+        <button className={`rir-value ${set.rir != null ? 'recorded' : ''}`} aria-label={`RIR set ${setIndex + 1}: ${set.rir == null ? `target ${set.targetRir}` : set.rir}`} onClick={() => onRir(setIndex)}>{set.rir == null ? `T${set.targetRir}` : set.rir === 4 ? '4+' : set.rir}</button>
         <button className="set-check" onClick={() => toggleSet(exerciseIndex, setIndex, item)}><Icon name="check" size={18}/></button>
       </div>)}</div>
     </>}
@@ -940,7 +963,7 @@ function ExerciseActionsSheet({ exerciseId, profile, language, onPrescription, o
       <h2>{getExerciseName(exercise, language)}</h2>
       <p>La sostituzione mantiene lo stesso movimento quando possibile.</p>
       <div className="exercise-option-list">
-        <button onClick={onPrescription}><span><Icon name="settings"/></span><div><strong>Limiti e progressione</strong><small>Max {limits.maxSets} serie · {limits.minReps}–{limits.maxReps} reps · RIR {limits.targetRir}</small></div><Icon name="chevron" size={18}/></button>
+        <button onClick={onPrescription}><span><Icon name="settings"/></span><div><strong>Personalizzazione avanzata</strong><small>Max {limits.maxSets} serie · {limits.minReps}–{limits.maxReps} reps · RIR {limits.targetRirs.join(' → ')}</small></div><Icon name="chevron" size={18}/></button>
         <button onClick={onReplace}><span><Icon name="swap"/></span><div><strong>Sostituisci con uno simile</strong><small>Stesso pattern muscolare e attrezzatura disponibile</small></div><Icon name="chevron" size={18}/></button>
         <button onClick={onRemove}><span><Icon name="trash"/></span><div><strong>Rimuovi da questo workout</strong><small>Potrà ricomparire nei prossimi allenamenti</small></div><Icon name="chevron" size={18}/></button>
         <button className="danger" onClick={onExclude}><span><Icon name="ban"/></span><div><strong>Non proporre più</strong><small>Lo esclude anche dai workout futuri</small></div><Icon name="chevron" size={18}/></button>
@@ -979,7 +1002,7 @@ function ExercisePrescriptionSheet({ exerciseId, profile, language, onSave, onCl
       <div className="prescription-controls">
         <div className="limit-row"><div><strong>Serie massime</strong><small>Il motore può usarne meno</small></div><div className="stepper"><button onClick={() => setMaxSets(Math.max(1, maxSets - 1))}>−</button><b>{maxSets}</b><button onClick={() => setMaxSets(Math.min(6, maxSets + 1))}>+</button></div></div>
         <div className="limit-row rep-limit-row"><div><strong>Intervallo ripetizioni</strong><small>Aumentano una alla volta</small></div><div className="rep-limit-inputs"><label><span>MIN</span><input type="number" inputMode="numeric" min="1" max="49" value={minReps} onChange={(event) => changeMinReps(event.target.value)}/></label><i>–</i><label><span>MAX</span><input type="number" inputMode="numeric" min={minReps} max="50" value={maxReps} onChange={(event) => changeMaxReps(event.target.value)}/></label></div></div>
-        <div className="rir-limit"><div><strong>RIR target</strong><small>Può usare quello globale o uno specifico</small></div><div className="rir-choice"><button className={targetRir === 'global' ? 'selected' : ''} onClick={() => setTargetRir('global')}>Globale · {profile.targetRir}</button>{[0, 1, 2, 3, 4].map((rir) => <button key={rir} className={targetRir === rir ? 'selected' : ''} onClick={() => setTargetRir(rir)}>{rir === 4 ? '4+' : rir}</button>)}</div></div>
+        <div className="rir-limit"><div><strong>RIR target</strong><small>Può seguire lo stile o usare un valore specifico</small></div><div className="rir-choice"><button className={targetRir === 'global' ? 'selected' : ''} onClick={() => setTargetRir('global')}>Stile · {current.targetRirs.join('→')}</button>{[0, 1, 2, 3, 4].map((rir) => <button key={rir} className={targetRir === rir ? 'selected' : ''} onClick={() => setTargetRir(rir)}>{rir === 4 ? '4+' : rir}</button>)}</div></div>
       </div>
       <p className="failure-note">RIR 0 è consentito: aumenta però la fatica e non garantisce più crescita rispetto a fermarsi vicino al cedimento.</p>
       <div className="prescription-actions"><button className="button dark" onClick={save}>Salva limiti</button>{saved && <button onClick={() => onSave(null)}>Ripristina default</button>}</div>
@@ -1366,8 +1389,9 @@ function Profile({ profile, setProfile, history, workout, onRestoreBackup, insta
     {installPrompt && <button className="install-card" onClick={install}><span><Icon name="download"/></span><div><strong>Installa Easyfit</strong><small>Usala come un’app, anche offline</small></div><Icon name="chevron"/></button>}
     <SettingsGroup title="Obiettivo"><div className="settings-options">{Object.entries(goalLabels).map(([id, label]) => <button className={profile.goal === id ? 'selected' : ''} onClick={() => update({ goal: id })} key={id}>{label}<span><Icon name="check" size={14}/></span></button>)}</div></SettingsGroup>
     <SettingsGroup title="Esperienza"><div className="settings-options">{[['beginner', 'Principiante'], ['intermediate', 'Intermedio'], ['advanced', 'Esperto']].map(([id, label]) => <button className={profile.level === id ? 'selected' : ''} onClick={() => update({ level: id })} key={id}>{label}<span><Icon name="check" size={14}/></span></button>)}</div></SettingsGroup>
-    <SettingsGroup title="RIR target"><div className="rir-setting">{[0, 1, 2, 3, 4].map((rir) => <button key={rir} className={profile.targetRir === rir ? 'selected' : ''} onClick={() => update({ targetRir: rir })}><strong>{rir === 4 ? '4+' : rir}</strong><small>{rir === 0 ? 'Cedimento' : `${rir} in riserva`}</small></button>)}</div><p className="setting-help">È il target globale. RIR 0 resta disponibile, ma 1–2 offre normalmente un rapporto stimolo/fatica migliore. Puoi cambiarlo per un singolo esercizio dal suo menu.</p></SettingsGroup>
-    <SettingsGroup title="Limiti serie"><div className="type-cap-list">{[['compound', 'Multiarticolari'], ['accessory', 'Isolamento e accessori']].map(([type, label]) => <div key={type}><span>{label}</span><div className="stepper"><button onClick={() => update({ setCaps: { ...profile.setCaps, [type]: Math.max(1, profile.setCaps[type] - 1) } })}>−</button><b>{profile.setCaps[type]}</b><button onClick={() => update({ setCaps: { ...profile.setCaps, [type]: Math.min(6, profile.setCaps[type] + 1) } })}>+</button></div></div>)}</div><p className="setting-help">Sono tetti massimi: durata, volume e prontezza possono comunque prescrivere meno serie.</p></SettingsGroup>
+    <SettingsGroup title="Stile di allenamento"><div className="training-style-list settings-style-list">{Object.entries(trainingStyles).map(([id, style]) => <button key={id} className={profile.trainingStyle === id ? 'selected' : ''} onClick={() => update({ trainingStyle: id })}>
+      <span><strong>{style.label}{style.recommended ? ' · Consigliato' : ''}</strong><small>{trainingStyleSummaries[id]}<br/>{style.description}</small></span><span className="radio"><i/></span>
+    </button>)}</div><p className="setting-help">Lo stile controlla automaticamente serie, prossimità al cedimento e recuperi. I multiarticolari ad alta fatica restano più prudenti degli esercizi stabili e degli isolamenti.</p></SettingsGroup>
     <SettingsGroup title="Durata"><div className="range-label"><span>Tempo massimo per workout</span><strong>{profile.duration} min</strong></div><input type="range" min="25" max="75" step="5" value={profile.duration} onChange={(event) => setProfile({ ...profile, duration: Number(event.target.value) })} onPointerUp={() => showToast('Durata aggiornata')}/><p className="setting-help">È un tetto: con attrezzatura o gruppi disponibili limitati la scheda può terminare prima, e mostrerà sempre la stima reale.</p></SettingsGroup>
     <SettingsGroup title="Nomi degli esercizi"><div className="settings-options language-options">
       <button className={profile.exerciseLanguage === 'en' ? 'selected' : ''} onClick={() => update({ exerciseLanguage: 'en' })}>English <span><Icon name="check" size={14}/></span></button>

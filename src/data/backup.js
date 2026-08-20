@@ -44,6 +44,10 @@ export function isWorkoutRecord(workout) {
   return Boolean(
     workout
     && typeof workout === 'object'
+    && !Array.isArray(workout)
+    && (workout.createdAt == null || (Number.isFinite(Number(workout.createdAt)) && Number(workout.createdAt) > 0))
+    && (workout.startedAt == null || (Number.isFinite(Number(workout.startedAt)) && Number(workout.startedAt) > 0))
+    && (workout.completedAt == null || (Number.isFinite(Number(workout.completedAt)) && Number(workout.completedAt) > 0))
     && Array.isArray(workout.exercises)
     && workout.exercises.length > 0
     && workout.exercises.every((item) => item
@@ -100,6 +104,7 @@ function validateBackupProfile(profile) {
   const knownEquipment = new Set(Object.keys(equipmentLabels));
   if (profile.goal != null && !['muscle', 'strength', 'fitness'].includes(profile.goal)) throw new BackupError('Il profilo contiene un obiettivo non valido.');
   if (profile.level != null && !['beginner', 'intermediate', 'advanced'].includes(profile.level)) throw new BackupError('Il profilo contiene un livello non valido.');
+  if (profile.trainingStyle != null && !['intense', 'balanced', 'volume'].includes(profile.trainingStyle)) throw new BackupError('Il profilo contiene uno stile di allenamento non valido.');
   if (profile.duration != null && (!Number.isFinite(Number(profile.duration)) || Number(profile.duration) < 25 || Number(profile.duration) > 75 || Number(profile.duration) % 5 !== 0)) {
     throw new BackupError('La durata nel profilo deve essere compresa tra 25 e 75 minuti.');
   }
@@ -177,7 +182,7 @@ export function parseBackup(serialized) {
   if (!Number.isInteger(backup.schemaVersion) || backup.schemaVersion < 1) throw new BackupError('Versione del backup non valida.');
   if (backup.schemaVersion > BACKUP_SCHEMA_VERSION) throw new BackupError('Il backup proviene da una versione più recente di Easyfit.', 'newer-schema');
   const payload = backup.payload;
-  if (!payload || !payload.profile || typeof payload.profile !== 'object') throw new BackupError('Nel backup manca il profilo.');
+  if (!payload || !payload.profile || typeof payload.profile !== 'object' || Array.isArray(payload.profile)) throw new BackupError('Nel backup manca un profilo valido.');
   validateBackupProfile(payload.profile);
   if (!Array.isArray(payload.history)) throw new BackupError('Lo storico del backup non è valido.');
   if (!payload.history.every((workout) => isWorkoutRecord(workout)
