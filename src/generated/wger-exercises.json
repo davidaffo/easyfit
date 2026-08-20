@@ -2,8 +2,8 @@
   "source": "wger",
   "sourceUrl": "https://wger.de",
   "language": "en",
-  "syncedAt": "2026-08-08T09:38:35.897Z",
-  "count": 834,
+  "syncedAt": "2026-08-20T12:59:00.083Z",
+  "count": 860,
   "exercises": [
     {
       "wgerId": 1948,
@@ -967,6 +967,27 @@
         "name": "CC-BY-SA 4",
         "url": "https://creativecommons.org/licenses/by-sa/4.0/deed.en",
         "author": "schwolfar"
+      }
+    },
+    {
+      "wgerId": 2494,
+      "name": "Band Terminal Knee extension",
+      "translations": {
+        "en": "Band Terminal Knee extension"
+      },
+      "category": "Legs",
+      "muscles": [
+        10
+      ],
+      "secondaryMuscles": [],
+      "equipment": [
+        "Resistance band"
+      ],
+      "variationGroup": null,
+      "license": {
+        "name": "CC-BY-SA 4",
+        "url": "https://creativecommons.org/licenses/by-sa/4.0/deed.en",
+        "author": "Rehab Hero"
       }
     },
     {
@@ -2020,6 +2041,27 @@
         "name": "CC-BY-SA 4",
         "url": "https://creativecommons.org/licenses/by-sa/4.0/deed.en",
         "author": "Settebello"
+      }
+    },
+    {
+      "wgerId": 2508,
+      "name": "Bird Dog (Core L1)",
+      "translations": {
+        "en": "Bird Dog (Core L1)"
+      },
+      "category": "Abs",
+      "muscles": [
+        6
+      ],
+      "secondaryMuscles": [],
+      "equipment": [
+        "none (bodyweight exercise)"
+      ],
+      "variationGroup": null,
+      "license": {
+        "name": "CC-BY-SA 4",
+        "url": "https://creativecommons.org/licenses/by-sa/4.0/deed.en",
+        "author": "Vasco Custom"
       }
     },
     {
@@ -3800,6 +3842,25 @@
       }
     },
     {
+      "wgerId": 2525,
+      "name": "Couch Stretch",
+      "translations": {
+        "en": "Couch Stretch"
+      },
+      "category": "Legs",
+      "muscles": [],
+      "secondaryMuscles": [],
+      "equipment": [
+        "Bench"
+      ],
+      "variationGroup": null,
+      "license": {
+        "name": "CC-BY-SA 4",
+        "url": "https://creativecommons.org/licenses/by-sa/4.0/deed.en",
+        "author": "Croak6728"
+      }
+    },
+    {
       "wgerId": 1016,
       "name": "Counterclockwise neck circles",
       "translations": {
@@ -4124,6 +4185,77 @@
       }
     },
     {
+      "wgerId": 2497,
+      "name": "DB Floor Press (5kg Single Arm)",
+      "translations": {
+        "en": "DB Floor Press (5kg Single Arm)"
+      },
+      "category": "Chest",
+      "muscles": [
+        4
+      ],
+      "secondaryMuscles": [
+        2,
+        14
+      ],
+      "equipment": [
+        "Dumbbell"
+      ],
+      "variationGroup": null,
+      "license": {
+        "name": "CC-BY-SA 4",
+        "url": "https://creativecommons.org/licenses/by-sa/4.0/deed.en",
+        "author": "Vasco Custom"
+      }
+    },
+    {
+      "wgerId": 2504,
+      "name": "DB Hammer Curls (5kg)",
+      "translations": {
+        "en": "DB Hammer Curls (5kg)"
+      },
+      "category": "Arms",
+      "muscles": [
+        1
+      ],
+      "secondaryMuscles": [
+        13
+      ],
+      "equipment": [
+        "Dumbbell"
+      ],
+      "variationGroup": null,
+      "license": {
+        "name": "CC-BY-SA 4",
+        "url": "https://creativecommons.org/licenses/by-sa/4.0/deed.en",
+        "author": "Vasco Custom"
+      }
+    },
+    {
+      "wgerId": 2502,
+      "name": "DB Single-Arm Row (5kg)",
+      "translations": {
+        "en": "DB Single-Arm Row (5kg)"
+      },
+      "category": "Back",
+      "muscles": [
+        12
+      ],
+      "secondaryMuscles": [
+        1,
+        13
+      ],
+      "equipment": [
+        "Dumbbell"
+      ],
+      "variationGroup": null,
+      "license": {
+        "name": "CC-BY-SA 4",
+        "url": "https://creativecommons.org/licenses/by-sa/4.0/deed.en",
+        "author": "Vasco Custom"
+      }
+    },
+    {
       "wgerId": 1497,
       "name": "DB Underhand bench press",
       "translations": {
@@ -4187,6 +4319,29 @@
         "name": "CC-BY-SA 4",
         "url": "https://creativecommons.org/licenses/by-sa/4.0/deed.en",
         "author": "Deflation"
+      }
+    },
+    {
+      "wgerId": 2505,
+      "name": "Dead Bug (Core L1)",
+      "translations": {
+        "en": "Dead Bug (Core L1)"
+      },
+      "category": "Abs",
+      "muscles": [
+        6
+      ],
+      "secondaryMuscles": [
+        14
+      ],
+      "equipment": [
+        "none (bodyweight exercise)"
+      ],
+      "variationGroup": null,
+      "license": {
+        "name": "CC-BY-SA 4",
+        "url": "https://creativecommons.org/licenses/by-sa/4.0/deed.en",
+        "author": "Vasco Custom"
       }
     },
     {
@@ -5769,6 +5924,30 @@
       }
     },
     {
+      "wgerId": 2531,
+      "name": "elbow lever",
+      "translations": {
+        "en": "elbow lever"
+      },
+      "category": "Abs",
+      "muscles": [
+        6
+      ],
+      "secondaryMuscles": [
+        2,
+        5
+      ],
+      "equipment": [
+        "none (bodyweight exercise)"
+      ],
+      "variationGroup": null,
+      "license": {
+        "name": "CC-BY-SA 4",
+        "url": "https://creativecommons.org/licenses/by-sa/4.0/deed.en",
+        "author": "ege"
+      }
+    },
+    {
       "wgerId": 1498,
       "name": "Elbows Tucked DB Bench Press",
       "translations": {
@@ -5930,6 +6109,30 @@
       }
     },
     {
+      "wgerId": 2529,
+      "name": "explosive push ups",
+      "translations": {
+        "en": "explosive push ups"
+      },
+      "category": "Chest",
+      "muscles": [
+        4
+      ],
+      "secondaryMuscles": [
+        2,
+        5
+      ],
+      "equipment": [
+        "none (bodyweight exercise)"
+      ],
+      "variationGroup": "07c5447d-9d49-4b29-a2e2-0f9169f749c5",
+      "license": {
+        "name": "CC-BY-SA 4",
+        "url": "https://creativecommons.org/licenses/by-sa/4.0/deed.en",
+        "author": "ege"
+      }
+    },
+    {
       "wgerId": 1835,
       "name": "External Rotation Stretch",
       "translations": {
@@ -6006,6 +6209,29 @@
         "name": "CC-BY-SA 4",
         "url": "https://creativecommons.org/licenses/by-sa/4.0/deed.en",
         "author": ""
+      }
+    },
+    {
+      "wgerId": 2503,
+      "name": "Face Pulls (Bodyweight Doorframe/Towel)",
+      "translations": {
+        "en": "Face Pulls (Bodyweight Doorframe/Towel)"
+      },
+      "category": "Back",
+      "muscles": [
+        2,
+        9,
+        5
+      ],
+      "secondaryMuscles": [],
+      "equipment": [
+        "none (bodyweight exercise)"
+      ],
+      "variationGroup": null,
+      "license": {
+        "name": "CC-BY-SA 4",
+        "url": "https://creativecommons.org/licenses/by-sa/4.0/deed.en",
+        "author": "Vasco Custom"
       }
     },
     {
@@ -6424,6 +6650,27 @@
       }
     },
     {
+      "wgerId": 2507,
+      "name": "Forearm Plank (Core L1)",
+      "translations": {
+        "en": "Forearm Plank (Core L1)"
+      },
+      "category": "Abs",
+      "muscles": [
+        7
+      ],
+      "secondaryMuscles": [],
+      "equipment": [
+        "none (bodyweight exercise)"
+      ],
+      "variationGroup": null,
+      "license": {
+        "name": "CC-BY-SA 4",
+        "url": "https://creativecommons.org/licenses/by-sa/4.0/deed.en",
+        "author": "Vasco Custom"
+      }
+    },
+    {
       "wgerId": 994,
       "name": "Forward arm circles",
       "translations": {
@@ -6742,6 +6989,30 @@
         "name": "CC-BY-SA 3",
         "url": "https://creativecommons.org/licenses/by-sa/3.0/deed.en",
         "author": "Marius"
+      }
+    },
+    {
+      "wgerId": 2527,
+      "name": "Front Split Stretch",
+      "translations": {
+        "en": "Front Split Stretch"
+      },
+      "category": "Legs",
+      "muscles": [
+        11,
+        10
+      ],
+      "secondaryMuscles": [
+        7
+      ],
+      "equipment": [
+        "Gym mat"
+      ],
+      "variationGroup": null,
+      "license": {
+        "name": "CC-BY-SA 4",
+        "url": "https://creativecommons.org/licenses/by-sa/4.0/deed.en",
+        "author": "Croak6728"
       }
     },
     {
@@ -7750,6 +8021,34 @@
       }
     },
     {
+      "wgerId": 2510,
+      "name": "Hollow Body Hold (Core L1)",
+      "translations": {
+        "en": "Hollow Body Hold (Core L1)"
+      },
+      "category": "Cardio",
+      "muscles": [
+        7,
+        8,
+        14
+      ],
+      "secondaryMuscles": [
+        2,
+        1,
+        13,
+        12
+      ],
+      "equipment": [
+        "none (bodyweight exercise)"
+      ],
+      "variationGroup": null,
+      "license": {
+        "name": "CC-BY-SA 4",
+        "url": "https://creativecommons.org/licenses/by-sa/4.0/deed.en",
+        "author": "Vasco Custom"
+      }
+    },
+    {
       "wgerId": 297,
       "name": "Hollow Hold",
       "translations": {
@@ -8207,6 +8506,27 @@
         "name": "CC-BY-SA 3",
         "url": "https://creativecommons.org/licenses/by-sa/3.0/deed.en",
         "author": "Mahoney"
+      }
+    },
+    {
+      "wgerId": 2499,
+      "name": "Incline Push-ups (Vasco L2)",
+      "translations": {
+        "en": "Incline Push-ups (Vasco L2)"
+      },
+      "category": "Chest",
+      "muscles": [
+        4
+      ],
+      "secondaryMuscles": [],
+      "equipment": [
+        "none (bodyweight exercise)"
+      ],
+      "variationGroup": null,
+      "license": {
+        "name": "CC-BY-SA 4",
+        "url": "https://creativecommons.org/licenses/by-sa/4.0/deed.en",
+        "author": "Vasco Custom"
       }
     },
     {
@@ -9924,6 +10244,25 @@
       }
     },
     {
+      "wgerId": 2526,
+      "name": "Long Lunge Pulse Stretch",
+      "translations": {
+        "en": "Long Lunge Pulse Stretch"
+      },
+      "category": "Legs",
+      "muscles": [],
+      "secondaryMuscles": [],
+      "equipment": [
+        "Resistance band"
+      ],
+      "variationGroup": "c8727770-8ec1-4fe3-ae70-238a9fc46570",
+      "license": {
+        "name": "CC-BY-SA 4",
+        "url": "https://creativecommons.org/licenses/by-sa/4.0/deed.en",
+        "author": "Croak6728"
+      }
+    },
+    {
       "wgerId": 394,
       "name": "Long-Pulley (low Row)",
       "translations": {
@@ -10348,6 +10687,27 @@
         "name": "CC-BY-SA 4",
         "url": "https://creativecommons.org/licenses/by-sa/4.0/deed.en",
         "author": "roneydya"
+      }
+    },
+    {
+      "wgerId": 2495,
+      "name": "Machine Leg Flexion",
+      "translations": {
+        "en": "Machine Leg Flexion"
+      },
+      "category": "Legs",
+      "muscles": [
+        11
+      ],
+      "secondaryMuscles": [],
+      "equipment": [
+        "Cable machine"
+      ],
+      "variationGroup": null,
+      "license": {
+        "name": "CC-BY-SA 4",
+        "url": "https://creativecommons.org/licenses/by-sa/4.0/deed.en",
+        "author": "Me"
       }
     },
     {
@@ -11416,6 +11776,29 @@
       }
     },
     {
+      "wgerId": 2498,
+      "name": "Pike Push-ups (Vasco L1)",
+      "translations": {
+        "en": "Pike Push-ups (Vasco L1)"
+      },
+      "category": "Shoulders",
+      "muscles": [
+        2
+      ],
+      "secondaryMuscles": [
+        14
+      ],
+      "equipment": [
+        "none (bodyweight exercise)"
+      ],
+      "variationGroup": null,
+      "license": {
+        "name": "CC-BY-SA 4",
+        "url": "https://creativecommons.org/licenses/by-sa/4.0/deed.en",
+        "author": "Vasco Custom"
+      }
+    },
+    {
       "wgerId": 1436,
       "name": "Pin Bench Press BB",
       "translations": {
@@ -11534,6 +11917,32 @@
         "name": "CC-BY-SA 4",
         "url": "https://creativecommons.org/licenses/by-sa/4.0/deed.en",
         "author": ""
+      }
+    },
+    {
+      "wgerId": 2532,
+      "name": "Planche Lean Hold",
+      "translations": {
+        "en": "Planche Lean Hold"
+      },
+      "category": "Shoulders",
+      "muscles": [
+        2,
+        3
+      ],
+      "secondaryMuscles": [
+        1,
+        4,
+        6
+      ],
+      "equipment": [
+        "none (bodyweight exercise)"
+      ],
+      "variationGroup": null,
+      "license": {
+        "name": "CC-BY-SA 4",
+        "url": "https://creativecommons.org/licenses/by-sa/4.0/deed.en",
+        "author": "ege"
       }
     },
     {
@@ -13520,6 +13929,31 @@
       }
     },
     {
+      "wgerId": 2530,
+      "name": "Russian Push Ups",
+      "translations": {
+        "en": "Russian Push Ups"
+      },
+      "category": "Chest",
+      "muscles": [
+        4
+      ],
+      "secondaryMuscles": [
+        2,
+        6,
+        5
+      ],
+      "equipment": [
+        "none (bodyweight exercise)"
+      ],
+      "variationGroup": null,
+      "license": {
+        "name": "CC-BY-SA 4",
+        "url": "https://creativecommons.org/licenses/by-sa/4.0/deed.en",
+        "author": "ege"
+      }
+    },
+    {
       "wgerId": 1193,
       "name": "Russian Twist",
       "translations": {
@@ -14056,6 +14490,23 @@
         "name": "CC-BY-SA 4",
         "url": "https://creativecommons.org/licenses/by-sa/4.0/deed.en",
         "author": "M9"
+      }
+    },
+    {
+      "wgerId": 2523,
+      "name": "Serratus Wall Slide Stretch",
+      "translations": {
+        "en": "Serratus Wall Slide Stretch"
+      },
+      "category": "Shoulders",
+      "muscles": [],
+      "secondaryMuscles": [],
+      "equipment": [],
+      "variationGroup": null,
+      "license": {
+        "name": "CC-BY-SA 4",
+        "url": "https://creativecommons.org/licenses/by-sa/4.0/deed.en",
+        "author": "Croak6728"
       }
     },
     {
@@ -14685,6 +15136,33 @@
         "name": "CC-BY-SA 4",
         "url": "https://creativecommons.org/licenses/by-sa/4.0/deed.en",
         "author": "http://www.bodybuilding.com/"
+      }
+    },
+    {
+      "wgerId": 2509,
+      "name": "Side Plank (Core L1)",
+      "translations": {
+        "en": "Side Plank (Core L1)"
+      },
+      "category": "Abs",
+      "muscles": [
+        2,
+        12,
+        4
+      ],
+      "secondaryMuscles": [
+        1,
+        13,
+        14
+      ],
+      "equipment": [
+        "none (bodyweight exercise)"
+      ],
+      "variationGroup": null,
+      "license": {
+        "name": "CC-BY-SA 4",
+        "url": "https://creativecommons.org/licenses/by-sa/4.0/deed.en",
+        "author": "Vasco Custom"
       }
     },
     {
@@ -15922,6 +16400,26 @@
       }
     },
     {
+      "wgerId": 2528,
+      "name": "Squat Sky Reach Stretch",
+      "translations": {
+        "en": "Squat Sky Reach Stretch"
+      },
+      "category": "Chest",
+      "muscles": [
+        12,
+        4
+      ],
+      "secondaryMuscles": [],
+      "equipment": [],
+      "variationGroup": null,
+      "license": {
+        "name": "CC-BY-SA 4",
+        "url": "https://creativecommons.org/licenses/by-sa/4.0/deed.en",
+        "author": "Croak6728"
+      }
+    },
+    {
       "wgerId": 616,
       "name": "Squat Thrust",
       "translations": {
@@ -16424,6 +16922,25 @@
       }
     },
     {
+      "wgerId": 2524,
+      "name": "Straddle Stance Good Morning",
+      "translations": {
+        "en": "Straddle Stance Good Morning"
+      },
+      "category": "Legs",
+      "muscles": [],
+      "secondaryMuscles": [],
+      "equipment": [
+        "Barbell"
+      ],
+      "variationGroup": null,
+      "license": {
+        "name": "CC-BY-SA 4",
+        "url": "https://creativecommons.org/licenses/by-sa/4.0/deed.en",
+        "author": "Croak6728"
+      }
+    },
+    {
       "wgerId": 912,
       "name": "Straight Bar Cable Curls",
       "translations": {
@@ -16796,6 +17313,30 @@
       }
     },
     {
+      "wgerId": 2501,
+      "name": "Table Bodyweight Rows (Vasco L1)",
+      "translations": {
+        "en": "Table Bodyweight Rows (Vasco L1)"
+      },
+      "category": "Back",
+      "muscles": [
+        12
+      ],
+      "secondaryMuscles": [
+        1,
+        9
+      ],
+      "equipment": [
+        "none (bodyweight exercise)"
+      ],
+      "variationGroup": null,
+      "license": {
+        "name": "CC-BY-SA 4",
+        "url": "https://creativecommons.org/licenses/by-sa/4.0/deed.en",
+        "author": "Vasco Custom"
+      }
+    },
+    {
       "wgerId": 1285,
       "name": "Talons fesses",
       "translations": {
@@ -17097,6 +17638,29 @@
         "name": "CC-BY-SA 3",
         "url": "https://creativecommons.org/licenses/by-sa/3.0/deed.en",
         "author": "http://www.bodybuilding.com/"
+      }
+    },
+    {
+      "wgerId": 2522,
+      "name": "Tricep Pull-Down",
+      "translations": {
+        "en": "Tricep Pull-Down"
+      },
+      "category": "Arms",
+      "muscles": [
+        5
+      ],
+      "secondaryMuscles": [
+        4
+      ],
+      "equipment": [
+        "Resistance band"
+      ],
+      "variationGroup": null,
+      "license": {
+        "name": "CC-BY-SA 4",
+        "url": "https://creativecommons.org/licenses/by-sa/4.0/deed.en",
+        "author": "G. Johnson"
       }
     },
     {
@@ -18052,6 +18616,30 @@
         "name": "CC-BY-SA 4",
         "url": "https://creativecommons.org/licenses/by-sa/4.0/deed.en",
         "author": "Nash"
+      }
+    },
+    {
+      "wgerId": 2496,
+      "name": "Wall Push-ups (Vasco L1)",
+      "translations": {
+        "en": "Wall Push-ups (Vasco L1)"
+      },
+      "category": "Chest",
+      "muscles": [
+        4
+      ],
+      "secondaryMuscles": [
+        2,
+        14
+      ],
+      "equipment": [
+        "none (bodyweight exercise)"
+      ],
+      "variationGroup": null,
+      "license": {
+        "name": "CC-BY-SA 4",
+        "url": "https://creativecommons.org/licenses/by-sa/4.0/deed.en",
+        "author": "Vasco Custom"
       }
     },
     {

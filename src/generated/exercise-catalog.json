@@ -1,13 +1,13 @@
 {
   "source": "wger",
   "sourceUrl": "https://wger.de",
-  "syncedAt": "2026-08-08T09:38:35.897Z",
-  "curatedAt": "2026-08-18T09:41:55.471Z",
+  "syncedAt": "2026-08-20T12:59:00.083Z",
+  "curatedAt": "2026-08-20T12:59:00.142Z",
   "schemaVersion": 2,
   "curation": "explicit-wger-id-registry",
-  "sourceCount": 787,
-  "count": 51,
-  "eligible": 51,
+  "sourceCount": 812,
+  "count": 55,
+  "eligible": 55,
   "exercises": [
     {
       "id": "wger-1573",
@@ -19,7 +19,8 @@
       "primary": "core",
       "secondary": [],
       "equipment": [
-        "bodyweight"
+        "bodyweight",
+        "abwheel"
       ],
       "muscleContributions": {
         "core": 1
@@ -226,13 +227,12 @@
         "shoulders"
       ],
       "equipment": [
-        "dumbbells",
-        "bench"
+        "dumbbells"
       ],
       "muscleContributions": {
         "back": 1,
         "biceps": 0.5,
-        "shoulders": 0.5
+        "shoulders": 0.25
       },
       "pattern": "horizontal-pull",
       "compound": true,
@@ -268,7 +268,7 @@
       "muscleContributions": {
         "back": 1,
         "biceps": 0.5,
-        "shoulders": 0.5
+        "shoulders": 0.25
       },
       "pattern": "horizontal-pull",
       "compound": true,
@@ -420,7 +420,8 @@
         "glutes"
       ],
       "equipment": [
-        "bodyweight"
+        "bodyweight",
+        "bench"
       ],
       "muscleContributions": {
         "quads": 1,
@@ -453,13 +454,14 @@
         "glutes"
       ],
       "equipment": [
-        "dumbbells"
+        "dumbbells",
+        "bench"
       ],
       "muscleContributions": {
         "quads": 1,
         "glutes": 0.5
       },
-      "pattern": "squat",
+      "pattern": "single-leg",
       "compound": true,
       "selectionPriority": 13,
       "loadType": "per-dumbbell",
@@ -473,6 +475,36 @@
       "source": "wger",
       "generationEligible": true,
       "loadMultiplier": 2
+    },
+    {
+      "id": "wger-135",
+      "wgerId": 135,
+      "name": "Butterfly",
+      "translations": {
+        "en": "Butterfly"
+      },
+      "primary": "chest",
+      "secondary": [],
+      "equipment": [
+        "machines"
+      ],
+      "muscleContributions": {
+        "chest": 1
+      },
+      "pattern": "chest-isolation",
+      "compound": false,
+      "selectionPriority": 13,
+      "loadType": "external",
+      "minutes": 6,
+      "variationGroup": "2ebedf75-1dab-4a7d-ae06-6e1f2d3c4f8c",
+      "license": {
+        "name": "CC-BY-SA 3",
+        "url": "https://creativecommons.org/licenses/by-sa/3.0/deed.en",
+        "author": "wger.de"
+      },
+      "source": "wger",
+      "generationEligible": true,
+      "loadMultiplier": 1
     },
     {
       "id": "wger-1378",
@@ -657,7 +689,7 @@
       },
       "pattern": "vertical-pull",
       "compound": true,
-      "selectionPriority": 15,
+      "selectionPriority": 13,
       "loadType": "external",
       "minutes": 9,
       "variationGroup": null,
@@ -679,13 +711,16 @@
         "it": "Croci su panca piana"
       },
       "primary": "back",
-      "secondary": [],
+      "secondary": [
+        "chest"
+      ],
       "equipment": [
         "dumbbells",
         "bench"
       ],
       "muscleContributions": {
-        "back": 1
+        "back": 1,
+        "chest": 0.5
       },
       "pattern": "straight-arm-pull",
       "compound": false,
@@ -906,6 +941,101 @@
       "source": "wger",
       "generationEligible": true,
       "loadMultiplier": 2
+    },
+    {
+      "id": "wger-237",
+      "wgerId": 237,
+      "name": "Fly With Cable",
+      "translations": {
+        "en": "Fly With Cable"
+      },
+      "primary": "chest",
+      "secondary": [],
+      "equipment": [
+        "cables"
+      ],
+      "muscleContributions": {
+        "chest": 1
+      },
+      "pattern": "chest-isolation",
+      "compound": false,
+      "selectionPriority": 14,
+      "loadType": "external",
+      "minutes": 6,
+      "variationGroup": "3fc23914-7252-44fd-bb70-a3b8de727914",
+      "license": {
+        "name": "CC-BY-SA 3",
+        "url": "https://creativecommons.org/licenses/by-sa/3.0/deed.en",
+        "author": "wger.de"
+      },
+      "source": "wger",
+      "generationEligible": true,
+      "loadMultiplier": 1
+    },
+    {
+      "id": "wger-238",
+      "wgerId": 238,
+      "name": "Fly With Dumbbells",
+      "translations": {
+        "en": "Fly With Dumbbells",
+        "it": "Croci su panca Inclinata"
+      },
+      "primary": "chest",
+      "secondary": [],
+      "equipment": [
+        "dumbbells",
+        "bench"
+      ],
+      "muscleContributions": {
+        "chest": 1
+      },
+      "pattern": "chest-isolation",
+      "compound": false,
+      "selectionPriority": 14,
+      "loadType": "per-dumbbell",
+      "minutes": 6,
+      "variationGroup": "3fc23914-7252-44fd-bb70-a3b8de727914",
+      "license": {
+        "name": "CC-BY-SA 3",
+        "url": "https://creativecommons.org/licenses/by-sa/3.0/deed.en",
+        "author": "wger.de"
+      },
+      "source": "wger",
+      "generationEligible": true,
+      "loadMultiplier": 2
+    },
+    {
+      "id": "wger-265",
+      "wgerId": 265,
+      "name": "Glute Bridge",
+      "translations": {
+        "en": "Glute Bridge"
+      },
+      "primary": "glutes",
+      "secondary": [
+        "hamstrings"
+      ],
+      "equipment": [
+        "bodyweight"
+      ],
+      "muscleContributions": {
+        "glutes": 1,
+        "hamstrings": 0.5
+      },
+      "pattern": "hip-extension",
+      "compound": true,
+      "selectionPriority": 15,
+      "loadType": "bodyweight",
+      "minutes": 9,
+      "variationGroup": "df253492-1fa4-407a-aa2c-1a19a5b30925",
+      "license": {
+        "name": "CC-BY-SA 4",
+        "url": "https://creativecommons.org/licenses/by-sa/4.0/deed.en",
+        "author": "tdprice12"
+      },
+      "source": "wger",
+      "generationEligible": true,
+      "loadMultiplier": 1
     },
     {
       "id": "wger-1831",
@@ -1151,7 +1281,7 @@
       "muscleContributions": {
         "back": 1,
         "biceps": 0.5,
-        "shoulders": 0.5
+        "shoulders": 0.25
       },
       "pattern": "horizontal-pull",
       "compound": true,
@@ -1252,7 +1382,7 @@
       },
       "pattern": "vertical-pull",
       "compound": true,
-      "selectionPriority": 13,
+      "selectionPriority": 15,
       "loadType": "external",
       "minutes": 9,
       "variationGroup": null,
@@ -1276,7 +1406,8 @@
       "primary": "shoulders",
       "secondary": [
         "triceps",
-        "chest"
+        "chest",
+        "core"
       ],
       "equipment": [
         "bodyweight"
@@ -1284,7 +1415,8 @@
       "muscleContributions": {
         "shoulders": 1,
         "triceps": 0.5,
-        "chest": 0.5
+        "chest": 0.25,
+        "core": 0.25
       },
       "pattern": "vertical-push",
       "compound": true,
@@ -1424,7 +1556,7 @@
       "muscleContributions": {
         "back": 1,
         "biceps": 0.5,
-        "shoulders": 0.5
+        "shoulders": 0.25
       },
       "pattern": "horizontal-pull",
       "compound": true,
@@ -1485,12 +1617,13 @@
         "chest"
       ],
       "equipment": [
-        "barbell"
+        "barbell",
+        "rack"
       ],
       "muscleContributions": {
         "shoulders": 1,
         "triceps": 0.5,
-        "chest": 0.5
+        "chest": 0.25
       },
       "pattern": "vertical-push",
       "compound": true,
@@ -1525,7 +1658,7 @@
       "muscleContributions": {
         "shoulders": 1,
         "triceps": 0.5,
-        "chest": 0.5
+        "chest": 0.25
       },
       "pattern": "vertical-push",
       "compound": true,

@@ -4,8 +4,8 @@ const C = {
   // Direct sets count as 1 and meaningful indirect work as 0.5. These are
   // evidence categories, not invented exercise-specific precision.
   hp: ['horizontal-push', 'chest', true, { chest: 1, shoulders: .5, triceps: .5 }],
-  vp: ['vertical-push', 'shoulders', true, { shoulders: 1, triceps: .5, chest: .5 }],
-  hr: ['horizontal-pull', 'back', true, { back: 1, biceps: .5, shoulders: .5 }],
+  vp: ['vertical-push', 'shoulders', true, { shoulders: 1, triceps: .5, chest: .25 }],
+  hr: ['horizontal-pull', 'back', true, { back: 1, biceps: .5, shoulders: .25 }],
   vr: ['vertical-pull', 'back', true, { back: 1, biceps: .5 }],
   sq: ['squat', 'quads', true, { quads: 1, glutes: .5 }],
   sl: ['single-leg', 'quads', true, { quads: 1, glutes: .5 }],
@@ -42,28 +42,33 @@ export const curatedExercises = {
   1551: item('hp', ['bodyweight'], 14),
   1112: item('hp', ['bodyweight', 'bench'], 10),
 
+  // Isolamento petto: una variante canonica per attrezzatura, senza microvarianti.
+  238: item('cf', ['dumbbells', 'bench'], 14),
+  237: item('cf', ['cables'], 14),
+  135: item('cf', ['machines'], 13),
+
   // Spinta verticale
   567: item('vp', ['dumbbells'], 15),
-  566: item('vp', ['barbell'], 16),
-  454: item('vp', ['bodyweight'], 10),
+  566: item('vp', ['barbell', 'rack'], 16),
+  454: item('vp', ['bodyweight'], 10, { muscleContributions: { shoulders: 1, triceps: .5, chest: .25, core: .25 } }),
 
   // Tirata orizzontale
   83: item('hr', ['barbell'], 16),
-  81: item('hr', ['dumbbells', 'bench'], 15),
+  81: item('hr', ['dumbbells'], 15),
   394: item('hr', ['cables'], 14),
   512: item('hr', ['machines'], 13),
 
   // Tirata verticale
   475: item('vr', ['pullup'], 16, { loadType: 'bodyweight' }),
   152: item('vr', ['pullup'], 15, { loadType: 'bodyweight' }),
-  1127: item('vr', ['cables'], 15),
-  1136: item('vr', ['cables'], 13),
+  1127: item('vr', ['cables'], 13),
+  1136: item('vr', ['cables'], 15),
 
   // Accosciata e lavoro unilaterale
   1801: item('sq', ['barbell', 'rack'], 16),
   371: item('sq', ['machines'], 15),
-  977: item('sq', ['bodyweight'], 13),
-  1706: item('sq', ['dumbbells'], 13),
+  977: item('sq', ['bodyweight', 'bench'], 13),
+  1706: item('sl', ['dumbbells', 'bench'], 13),
   203: item('sq', ['dumbbells'], 15, { loadType: 'external', loadMultiplier: 1, loadUnit: 'single-dumbbell' }),
   1830: item('sl', ['barbell', 'rack'], 12),
   206: item('sl', ['dumbbells'], 14),
@@ -74,6 +79,7 @@ export const curatedExercises = {
   184: item('hi', ['barbell'], 13),
   1003: item('hi', ['kettlebell'], 13),
   1642: item('he', ['dumbbells', 'bench'], 13, { loadType: 'external', loadMultiplier: 1, loadUnit: 'single-dumbbell' }),
+  265: item('he', ['bodyweight'], 15),
 
   // Accessori
   364: item('kf', ['machines'], 15),
@@ -84,7 +90,7 @@ export const curatedExercises = {
   1654: item('sr', ['machines'], 13),
   822: item('rd', ['cables'], 14),
   1726: item('sp', ['cables'], 14),
-  161: item('sp', ['dumbbells', 'bench'], 11, { loadType: 'external', loadMultiplier: 1, loadUnit: 'single-dumbbell' }),
+  161: item('sp', ['dumbbells', 'bench'], 11, { loadType: 'external', loadMultiplier: 1, loadUnit: 'single-dumbbell', muscleContributions: { back: 1, chest: .5 } }),
   91: item('ef', ['barbell'], 13),
   92: item('ef', ['dumbbells'], 15),
   94: item('ef', ['ezbar'], 14),
@@ -95,7 +101,14 @@ export const curatedExercises = {
   622: item('cr', ['bodyweight'], 14),
   1620: item('cr', ['dumbbells'], 13, { loadType: 'external', loadMultiplier: 1, loadUnit: 'single-dumbbell' }),
   146: item('cr', ['machines'], 13),
-  1573: item('ae', ['bodyweight'], 14),
+  1573: item('ae', ['bodyweight', 'abwheel'], 14),
   167: item('tf', ['bodyweight'], 14),
   1648: item('tf', ['dumbbells'], 12, { loadType: 'external', loadMultiplier: 1, loadUnit: 'single-dumbbell' }),
+};
+
+// Local assets reviewed and owned by the app must survive a Wger refresh.
+// Keeping this registry next to the catalog makes the sync and curator share
+// one source of truth instead of relying on files that happen to exist.
+export const curatedGuideImageOverrides = {
+  265: '/exercise-images/265.webp',
 };

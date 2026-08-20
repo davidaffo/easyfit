@@ -1,8 +1,9 @@
 import { execFile } from 'node:child_process';
-import { mkdir, readdir, unlink, writeFile } from 'node:fs/promises';
+import { access, mkdir, readdir, unlink, writeFile } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
 import { promisify } from 'node:util';
 import { fileURLToPath } from 'node:url';
+import { curatedExercises, curatedGuideImageOverrides } from './curated-exercises.mjs';
 
 const run = promisify(execFile);
 
@@ -135,8 +136,11 @@ while (next) {
 
 const normalized = records.map(normalize).filter(Boolean).sort((a, b) => a.core.name.localeCompare(b.core.name));
 await mkdir(imagesDirectory, { recursive: true });
-const imageItems = normalized.filter((item) => item.details.image);
-const localImages = [];
+const curatedLocalImages = Object.values(curatedGuideImageOverrides);
+await Promise.all(curatedLocalImages.map((publicPath) => access(resolve(imagesDirectory, publicPath.split('/').at(-1)))));
+const approvedIds = new Set(Object.keys(curatedExercises).map(Number));
+const imageItems = normalized.filter((item) => approvedIds.has(item.core.wgerId) && item.details.image);
+const localImages = [...curatedLocalImages];
 for (let index = 0; index < imageItems.length; index += 4) {
   const downloaded = await Promise.all(imageItems.slice(index, index + 4).map(localizeImage));
   localImages.push(...downloaded.filter(Boolean));
@@ -162,5 +166,6 @@ const details = {
 await mkdir(dirname(outputPath), { recursive: true });
 await writeFile(outputPath, `${JSON.stringify(payload, null, 2)}\n`);
 await writeFile(detailsPath, `${JSON.stringify(details, null, 2)}\n`);
-await writeFile(imagesIndexPath, `${JSON.stringify(localImages.sort(), null, 2)}\n`);
-process.stdout.write(`\nSaved ${exercises.length} English exercises, details and ${localImages.length} local images\n`);
+const indexedImages = [...new Set(localImages)].sort();
+await writeFile(imagesIndexPath, `${JSON.stringify(indexedImages, null, 2)}\n`);
+process.stdout.write(`\nSaved ${exercises.length} English exercises, details and ${indexedImages.length} local images\n`);

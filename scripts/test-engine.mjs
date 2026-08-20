@@ -3,6 +3,7 @@ import { readFile } from 'node:fs/promises';
 import { catalogExercises, exercises } from '../src/data/exercises.js';
 import {
   BACKUP_FILENAME,
+  MAX_BACKUP_BYTES,
   buildWebDavFileUrl,
   downloadWebDavBackup,
   parseBackup,
@@ -15,7 +16,9 @@ import {
   calibrateBodyweightPrescription,
   estimateOneRepMax,
   generateWorkout,
+  generateWorkoutAlternatives,
   getAvailableLoads,
+  getEquipmentCoverage,
   getExerciseAnalytics,
   getExerciseContinuity,
   getExerciseHistory,
@@ -60,12 +63,17 @@ assert(benchGuide.description.length > 100, 'The lazy wger guide must expose the
 assert(benchGuide.image?.startsWith('/exercise-images/'), 'The bundled wger guide must use a local exercise image');
 for (const exercise of exercises) {
   const guide = await getExerciseDetails(exercise.wgerId, 'en');
-  assert(guide?.description && guide?.image?.includes('/exercise-images/'), `Approved exercise ${exercise.name} must ship with its complete offline guide`);
+  assert(guide?.description?.length >= 100 && guide?.image?.includes('/exercise-images/'), `Approved exercise ${exercise.name} must ship with a useful complete offline guide`);
+  assert(!/fast movement|rapid movement|touches your neck|hands are behind your head/i.test(guide.description), `Approved guide ${exercise.name} must not retain unsafe or low-quality wording`);
+  const imageBytes = await readFile(new URL(`../public${guide.image}`, import.meta.url));
+  assert(imageBytes.length > 0, `Approved exercise ${exercise.name} must reference an image file that actually exists in the PWA`);
 }
 const serviceWorkerSource = await readFile(new URL('../public/sw.js', import.meta.url), 'utf8');
 const appSource = await readFile(new URL('../src/main.jsx', import.meta.url), 'utf8');
 assert(serviceWorkerSource.includes('cache.addAll(images)'), 'The service worker install must fail atomically if any bundled guide image cannot be cached');
 assert(!serviceWorkerSource.includes('Promise.allSettled(images'), 'Offline installation must not silently ignore missing guide images');
+assert(serviceWorkerSource.includes("const CACHE = 'easyfit-v21'"), 'An engine/cache change must bump the offline cache version');
+assert(serviceWorkerSource.includes("cache.delete(request)"), 'The current PWA cache must remove assets no longer present in the build or guide index');
 assert(serviceWorkerSource.includes("requestUrl.origin !== self.location.origin"), 'The service worker must never intercept cross-origin WebDAV traffic');
 assert(serviceWorkerSource.includes("headers.has('Authorization')"), 'Authenticated responses must never enter the PWA cache');
 assert(!exercises.some((exercise) => exercise.wgerId === 458), 'Rep-based prescriptions must not include a time-based plank');
@@ -115,7 +123,7 @@ assert.equal(benchHistory.totalSets, 2, 'Exercise history must expose the comple
 assert(benchHistory.bestE1rm > 80, 'Exercise history must expose the best estimated 1RM');
 assert.equal(getWeeklyMuscleLoad(hardHistory).volume.chest, 2, 'Failure must not reduce productive stimulus credit');
 assert.equal(getWeeklyMuscleLoad(hardHistory).volume.shoulders, 1, 'Indirect work must use fractional-set credit');
-assert.equal(getWeeklyMuscleLoad(hardHistory).frequency.shoulders, 1, 'Enough accumulated indirect work must count as an exposure');
+assert(getWeeklyMuscleLoad(hardHistory).frequency.shoulders > .99, 'Enough accumulated indirect work must count as an exposure without a weekly cliff');
 assert.deepEqual(
   getExerciseMuscleContributions(bench),
   { chest: 1, shoulders: 0.5, triceps: 0.5 },
@@ -131,7 +139,7 @@ const oneSetHistory = structuredClone(hardHistory);
 oneSetHistory[0].exercises[0].sets = oneSetHistory[0].exercises[0].sets.slice(0, 1);
 assert.equal(getWeeklyMuscleLoad(oneSetHistory).volume.shoulders, 0.5, 'A single indirect set must retain fractional volume');
 assert.equal(getWeeklyMuscleLoad(oneSetHistory).frequency.shoulders, 0, 'A token half-set must not inflate weekly frequency');
-assert.equal(getWeeklyMovementFrequency(oneSetHistory).push, 1, 'A completed push movement must count as one structural exposure');
+assert(getWeeklyMovementFrequency(oneSetHistory).push > .99, 'A completed push movement must count as one structural exposure');
 const tokenMovementHistory = [{ completedAt: Date.now() - 1000, exercises: [{ exerciseId: bench.id, exerciseSnapshot: bench, sets: [{ ...baseSet, targetReps: 12, reps: 1, rir: 10 }] }] }];
 assert.equal(getWeeklyMovementFrequency(tokenMovementHistory).push, 0, 'A token set must not count as a productive structural exposure');
 const targetEffortSet = [{ completedAt: Date.now() - 1000, exercises: [{ exerciseId: bench.id, sets: [{ ...baseSet, reps: 8, rir: 2 }] }] }];
@@ -145,6 +153,11 @@ const futureHistory = [{
 assert.equal(getWeeklyMuscleLoad(futureHistory).volume.chest, 0, 'Future-dated workouts must never count toward current stimulus');
 assert.equal(getWeeklyMovementFrequency(futureHistory).push, 0, 'Future-dated workouts must never count toward current frequency');
 assert.equal(getRecovery(futureHistory).chest, 100, 'Future-dated workouts must never create current fatigue');
+const zeroRepHistory = [{ completedAt: Date.now() - 1000, exercises: [{ exerciseId: bench.id, sets: [{ ...baseSet, reps: 0, done: true }] }] }];
+assert.equal(getRecovery(zeroRepHistory).chest, 100, 'A completed marker with zero repetitions must not create fatigue');
+const zeroRepStatus = getMuscleTrainingStatus({ goal: 'muscle', split: 'adaptive' }, zeroRepHistory);
+assert.equal(zeroRepStatus.chest.lastStimulatedAt, null, 'Zero repetitions must not update muscle recency');
+assert.equal(zeroRepStatus.chest.doseStimulus, 0, 'Zero repetitions must not create training-dose memory');
 
 assert(
   getMuscleSelectionPriority('quads', { priority: 60 }) > getMuscleSelectionPriority('biceps', { priority: 60 }),
@@ -186,18 +199,19 @@ const stimulusHistory = [
   },
 ];
 const muscleStatus = getMuscleTrainingStatus({ goal: 'muscle', level: 'intermediate', split: 'adaptive' }, stimulusHistory, statusNow);
-assert.equal(muscleStatus.back.cycleStimulus, 2, 'The mobile stimulus cycle must count completed primary sets');
+assert.equal(muscleStatus.back.cycleStimulus, 0, 'A fully recovered muscle must close its previous stimulus cycle');
 assert.equal(muscleStatus.chest.cycleStimulus, 3, 'A recent primary stimulus must be visible in the current cycle');
-assert.equal(muscleStatus.shoulders.cycleStimulus, 2.5, 'Secondary work from different movement patterns must retain fractional stimulus');
-assert.equal(muscleStatus.back.cycleStartedAt, statusNow - 10 * 864e5, 'The adaptive stimulus window must expose its ten-day fade horizon');
+assert.equal(muscleStatus.shoulders.cycleStimulus, 1.5, 'A new stimulus after a recovered gap must not revive secondary work from the previous cycle');
+assert.equal(muscleStatus.back.cycleStartedAt, statusNow, 'A recovered muscle must expose the beginning of its new cycle');
+assert.equal(muscleStatus.back.cycleComplete, true, 'The status must report that recovery closed the previous cycle');
+assert(muscleStatus.back.doseStimulus > 0, 'Closing a fatigue cycle must retain decaying dose memory');
 assert(muscleStatus.back.priority > muscleStatus.chest.priority, 'An older recovered and under-target muscle must outrank a recently trained muscle');
 const expiredStatus = getMuscleTrainingStatus({ goal: 'muscle', level: 'intermediate', split: 'adaptive' }, [{ ...stimulusHistory[0], completedAt: statusNow - 8 * 864e5 }], statusNow);
-assert(expiredStatus.back.cycleStimulus > 0 && expiredStatus.back.cycleStimulus < 2, 'Stimulus must fade after day seven instead of disappearing at a hard boundary');
-assert.equal(expiredStatus.back.cycleStartedAt, statusNow - 10 * 864e5, 'The adaptive window must remain stable while old stimulus fades');
+assert.equal(expiredStatus.back.cycleStimulus, 0, 'Old work must leave the active cycle once the muscle is fully recovered');
+assert.equal(expiredStatus.back.cycleStartedAt, statusNow, 'A completed recovery cycle must restart at the evaluation time');
 const fadedHistory = [{ ...stimulusHistory[0], completedAt: statusNow - 8 * 864e5 }];
-assert.equal(getWeeklyMuscleLoad(fadedHistory, statusNow).volume.back, expiredStatus.back.cycleStimulus, 'Volume ranking and recovery screen must use the same fading stimulus clock');
-assert.equal(getWeeklyMuscleLoad(fadedHistory, statusNow).frequency.back, expiredStatus.back.cycleExposures, 'Frequency ranking and recovery screen must use the same fading exposure clock');
-assert.equal(getWeeklyMovementFrequency(fadedHistory, statusNow).pull, expiredStatus.back.cycleExposures, 'Movement rotation must use the same fading exposure clock as muscle status');
+assert(getWeeklyMuscleLoad(fadedHistory, statusNow).volume.back > 0, 'Historical analytics may retain smoothly decayed work after the active recovery cycle closes');
+assert(getWeeklyMovementFrequency(fadedHistory, statusNow).pull > 0, 'Movement recency must decay smoothly instead of crossing a seven-day cliff');
 
 const completedQualityCycle = [{
   id: 'completed-quality-cycle',
@@ -244,6 +258,8 @@ const profile = {
   duration: 25,
   split: 'full',
   exerciseLanguage: 'en',
+  loadInventory: { barbell: [60] },
+  exerciseLoadInventory: {},
   preferences,
 };
 const activeLegacyBench = {
@@ -253,6 +269,7 @@ const activeLegacyBench = {
 assert.equal(isCompatibleWorkout(activeLegacyBench, { ...profile, equipment: ['barbell', 'bench'] }), true, 'An active known workout must survive stricter equipment rules introduced by an engine update');
 assert.equal(isCompatibleWorkout({ ...activeLegacyBench, startedAt: null, exercises: [{ ...activeLegacyBench.exercises[0], sets: [{ ...baseSet, done: false }] }] }, { ...profile, equipment: ['barbell', 'bench'] }), false, 'An unopened incompatible workout may be regenerated safely');
 assert.equal(isCompatibleWorkout({ ...activeLegacyBench, completedAt: Date.now() }), false, 'A completed workout must never be accepted as the current session');
+assert.equal(isCompatibleWorkout({ ...activeLegacyBench, exercises: [{ exerciseId: bench.id, sets: [null] }] }, profile), false, 'A malformed current set must be rejected before it can crash the workout view');
 const removedCatalogExercise = { id: 'removed-catalog-id', startedAt: Date.now() - 1000, exercises: [{ exerciseId: 'removed-id', sets: [{ ...baseSet, done: false }] }] };
 assert.equal(isCompatibleWorkout(removedCatalogExercise, profile), true, 'An active workout must survive even if a catalog revision removed its exercise');
 assert.equal(getWorkoutExercise(removedCatalogExercise.exercises[0]).legacy, true, 'A removed exercise must have a safe legacy display fallback');
@@ -281,7 +298,36 @@ assert.throws(() => parseBackup('{broken'), /JSON valido/, 'Malformed JSON must 
 assert.throws(() => parseBackup(JSON.stringify({ format: 'another-app', schemaVersion: 1 })), /backup Easyfit/, 'Foreign backup formats must be rejected');
 assert.throws(() => parseBackup(JSON.stringify({ format: 'easyfit-backup', schemaVersion: 99, payload: {} })), /versione più recente/, 'Future schemas must not be imported silently');
 assert.throws(() => parseBackup(JSON.stringify({ format: 'easyfit-backup', schemaVersion: 1, payload: { profile: {}, history: [42], workout: null } })), /workout non validi/, 'Malformed history records must be rejected');
+assert.throws(() => parseBackup(JSON.stringify({ format: 'easyfit-backup', schemaVersion: 1, payload: { profile: {}, history: [{ completedAt: 1, exercises: [{ exerciseId: 'bad', sets: [{ done: true, reps: 10000 }] }] }], workout: null } })), /workout non validi/, 'Out-of-range set values must be rejected before entering the engine');
 assert.throws(() => parseBackup(JSON.stringify({ format: 'easyfit-backup', schemaVersion: 1, payload: { profile: {}, history: [], workout: { exercises: [] } } })), /workout in corso non è valido/, 'An empty active workout must never be restorable');
+assert.throws(() => parseBackup(JSON.stringify({ format: 'easyfit-backup', schemaVersion: 1, payload: { profile: { duration: -999 }, history: [], workout: null } })), /25 e 75/, 'An imported profile must reject settings that could poison generation');
+assert.throws(() => parseBackup(JSON.stringify({ format: 'easyfit-backup', schemaVersion: 1, payload: { profile: { equipment: ['teleporter'] }, history: [], workout: null } })), /attrezzatura/, 'Unknown equipment identifiers must not enter generation through an imported backup');
+assert.throws(() => parseBackup(JSON.stringify({ format: 'easyfit-backup', schemaVersion: 1, payload: { profile: { exerciseLanguage: 'de' }, history: [], workout: null } })), /lingua/, 'Unsupported exercise languages must be rejected during import');
+const normalizedProfileBackup = parseBackup(JSON.stringify({
+  format: 'easyfit-backup',
+  schemaVersion: 1,
+  payload: {
+    profile: { duration: '45', targetRir: '2', equipment: ['bodyweight', 'bodyweight'], setCaps: { compound: '3' }, loadInventory: { dumbbells: ['7.5'] }, exerciseLanguage: 'en' },
+    history: [{ id: 'legacy-numeric-strings', completedAt: '1000', exercises: [{ exerciseId: bench.id, sets: [{ done: true, reps: '8', weight: '60', rir: '2', targetReps: '8' }] }] }],
+    workout: null,
+  },
+}));
+assert.equal(normalizedProfileBackup.profile.duration, 45, 'Legacy numeric profile values must be normalized once during import');
+assert.equal(normalizedProfileBackup.profile.targetRir, 2, 'Imported target RIR must have one stable numeric representation');
+assert.deepEqual(normalizedProfileBackup.profile.equipment, ['bodyweight'], 'Imported equipment must be normalized without duplicate identifiers');
+assert.equal(normalizedProfileBackup.profile.setCaps.compound, 3, 'Imported set caps must be normalized to numbers');
+assert.deepEqual(normalizedProfileBackup.profile.loadInventory.dumbbells, [7.5], 'Imported load inventories must contain numbers rather than numeric strings');
+assert.equal(normalizedProfileBackup.history[0].completedAt, 1000, 'Imported workout timestamps must be normalized to numbers');
+assert.deepEqual(
+  { reps: normalizedProfileBackup.history[0].exercises[0].sets[0].reps, weight: normalizedProfileBackup.history[0].exercises[0].sets[0].weight, rir: normalizedProfileBackup.history[0].exercises[0].sets[0].rir },
+  { reps: 8, weight: 60, rir: 2 },
+  'Imported set performance must be normalized before it reaches history and progression',
+);
+const duplicatedHistoryBackup = parseBackup(JSON.stringify({ format: 'easyfit-backup', schemaVersion: 1, payload: { profile, history: [hardHistory[0], hardHistory[0]], workout: null } }));
+assert.equal(duplicatedHistoryBackup.history.length, 1, 'Exact duplicate workouts must be removed during backup import instead of doubling training dose');
+const conflictingDuplicate = structuredClone(hardHistory[0]);
+conflictingDuplicate.exercises[0].sets[0].reps = 7;
+assert.throws(() => parseBackup(JSON.stringify({ format: 'easyfit-backup', schemaVersion: 1, payload: { profile, history: [hardHistory[0], conflictingDuplicate], workout: null } })), /stesso identificatore/, 'Different workouts sharing an ID must be rejected instead of silently losing one record');
 assert.equal(
   buildWebDavFileUrl('https://cloud.example.test/remote.php/dav/files/user/Easyfit/'),
   `https://cloud.example.test/remote.php/dav/files/user/Easyfit/${BACKUP_FILENAME}`,
@@ -316,12 +362,61 @@ const downloadedBackup = await downloadWebDavBackup({
 });
 assert.equal(downloadMethod, 'GET', 'Nextcloud restore must use WebDAV GET');
 assert.deepEqual(parseBackup(downloadedBackup).history[0].exercises, hardHistory[0].exercises, 'A cloud download must remain a valid Easyfit backup');
+await assert.rejects(() => downloadWebDavBackup({
+  folderUrl: 'https://cloud.example.test/remote.php/dav/files/user/Easyfit',
+  fetcher: async () => ({ ok: true, status: 200, headers: { get: () => String(MAX_BACKUP_BYTES + 1) }, text: async () => '' }),
+}), /troppo grande/, 'A cloud backup must be size-limited before it is loaded into memory');
 
 assert.equal(parseBackup(serializedBackup).profile.cloud.autoSync, undefined, 'Backups must not retain the retired automatic-sync setting');
 
 assert.deepEqual(getWeeklyTargets(profile), { sets: 8, frequency: 2 }, 'Adaptive hypertrophy must start from a moderate dose and aim for two exposures');
 assert.equal(getWeeklyTargets({ ...profile, level: 'beginner' }).sets, 8, 'A declared level alone must not arbitrarily change muscle volume');
 assert.equal(getWeeklyTargets({ ...profile, level: 'advanced' }).sets, 8, 'Advanced users must earn added volume from completed data instead of receiving 12 sets by default');
+const constrainedCadenceNow = Date.now();
+const constrainedCadenceHistory = Array.from({ length: 6 }, (_, index) => ({
+  id: `constrained-cadence-${index}`,
+  completedAt: constrainedCadenceNow - (18 - index * 3) * 864e5,
+  exercises: [{
+    exerciseId: index % 2 === 0 ? squat.id : bench.id,
+    sets: Array.from({ length: 3 }, () => ({ ...baseSet, reps: 8, rir: 2 })),
+  }],
+}));
+const constrainedCadenceStatus = getMuscleTrainingStatus(profile, constrainedCadenceHistory, constrainedCadenceNow);
+assert.equal(constrainedCadenceStatus.quads.desiredStimulusTarget, 8, 'Cadence constraints must not rewrite the adaptive physiological target');
+assert(constrainedCadenceStatus.quads.targetStimulus < constrainedCadenceStatus.quads.desiredStimulusTarget, 'A one-lower limit must expose a reachable operational target at a sparse observed cadence');
+assert.equal(constrainedCadenceStatus.quads.targetStimulus, 2.5, 'A 25-minute workout must use the actual two-set lower-body capacity in its operational target');
+assert.equal(constrainedCadenceStatus.quads.capacityAdjusted, true, 'Capacity-adjusted targets must be explicit rather than silently changing the displayed dose');
+assert.equal(constrainedCadenceStatus.chest.capacityAdjusted, false, 'The lower-body composition constraint must not arbitrarily lower upper-body targets');
+const reviewedEquipment = [...new Set(exercises.flatMap((exercise) => exercise.equipment))];
+const oneSetLowerOverrides = Object.fromEntries(exercises
+  .filter((exercise) => exercise.compound && isLowerBodyExercise(exercise) && getExerciseMuscleContributions(exercise).quads > 0)
+  .map((exercise) => [exercise.id, { maxSets: 1 }]));
+const overriddenCadenceStatus = getMuscleTrainingStatus({
+  ...profile,
+  duration: 45,
+  equipment: reviewedEquipment,
+  preferences: {},
+  exerciseOverrides: oneSetLowerOverrides,
+}, constrainedCadenceHistory, constrainedCadenceNow);
+assert.equal(overriddenCadenceStatus.quads.targetStimulus, 1, 'The operational target must respect per-exercise set overrides instead of assuming three lower sets');
+const beginnerCadenceStatus = getMuscleTrainingStatus({
+  ...profile,
+  level: 'beginner',
+  duration: 45,
+  equipment: reviewedEquipment,
+  preferences: {},
+}, constrainedCadenceHistory, constrainedCadenceNow);
+assert.equal(beginnerCadenceStatus.quads.targetStimulus, 2.5, 'Beginner operational targets must use the same two-set safety ceiling as generation');
+const decayedDoseNow = Date.now();
+const decayedDoseHistory = [{
+  id: 'decayed-dose',
+  completedAt: decayedDoseNow - 7 * 864e5,
+  exercises: [{ exerciseId: bench.id, sets: Array.from({ length: 12 }, () => ({ ...baseSet, reps: 8, rir: 2 })) }],
+}];
+const decayedDoseWorkout = generateWorkout(profile, decayedDoseHistory, { targets: ['chest'], duration: 25, now: decayedDoseNow });
+assert.equal(decayedDoseWorkout.engine.cycleStimulusBeforeWorkout.chest, 0, 'Complete recovery may close the short fatigue cycle');
+assert(decayedDoseWorkout.engine.doseStimulusBeforeWorkout.chest > 0, 'Closing fatigue must not erase the decaying training dose');
+assert.equal(decayedDoseWorkout.exercises[0].sets.length, 2, 'Set prescription must fill the decayed dose gap instead of treating a recovered muscle as completely untrained');
 const recalibrated = generateWorkout(profile, hardHistory, { targets: ['chest'], duration: 25 });
 assert.equal(recalibrated.exercises[0].exerciseId, bench.id);
 assert.equal(recalibrated.exercises[0].sets[0].weight, 60, 'One exceptional set must not raise load when every work set has not reached the top');
@@ -336,19 +431,52 @@ const focusProfile = {
 };
 
 assert(!catalogExercises.some((exercise) => /snatch|clean|jerk|thruster|burpee|glute bridge single-arm press/i.test(exercise.name)), 'Hybrid and powerlifting movements must not ship in the runtime catalog');
+assert.deepEqual(
+  [...new Set(exercises.filter((exercise) => exercise.pattern === 'chest-isolation').flatMap((exercise) => exercise.equipment))].sort(),
+  ['bench', 'cables', 'dumbbells', 'machines'],
+  'The reviewed catalog must provide canonical chest isolation for the supported loaded setups',
+);
 
 const bodyweightPush = exercises.find((exercise) => exercise.loadType === 'bodyweight' && exercise.primary === 'chest' && exercise.pattern === 'horizontal-push');
 assert(bodyweightPush, 'A bodyweight horizontal push must exist');
 const loadedAlternativeProfile = {
   ...focusProfile,
   equipment: ['bodyweight', 'barbell', 'bench', 'rack'],
+  loadInventory: { ...(focusProfile.loadInventory || {}), barbell: [20, 40, 60] },
   exerciseFilters: { preferLoadedVariants: true, excludeDirectCore: false, excludeCalves: false },
 };
 assert.equal(isExerciseAllowed(bench, { ...profile, equipment: ['barbell', 'bench'] }), false, 'Bench press must require actual rack supports, not only a loose bar and bench');
 assert.equal(isExerciseAllowed(bodyweightPush, loadedAlternativeProfile), false, 'A bodyweight movement must be removable when a loaded equivalent is available');
+assert.equal(isExerciseAllowed(bodyweightPush, { ...loadedAlternativeProfile, loadInventory: { barbell: [] } }), true, 'An empty load inventory must not hide the executable bodyweight variant');
+assert.equal(getEquipmentCoverage({ ...focusProfile, equipment: ['bodyweight'], exerciseFilters: { preferLoadedVariants: false } }).pull, false, 'Onboarding coverage must detect a bodyweight setup with no pulling movement');
+const bodyweightCoverage = getEquipmentCoverage({ ...focusProfile, equipment: ['bodyweight'], exerciseFilters: { preferLoadedVariants: false } });
+assert.equal(bodyweightCoverage.hip, true, 'A bodyweight-only setup must retain a real hip-extension option');
+const gluteBridge = exercises.find((exercise) => exercise.wgerId === 265);
+const boxSquat = exercises.find((exercise) => exercise.wgerId === 977);
+const abWheel = exercises.find((exercise) => exercise.wgerId === 1573);
+const bulgarianSquat = exercises.find((exercise) => exercise.wgerId === 1706);
+const barbellShoulderPress = exercises.find((exercise) => exercise.wgerId === 566);
+assert(gluteBridge && isExerciseAllowed(gluteBridge, { ...focusProfile, equipment: ['bodyweight'] }), 'Glute Bridge must be a reviewed bodyweight hip-extension exercise');
+assert.equal(isExerciseAllowed(boxSquat, { ...focusProfile, equipment: ['bodyweight'] }), false, 'Box Squat must not be prescribed without an actual box or bench');
+assert.equal(isExerciseAllowed(abWheel, { ...focusProfile, equipment: ['bodyweight'] }), false, 'Ab Wheel must not be prescribed unless the wheel is declared');
+assert.equal(isExerciseAllowed(abWheel, { ...focusProfile, equipment: ['bodyweight', 'abwheel'] }), true, 'Declaring an ab wheel must enable the corresponding exercise');
+assert.equal(bulgarianSquat.pattern, 'single-leg', 'Bulgarian Squat must be classified as a unilateral movement');
+assert(bulgarianSquat.equipment.includes('bench'), 'Bulgarian Squat must require the support used by its execution');
+assert.equal(isExerciseAllowed(barbellShoulderPress, { ...focusProfile, equipment: ['barbell'] }), false, 'Barbell Shoulder Press must not be prescribed without rack supports');
+const gluteGuide = await getExerciseDetails(gluteBridge.wgerId, 'en');
+assert.equal(gluteGuide.image, '/exercise-images/265.webp', 'The bodyweight Glute Bridge guide image must be bundled locally');
 assert.equal(isExerciseAllowed(bodyweightPush, { ...loadedAlternativeProfile, exerciseFilters: { ...loadedAlternativeProfile.exerciseFilters, preferLoadedVariants: false } }), true, 'The user must be able to keep bodyweight alternatives');
+assert.equal(row.equipment.includes('bench'), false, 'Unsupported Bent Over Dumbbell Rows must not require a bench absent from its reviewed execution');
+assert.equal(getEquipmentCoverage({ ...focusProfile, equipment: ['dumbbells'], loadInventory: { dumbbells: [10] }, exerciseFilters: { essentialCatalog: true, preferLoadedVariants: false } }).pull, true, 'Dumbbells alone must provide the reviewed unsupported row and structural pulling coverage');
 
 const allEquipment = [...new Set(exercises.flatMap((exercise) => exercise.equipment))];
+assert(Object.values(getEquipmentCoverage({ ...focusProfile, equipment: allEquipment, exerciseFilters: { preferLoadedVariants: false } })).every(Boolean), 'A complete equipment setup must cover every structural movement family');
+const essentialMachinePresses = exercises.filter((exercise) => ['Chest Press', 'Hammerstrength Decline Chest Press'].includes(exercise.name) && isEssentialExercise(exercise, { ...focusProfile, equipment: allEquipment, exerciseFilters: { essentialCatalog: true, preferLoadedVariants: false } }));
+assert.equal(essentialMachinePresses.length, 1, 'The essential catalog must collapse reviewed variants even when Wger omits variation_group');
+const essentialCablePulldowns = exercises.filter((exercise) => ['Close-grip supinated lat pulldown', 'Neutral-grip chest pulldown'].includes(exercise.name) && isEssentialExercise(exercise, { ...focusProfile, equipment: allEquipment, exerciseFilters: { essentialCatalog: true, preferLoadedVariants: false } }));
+assert.equal(essentialCablePulldowns.length, 1, 'Null Wger variation groups must not leak near-identical pulldowns into standard generation');
+const essentialPullups = exercises.filter((exercise) => ['Chin Up', 'Pull-ups'].includes(exercise.name) && isEssentialExercise(exercise, { ...focusProfile, equipment: allEquipment, exerciseFilters: { essentialCatalog: true, preferLoadedVariants: false } }));
+assert.equal(essentialPullups.length, 1, 'The essential catalog must collapse structurally identical pull-up grips regardless of inconsistent Wger variation groups');
 const directCore = exercises.find((exercise) => exercise.primary === 'core' && exercise.equipment.every((item) => allEquipment.includes(item)));
 const directCalves = exercises.find((exercise) => exercise.primary === 'calves' && exercise.equipment.every((item) => allEquipment.includes(item)));
 const directFilterProfile = { ...focusProfile, equipment: allEquipment, exerciseFilters: { preferLoadedVariants: false, excludeDirectCore: true, excludeCalves: true } };
@@ -362,8 +490,9 @@ const pullDaySeed = {
   id: 'previous-push-day', completedAt: Date.now() - 2 * 864e5,
   exercises: [{ exerciseId: bodyweightPush.id, sets: [{ targetReps: 8, reps: 8, targetRir: 2, rir: 2, done: true }] }],
 };
-const unavailablePullDay = generateWorkout({ ...focusProfile, split: 'ppl', equipment: ['bodyweight'], exerciseFilters: { preferLoadedVariants: false } }, [pullDaySeed], { duration: 30 });
-assert.equal(unavailablePullDay.exercises.length, 0, 'A Pull day with no compatible pull exercise must not silently fall back to a Push exercise');
+const legacySplitValue = generateWorkout({ ...focusProfile, split: 'ppl', equipment: ['bodyweight'], exerciseFilters: { preferLoadedVariants: false } }, [pullDaySeed], { duration: 30, now: 1700000000000, variation: 9 });
+const canonicalAdaptiveValue = generateWorkout({ ...focusProfile, split: 'adaptive', equipment: ['bodyweight'], exerciseFilters: { preferLoadedVariants: false } }, [pullDaySeed], { duration: 30, now: 1700000000000, variation: 9 });
+assert.deepEqual(legacySplitValue.exercises, canonicalAdaptiveValue.exercises, 'Legacy split values must not alter the exclusively adaptive engine');
 
 const hinge = exercises.find((exercise) => getMovementFamily(exercise) === 'hip' && exercise.compound);
 assert(hinge, 'A compound hip movement must exist for recovery gating checks');
@@ -389,14 +518,14 @@ const adaptiveFamilies = new Set(adaptiveWorkout.exercises.map((item) => {
 }));
 assert.deepEqual(
   [...adaptiveFamilies].filter(Boolean).sort(),
-  ['knee', 'push'],
-  'A short first workout must give one large lower-body group and one upper-body family the initial tie-break',
+  ['knee', 'pull'],
+  'A short first workout must choose the globally highest-ranked compatible families',
 );
 assert(adaptiveWorkout.exercises.every((item) => item.sets.length === 2), 'Short sessions must spread volume instead of overloading one exercise');
 assert(adaptiveWorkout.exercises.length <= 3, 'A 25–30 minute workout must contain at most three exercises');
 assert.deepEqual(adaptiveWorkout.engine.composition, { compounds: 2, accessories: 1, lowerBody: 1, ...getWorkoutCompositionLimits(25) }, 'A short workout must balance two compounds with one accessory and only one leg exercise');
-assert.equal(adaptiveWorkout.engine.version, ENGINE_VERSION, 'The workout must preserve the evidence model version');
-assert.deepEqual(adaptiveWorkout.engine.movementFamilies, ['push', 'knee'], 'The workout must expose one upper and one lower family');
+assert.equal(adaptiveWorkout.engine.version, ENGINE_VERSION, 'The workout must preserve the programming model version');
+assert.deepEqual(adaptiveWorkout.engine.movementFamilies, ['knee', 'pull'], 'The workout must expose the selected adaptive families');
 const sparseEquipmentWorkout = generateWorkout({ ...focusProfile, equipment: ['barbell', 'bench'], split: 'adaptive', duration: 30 }, [], { variation: 410 });
 assert(sparseEquipmentWorkout.exercises.length > 0, 'Adaptive ranking must fall back to a family compatible with sparse equipment');
 assert(sparseEquipmentWorkout.exercises.every((item) => isExerciseAllowed(exercises.find((exercise) => exercise.id === item.exerciseId), { ...focusProfile, equipment: ['barbell', 'bench'] })), 'Sparse-equipment fallback must remain executable');
@@ -419,7 +548,7 @@ assert.equal(adaptiveWithTwoLegacyDays.engine.movementFamilies.length, 2, 'A reg
 assert(adaptiveWithTwoLegacyDays.exercises.length <= 6, 'A first 45-minute workout must remain capped at six exercises');
 assert(adaptiveWithTwoLegacyDays.engine.composition.compounds <= 2, 'A 45-minute workout must contain at most two compound exercises');
 assert(adaptiveWithTwoLegacyDays.engine.estimatedMinutes <= 47, 'A 45-minute workout must respect the time budget');
-assert.equal(getWeeklyTargets({ ...profile, split: 'ppl' }).frequency, 2, 'PPL must target two weekly exposures when repeated');
+assert.deepEqual(getWeeklyTargets({ ...profile, split: 'ppl' }), getWeeklyTargets(profile), 'Retired split values must not alter adaptive dose targets');
 
 const upperBodyFatigue = [{
   id: 'upper-body-fatigue',
@@ -525,13 +654,29 @@ const loadProgressHistory = [{
   exercises: [{ exerciseId: bench.id, sets: [{ ...baseSet, targetReps: 12, reps: 12, rir: 2 }] }],
 }];
 const loadProgress = generateWorkout(profile, loadProgressHistory, { targets: ['chest'], duration: 25 }).exercises[0];
-assert.equal(loadProgress.sets[0].weight, 62.5, 'Reaching the top of the range at target RIR must add the smallest barbell increment');
-assert.equal(loadProgress.sets[0].reps, 8, 'A load increase must restart from the bottom of the rep range');
-assert.equal(loadProgress.progressionStep, 'load');
+assert.equal(loadProgress.sets[0].weight, 60, 'The engine must not invent a heavier load when the available inventory is empty');
+assert.equal(loadProgress.sets[0].reps, 12, 'Without a real higher load, the prescription must remain at the top of the range');
+assert.equal(loadProgress.progressionStep, 'top');
+const exactLoadHistory = structuredClone(loadProgressHistory);
+exactLoadHistory[0].exercises[0].sets[0].weight = 61.2;
+const exactLoadProgress = generateWorkout({ ...profile, loadInventory: { barbell: [] } }, exactLoadHistory, { targets: ['chest'], duration: 25 }).exercises[0];
+assert.equal(exactLoadProgress.sets[0].weight, null, 'Clearing an inventory must request recalibration instead of resurrecting a removed load');
+assert.equal(exactLoadProgress.needsInitialLoad, true, 'An exercise without any declared available load must visibly request a new load');
 const inventoriedProfile = { ...profile, loadInventory: { barbell: [60, 61, 62.5] } };
 assert.deepEqual(getAvailableLoads(bench, inventoriedProfile), [60, 61, 62.5], 'The engine must read the user’s actual available barbell loads');
 const inventoriedProgress = generateWorkout(inventoriedProfile, loadProgressHistory, { targets: ['chest'], duration: 25 }).exercises[0];
 assert.equal(inventoriedProgress.sets[0].weight, 61, 'Load progression must choose the smallest real available weight instead of a fixed increment');
+const chestPress = exercises.find((exercise) => exercise.name === 'Chest Press');
+const legPress = exercises.find((exercise) => exercise.name === 'Leg Press');
+const machineInventoryProfile = {
+  ...profile,
+  equipment: ['machines'],
+  loadInventory: { machines: [999] },
+  exerciseLoadInventory: { [chestPress.id]: [20, 25], [legPress.id]: [80, 90] },
+};
+assert.deepEqual(getAvailableLoads(chestPress, machineInventoryProfile), [20, 25], 'Machine stacks must be remembered per exercise');
+assert.deepEqual(getAvailableLoads(legPress, machineInventoryProfile), [80, 90], 'Different machines must never share a fictitious global stack');
+assert.deepEqual(getAvailableLoads(chestPress, { ...machineInventoryProfile, exerciseLoadInventory: {} }), [], 'A retired global machine inventory must not resurrect removed exercise loads');
 
 const unevenProgressHistory = [{
   id: 'uneven-progress',
@@ -565,10 +710,10 @@ assert.equal(safeInventoryAdjustment.sets[0].weight, 60, 'Removing a performed l
 assert.equal(safeInventoryAdjustment.sets[0].reps, 8, 'Changing inventory must hold repetitions instead of progressing load and reps together');
 assert.equal(safeInventoryAdjustment.progressionStep, 'load-adjustment');
 
-const saturatedChestHistory = [1, 2].map((offset) => ({
+const saturatedChestHistory = [1, 3, 5].map((offset) => ({
   id: `saturated-chest-${offset}`,
   completedAt: Date.now() - offset * 864e5,
-  exercises: [{ exerciseId: bench.id, sets: Array.from({ length: 4 }, () => ({ ...baseSet, reps: 8, rir: 2 })) }],
+  exercises: [{ exerciseId: bench.id, sets: Array.from({ length: 5 }, () => ({ ...baseSet, reps: 8, rir: 2 })) }],
 }));
 const maintenanceWorkout = generateWorkout(profile, saturatedChestHistory, { targets: ['chest'], duration: 25 });
 assert.equal(maintenanceWorkout.exercises.length, 1, 'A valid generated workout must never be empty when compatible exercises exist');
@@ -615,6 +760,14 @@ assert.equal(continuity[continuityPattern].exposures, 3, 'Continuity must count 
 const continuityWorkout = generateWorkout(focusProfile, continuityHistory, { targets: ['chest'], duration: 30, now: continuityNow });
 assert(continuityWorkout.exercises.some((item) => item.exerciseId === continuityExerciseId), 'A useful compatible exercise must recur long enough to measure progress');
 assert(!continuityWorkout.exercises.some((item) => 'isFocus' in item), 'Generated exercises must no longer carry Focus state');
+const completedContinuityHistory = [43, 29, 15, 1].map((daysAgo, index) => ({
+  id: `completed-continuity-${index}`,
+  completedAt: continuityNow - daysAgo * 864e5,
+  exercises: [{ exerciseId: continuityExerciseId, sets: [{ targetReps: 8, reps: 8 + index, weight: 20, rir: 2, done: true }] }],
+}));
+assert.equal(getExerciseContinuity(completedContinuityHistory, continuityNow)[continuityPattern].exposures, 4, 'Four exposures must remain measurable even at a sparse five-to-seven-day training cadence');
+const rotatedContinuityWorkout = generateWorkout(focusProfile, completedContinuityHistory, { targets: ['chest'], duration: 30, now: continuityNow, variation: 991 });
+assert(!rotatedContinuityWorkout.exercises.some((item) => item.exerciseId === continuityExerciseId), 'After four measured exposures the engine must rotate the exercise instead of pinning it forever');
 assert.deepEqual(getExerciseContinuity(continuityHistory, continuityNow + 40 * 864e5), {}, 'Exercise continuity must expire after a long interruption');
 
 const adaptationNow = Date.now();
@@ -673,17 +826,33 @@ const refreshedWorkout = generateWorkout(focusProfile, [], {
 });
 const oldExercises = new Set(editingWorkout.exercises.map((item) => item.exerciseId));
 assert(!refreshedWorkout.exercises.some((item) => oldExercises.has(item.exerciseId)), 'Workout refresh must avoid the previous exercises');
+const completeAlternatives = generateWorkoutAlternatives({ ...focusProfile, equipment: allEquipment, duration: 60 }, [], generateWorkout({ ...focusProfile, equipment: allEquipment, duration: 60 }, [], { duration: 60, now: continuityNow + 20, variation: 20 }), { now: continuityNow + 20, seed: 21 });
+assert(completeAlternatives.length > 0, 'Refresh must provide at least one genuinely different adaptive alternative when the catalog permits it');
+assert(completeAlternatives.every((candidate) => candidate.engine.estimatedMinutes >= candidate.duration * .75), 'Refresh must never label a severely under-filled workout as a complete alternative');
+const fitnessThirtyProfile = { ...focusProfile, goal: 'fitness', equipment: allEquipment, duration: 30, exerciseFilters: { essentialCatalog: true, preferLoadedVariants: false, excludeDirectCore: false, excludeCalves: false } };
+const fitnessThirtyWorkout = generateWorkout(fitnessThirtyProfile, [], { duration: 30, now: continuityNow + 30, variation: 30 });
+const fitnessThirtyAlternatives = generateWorkoutAlternatives(fitnessThirtyProfile, [], fitnessThirtyWorkout, { now: continuityNow + 30, seed: 31 });
+assert(fitnessThirtyAlternatives.length > 0, 'A valid 30-minute fitness workout must expose adaptive refresh alternatives');
+assert(fitnessThirtyAlternatives.every((candidate) => candidate.engine.estimatedMinutes >= fitnessThirtyWorkout.engine.estimatedMinutes * .85), 'Refresh alternatives must remain comparable to the actual current workout duration');
 
 const excludedContinuityWorkout = generateWorkout({ ...focusProfile, preferences: { [currentExercise.id]: 'exclude' } }, continuityHistory, { targets: [currentExercise.primary], duration: 25 });
 assert(!excludedContinuityWorkout.exercises.some((item) => item.exerciseId === currentExercise.id), 'Excluded exercises must not return even when continuity would otherwise prefer them');
 
-const bodyweight = exercises.find((exercise) => exercise.loadType === 'bodyweight' && exercise.primary === 'quads' && /squat/i.test(exercise.name));
-assert(bodyweight, 'A bodyweight squat must exist');
+const bodyweight = exercises.find((exercise) => exercise.loadType === 'bodyweight' && exercise.primary === 'quads' && exercise.equipment.every((item) => item === 'bodyweight'));
+assert(bodyweight, 'A bodyweight-only quadriceps exercise must exist');
 const bodyweightHistory = [{
   id: 'bodyweight-session',
   completedAt: Date.now() - 36e5,
   exercises: [{ exerciseId: bodyweight.id, sets: [{ targetReps: 8, reps: 20, weight: 0, rir: 0, done: true }] }],
 }];
+const bodyweightCapacityHistory = [
+  { id: 'bodyweight-capacity-old', completedAt: Date.now() - 9 * 864e5, exercises: [{ exerciseId: bodyweight.id, sets: [{ targetReps: 10, reps: 10, weight: 0, rir: 0, done: true }] }] },
+  { id: 'bodyweight-capacity-new', completedAt: Date.now() - 2 * 864e5, exercises: [{ exerciseId: bodyweight.id, sets: [{ targetReps: 10, reps: 10, weight: 0, rir: 4, done: true }] }] },
+];
+const bodyweightCapacityStats = getExerciseHistory(bodyweightCapacityHistory, bodyweight.id);
+assert.equal(bodyweightCapacityStats.metric, 'rep-capacity', 'Bodyweight progress must be expressed as estimated repetition capacity');
+assert.deepEqual(bodyweightCapacityStats.points.map((point) => point.value), [10, 14], 'Bodyweight repetition capacity must combine completed reps and recorded RIR');
+assert.equal(bodyweightCapacityStats.trend, 0.4, 'Equal completed reps with more reserve must count as measurable bodyweight progress');
 const bodyPreferences = Object.fromEntries(exercises.map((exercise) => [exercise.id, 'exclude']));
 delete bodyPreferences[bodyweight.id];
 const uncalibratedBodyWorkout = generateWorkout({ ...profile, equipment: ['bodyweight'], preferences: bodyPreferences }, [], { targets: ['quads'], duration: 25 });
@@ -734,10 +903,10 @@ for (const goal of ['muscle', 'strength', 'fitness']) {
       const families = new Set(generatedExercises.map(getMovementFamily));
       assert(generated.exercises.length > 0 && generated.exercises.length <= limits.maxExercises, 'Stress generation must always return a bounded non-empty workout');
       assert(generated.engine.composition.compounds <= limits.maxCompounds, 'Stress generation must respect compound caps');
-      assert(generated.engine.estimatedMinutes <= duration + 2, 'Stress generation must respect the selected duration');
+      assert(generated.engine.estimatedMinutes <= duration, 'Stress generation must respect the selected maximum duration exactly');
       assert(generated.exercises.every((item) => item.sets.length > 0), 'Stress generation must never emit an exercise without sets');
       assert(!(families.has('knee') && families.has('hip')), 'Stress generation must not combine both lower-body families');
-      if (generated.exercises.length <= 3) assert(generatedExercises.filter(isLowerBodyExercise).length <= 1, 'A short workout must contain at most one leg exercise');
+      assert(generatedExercises.filter(isLowerBodyExercise).length <= 1, 'Every adaptive workout must contain at most one lower-body exercise');
     }
   }
 }
@@ -774,6 +943,29 @@ const structuralCounts = Object.values(familyCounts);
 assert(Math.max(...structuralCounts) - Math.min(...structuralCounts) <= 1, 'Long-term adaptive scheduling must balance push, pull, knee and hip exposure');
 assert(Object.values(longitudinalProfile.trainingAdaptation).every((state) => state.target <= 10), 'Automatic hypertrophy volume must remain inside the conservative evidence cap');
 
+for (const gapDays of [5, 7]) {
+  const cadenceHistory = [];
+  const cadenceCounts = Object.fromEntries(['push', 'pull', 'knee', 'hip'].map((family) => [family, 0]));
+  const cadenceProfile = { ...longitudinalProfile, duration: 45, trainingAdaptation: {} };
+  for (let session = 0; session < 40; session += 1) {
+    const now = simulationStart + session * gapDays * 864e5;
+    const generated = generateWorkout(cadenceProfile, cadenceHistory, { now, variation: session + gapDays * 100 });
+    generated.engine.movementFamilies.forEach((family) => { cadenceCounts[family] += 1; });
+    cadenceHistory.push({
+      ...generated,
+      startedAt: now,
+      completedAt: now + 40 * 60_000,
+      exercises: generated.exercises.map((item) => ({
+        ...item,
+        sets: item.sets.map((set) => ({ ...set, weight: set.weight ?? 20, reps: set.reps, rir: set.targetRir, done: true })),
+      })),
+    });
+  }
+  const counts = Object.values(cadenceCounts);
+  assert(Math.min(...counts) > 0, `${gapDays}-day cadence must train every movement family`);
+  assert(Math.max(...counts) - Math.min(...counts) <= 2, `${gapDays}-day cadence must retain balanced adaptive rotation after full recovery`);
+}
+
 for (const duration of [60, 75]) {
   const durationHistory = [];
   const durationCounts = Object.fromEntries(['push', 'pull', 'knee', 'hip'].map((family) => [family, 0]));
@@ -794,8 +986,9 @@ for (const duration of [60, 75]) {
     durationHistory.push(completed);
     durationProfile = recalibrateTrainingTargets(durationProfile, durationHistory, completed.completedAt);
   }
-  const counts = Object.values(durationCounts);
-  assert(Math.max(...counts) - Math.min(...counts) <= 2, `${duration}-minute adaptive scheduling must not privilege upper-body families`);
+  assert(Math.abs(durationCounts.push - durationCounts.pull) <= 2, `${duration}-minute adaptive scheduling must balance push and pull`);
+  assert(Math.abs(durationCounts.knee - durationCounts.hip) <= 2, `${duration}-minute adaptive scheduling must alternate the two lower-body families`);
+  assert.equal(durationCounts.knee + durationCounts.hip, 40, `${duration}-minute workouts must contain exactly one lower-body movement family per session`);
 }
 
 console.log('Checks passed: strict state/backup, offline guides, time budgets, balanced adaptive rotation, real-load progression, bounded volume, equipment, editing and longitudinal stress.');

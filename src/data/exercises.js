@@ -26,6 +26,7 @@ export const equipmentLabels = {
   bands: 'Elastici',
   ball: 'Swiss ball',
   rack: 'Rack / supporti',
+  abwheel: 'Ruota addominale',
 };
 
 export const catalogExercises = curatedCatalog.exercises;
