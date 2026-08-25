@@ -9,7 +9,7 @@ const MIN_CYCLE_HOURS = 36;
 const MIN_TRAINING_READINESS = 45;
 const CONTINUITY_HISTORY_DAYS = 90;
 const CONTINUITY_BREAK_DAYS = 28;
-export const ENGINE_VERSION = 22;
+export const ENGINE_VERSION = 23;
 
 const muscleBaseImportance = {
   chest: 100,
@@ -58,11 +58,11 @@ export const trainingRules = {
 export const trainingStyles = {
   intense: {
     label: 'Essenziale intenso',
-    description: 'Due serie molto vicine al limite, con recuperi completi.',
+    description: 'Due serie sui multiarticolari e tre sugli accessori, molto vicine al limite.',
     classes: {
-      'high-fatigue-compound': { targetRirs: [1, 0], rest: 210 },
-      'stable-compound': { targetRirs: [1, 0], rest: 180 },
-      isolation: { targetRirs: [0, 0], rest: 120 },
+      'high-fatigue-compound': { targetRirs: [1, 0], rest: 150 },
+      'stable-compound': { targetRirs: [1, 0], rest: 120 },
+      isolation: { targetRirs: [1, 0, 0], rest: 75 },
     },
   },
   balanced: {
@@ -338,8 +338,17 @@ export function getExerciseProgress(history = [], exerciseId, now = Date.now()) 
         group.lastIndex = index;
         loadGroups.set(weight, group);
       });
-      const workingWeight = [...loadGroups.values()]
+      const modalWorkingWeight = [...loadGroups.values()]
         .sort((a, b) => b.count - a.count || b.lastIndex - a.lastIndex)[0]?.weight ?? null;
+      const finalWeight = weighted.at(-1)?.weight == null ? null : Number(weighted.at(-1).weight);
+      const finalTargetWeight = weighted.at(-1)?.targetWeight == null ? null : Number(weighted.at(-1).targetWeight);
+      // A deliberate load reduction on a later work set is performance
+      // evidence, not a warm-up. Prefer it over the modal load so the next
+      // session cannot ignore that the original prescription was excessive.
+      const reducedFinalLoad = finalWeight != null && modalWorkingWeight != null
+        && finalWeight < modalWorkingWeight * .97
+        && (finalTargetWeight == null || finalWeight < finalTargetWeight * .97);
+      const workingWeight = reducedFinalLoad ? finalWeight : modalWorkingWeight;
       const comparableSets = workingWeight == null
         ? completed
         : completed.filter((set) => Math.abs(Number(set.weight) - workingWeight) / workingWeight <= 0.03);
@@ -904,9 +913,21 @@ function doubleProgression(exercise, profile, progress, limits, intensity, setCo
   let weight = lastAvailableWeight;
   if (!weight && progress.latestE1rm) weight = roundLoad(progress.latestE1rm * intensity, exercise, profile);
   const underPerformed = supportedReps != null && supportedReps < previousTarget - 1;
+  if (lastAvailableWeight && underPerformed) {
+    const lowerLoad = getAvailableLoads(exercise, profile).filter((load) => load < lastAvailableWeight - .001).at(-1);
+    if (lowerLoad) {
+      return {
+        weight: lowerLoad,
+        reps: limits.minReps,
+        step: 'performance-adjustment',
+      };
+    }
+  }
   return {
     weight: weight ?? null,
-    reps: underPerformed ? Math.max(limits.minReps, previousTarget - 1) : canAddRep ? Math.min(limits.maxReps, previousTarget + 1) : previousTarget,
+    reps: underPerformed
+      ? clamp(Math.floor(Number(minimumSupportedReps) || previousTarget - 1), 1, limits.maxReps)
+      : canAddRep ? Math.min(limits.maxReps, previousTarget + 1) : previousTarget,
     step: underPerformed ? 'regress-reps' : canAddRep ? 'reps' : progress.sessions ? 'hold' : 'start',
   };
 }
@@ -1568,7 +1589,7 @@ export function generateWorkout(profile, history = [], options = {}) {
       recoveryBlocked: !chosen.length && !options.targets,
       maintenanceMode,
       estimatedMinutes: Math.round(usedMinutes),
-      evidenceProfile: 'V22-STYLE-AWARE-ADAPTIVE-DOSE-TIME',
+      evidenceProfile: 'V23-STYLE-AWARE-ADAPTIVE-PERFORMANCE-TIME',
     },
   };
 }
@@ -1705,4 +1726,28 @@ export function removeExercise(workout, exerciseId) {
     ...workout,
     exercises: remaining,
   });
+}
+
+export function addWorkoutSet(item) {
+  if (!item?.sets?.length || item.sets.length >= 6) return item;
+  const source = item.sets.at(-1);
+  const targetRir = item.targetRirs?.[item.sets.length] ?? item.targetRirs?.at(-1) ?? item.targetRir ?? source.targetRir ?? 2;
+  const nextSet = {
+    ...source,
+    targetRir,
+    reps: Number(source.reps ?? source.targetReps) || 0,
+    weight: source.weight ?? source.targetWeight ?? null,
+    rir: null,
+    done: false,
+  };
+  const sets = [...item.sets, nextSet];
+  const targetRirs = [...(item.targetRirs || item.sets.map((set) => set.targetRir)), targetRir];
+  return { ...item, sets, targetRirs, targetRir: targetRirs.at(-1) };
+}
+
+export function removeWorkoutSet(item) {
+  if (!item?.sets?.length || item.sets.length <= 1 || item.sets.at(-1).done) return item;
+  const sets = item.sets.slice(0, -1);
+  const targetRirs = (item.targetRirs || sets.map((set) => set.targetRir)).slice(0, sets.length);
+  return { ...item, sets, targetRirs, targetRir: targetRirs.at(-1) ?? sets.at(-1).targetRir };
 }

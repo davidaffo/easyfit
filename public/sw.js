@@ -1,4 +1,4 @@
-const CACHE = 'easyfit-v22';
+const CACHE = 'easyfit-v23';
 const BASE = new URL('./', self.location.href);
 const fromBase = (path) => new URL(path, BASE).href;
 const CORE = ['', 'manifest.webmanifest', 'icon.svg', 'icon-192.png', 'icon-512.png'].map(fromBase);
@@ -58,4 +58,12 @@ self.addEventListener('fetch', (event) => {
         return event.request.mode === 'navigate' ? caches.match(fromBase('index.html')) : Response.error();
       }))
   );
+});
+
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+  event.waitUntil(clients.matchAll({ type: 'window', includeUncontrolled: true }).then((windows) => {
+    const existing = windows[0];
+    return existing ? existing.focus() : clients.openWindow(BASE.href);
+  }));
 });

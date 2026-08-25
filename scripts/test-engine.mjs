@@ -13,6 +13,7 @@ import {
 import { getExerciseDetails } from '../src/data/exerciseDetails.js';
 import {
   ENGINE_VERSION,
+  addWorkoutSet,
   calibrateBodyweightPrescription,
   estimatePrescriptionMinutes,
   estimateOneRepMax,
@@ -49,6 +50,7 @@ import {
   isReturningAfterBreak,
   isWorkoutActive,
   removeExercise,
+  removeWorkoutSet,
   recalibrateTrainingTargets,
   rebuildWorkoutMetadata,
   replaceExercise,
@@ -78,10 +80,12 @@ const serviceWorkerSource = await readFile(new URL('../public/sw.js', import.met
 const appSource = await readFile(new URL('../src/main.jsx', import.meta.url), 'utf8');
 assert(serviceWorkerSource.includes('cache.addAll(images)'), 'The service worker install must fail atomically if any bundled guide image cannot be cached');
 assert(!serviceWorkerSource.includes('Promise.allSettled(images'), 'Offline installation must not silently ignore missing guide images');
-assert(serviceWorkerSource.includes("const CACHE = 'easyfit-v22'"), 'An engine/cache change must bump the offline cache version');
+assert(serviceWorkerSource.includes("const CACHE = 'easyfit-v23'"), 'An engine/cache change must bump the offline cache version');
 assert(serviceWorkerSource.includes("cache.delete(request)"), 'The current PWA cache must remove assets no longer present in the build or guide index');
 assert(serviceWorkerSource.includes("requestUrl.origin !== self.location.origin"), 'The service worker must never intercept cross-origin WebDAV traffic');
 assert(serviceWorkerSource.includes("headers.has('Authorization')"), 'Authenticated responses must never enter the PWA cache');
+assert(serviceWorkerSource.includes("addEventListener('notificationclick'"), 'Recovery notifications must reopen the installed PWA when tapped');
+assert(appSource.includes('createOscillator()') && appSource.includes('showNotification(title, options)'), 'The recovery timer must provide both an audible double beep and Web Notifications');
 assert(!exercises.some((exercise) => exercise.wgerId === 458), 'Rep-based prescriptions must not include a time-based plank');
 assert.equal(exercises.filter((exercise) => [659, 805, 1185].includes(exercise.wgerId)).length, 1, 'Near-identical cable triceps duplicates must collapse to one canonical exercise');
 assert(!appSource.includes('Push / Pull / Legs') && !appSource.includes('Upper / Lower'), 'The app must expose only adaptive scheduling, without selectable split modes');
@@ -273,26 +277,26 @@ const isolation = exercises.find((exercise) => exercise.effortClass === 'isolati
 assert(stableCompound && isolation, 'The reviewed catalog must expose every effort class used by the style engine');
 assert.equal(getExerciseEffortClass(bench), 'high-fatigue-compound', 'Bench Press must use the reviewed high-fatigue classification');
 assert.deepEqual(getExercisePrescription({ ...profile, trainingStyle: 'intense' }, bench).targetRirs, [1, 0], 'The intense style must use two hard sets on high-fatigue compounds');
-assert.equal(getExercisePrescription({ ...profile, trainingStyle: 'intense' }, bench).rest, 210, 'High-fatigue compounds must receive a complete rest interval in the intense style');
+assert.equal(getExercisePrescription({ ...profile, trainingStyle: 'intense' }, bench).rest, 150, 'High-fatigue compounds must receive a practical rest interval in the intense style');
 assert.deepEqual(getExercisePrescription({ ...profile, trainingStyle: 'intense' }, stableCompound).targetRirs, [1, 0], 'Stable compounds must retain the two-set intense prescription');
-assert.equal(getExercisePrescription({ ...profile, trainingStyle: 'intense' }, stableCompound).rest, 180, 'Stable compounds may use less recovery than high-fatigue compounds');
-assert.deepEqual(getExercisePrescription({ ...profile, trainingStyle: 'intense' }, isolation).targetRirs, [0, 0], 'The intense style must allow both isolation sets to reach the selected limit');
-assert.equal(getExercisePrescription({ ...profile, trainingStyle: 'intense' }, isolation).rest, 120, 'Hard isolation work must still receive enough prescribed recovery');
+assert.equal(getExercisePrescription({ ...profile, trainingStyle: 'intense' }, stableCompound).rest, 120, 'Stable compounds may use less recovery than high-fatigue compounds');
+assert.deepEqual(getExercisePrescription({ ...profile, trainingStyle: 'intense' }, isolation).targetRirs, [1, 0, 0], 'The intense style must give accessories three hard work sets');
+assert.equal(getExercisePrescription({ ...profile, trainingStyle: 'intense' }, isolation).rest, 75, 'Hard isolation work must use a compact but usable recovery interval');
 assert.deepEqual(getExercisePrescription({ ...profile, trainingStyle: 'balanced' }, bench).targetRirs, [2, 2, 1], 'The balanced style must distribute effort across three compound sets');
 assert.deepEqual(getExercisePrescription({ ...profile, trainingStyle: 'volume' }, isolation).targetRirs, [2, 2, 1, 1], 'The volume style must keep four controlled isolation sets available');
 assert.deepEqual(getExercisePrescription({ ...profile, goal: 'strength', trainingStyle: 'intense' }, bench).targetRirs, [2, 1], 'Strength training must keep high-fatigue compounds one RIR farther from failure');
-assert.equal(getExercisePrescription({ ...profile, goal: 'strength', trainingStyle: 'intense' }, bench).rest, 240, 'Strength training must extend high-fatigue compound recovery');
+assert.equal(getExercisePrescription({ ...profile, goal: 'strength', trainingStyle: 'intense' }, bench).rest, 180, 'Strength training must extend high-fatigue compound recovery');
 assert.equal(Object.keys(trainingStyles).length, 3, 'The UI and engine must share exactly the three supported training styles');
 
 const timedTwoSetBench = {
-  rest: 210,
+  rest: 150,
   sets: [
     { targetReps: 8, targetRir: 1 },
     { targetReps: 8, targetRir: 0 },
   ],
 };
 const timedThreeSetBench = {
-  rest: 180,
+  rest: 150,
   sets: [
     { targetReps: 8, targetRir: 2 },
     { targetReps: 8, targetRir: 2 },
@@ -326,6 +330,13 @@ assert.equal(parsedBackup.profile.cloud.webDavPassword, undefined, 'Backup seria
 assert.deepEqual(parsedBackup.history[0].exercises, hardHistory[0].exercises, 'Backup round-trip must preserve completed exercises and sets');
 assert.equal(parsedBackup.history[0].completedAt, hardHistory[0].completedAt, 'Backup round-trip must preserve workout dates');
 assert.equal(parsedBackup.workout, null, 'Backup round-trip must preserve an empty active workout');
+const timedBackup = parseBackup(serializeBackup({
+  profile,
+  history: [{ ...hardHistory[0], sessionDurationSeconds: 1842, pausedDurationMs: 12_000 }],
+  workout: null,
+}));
+assert.equal(timedBackup.history[0].sessionDurationSeconds, 1842, 'Backup round-trip must preserve measured session duration');
+assert.equal(timedBackup.history[0].pausedDurationMs, 12_000, 'Backup round-trip must preserve excluded pause time');
 const completedCurrentBackup = parseBackup(serializeBackup({
   ...backupState,
   workout: { ...hardHistory[0], id: 'completed-current', startedAt: hardHistory[0].completedAt - 1000 },
@@ -523,7 +534,10 @@ const styleGenerationBase = {
 const intenseGenerated = generateWorkout({ ...styleGenerationBase, trainingStyle: 'intense' }, [], { now: 1700000100000, variation: 73 });
 const balancedGenerated = generateWorkout({ ...styleGenerationBase, trainingStyle: 'balanced' }, [], { now: 1700000100000, variation: 73 });
 const volumeGenerated = generateWorkout({ ...styleGenerationBase, trainingStyle: 'volume' }, [], { now: 1700000100000, variation: 73 });
-assert(intenseGenerated.exercises.every((item) => item.sets.length <= 2), 'The intense style must never silently expand beyond two work sets per exercise');
+assert(intenseGenerated.exercises.every((item) => {
+  const exercise = exercises.find((candidate) => candidate.id === item.exerciseId);
+  return item.sets.length <= (exercise.compound ? 2 : 3);
+}), 'The intense style must use at most two compound sets and three accessory sets');
 assert(intenseGenerated.exercises.every((item) => item.sets.map((set) => set.targetRir).at(-1) <= 1), 'Every intense prescription must finish close to the selected effort limit');
 assert(balancedGenerated.exercises.some((item) => item.sets.length === 3), 'A regular balanced workout must retain a three-set prescription where the dose requires it');
 assert(volumeGenerated.exercises.every((item) => item.sets.length <= getExercisePrescription({ ...styleGenerationBase, trainingStyle: 'volume' }, exercises.find((exercise) => exercise.id === item.exerciseId)).maxSets), 'Generated volume prescriptions must respect their exercise-class set ceiling');
@@ -793,6 +807,24 @@ const safeInventoryAdjustment = generateWorkout({ ...profile, loadInventory: { b
 assert.equal(safeInventoryAdjustment.sets[0].weight, 60, 'Removing a performed load must select a lower available load, never silently round upward');
 assert.equal(safeInventoryAdjustment.sets[0].reps, 8, 'Changing inventory must hold repetitions instead of progressing load and reps together');
 assert.equal(safeInventoryAdjustment.progressionStep, 'load-adjustment');
+const reducedDuringSessionHistory = [{
+  id: 'reduced-during-session', completedAt: Date.now() - 1000,
+  exercises: [{ exerciseId: bench.id, sets: [
+    { ...baseSet, weight: 60, targetWeight: 60, reps: 8, targetReps: 8, rir: 2 },
+    { ...baseSet, weight: 60, targetWeight: 60, reps: 7, targetReps: 8, rir: 1 },
+    { ...baseSet, weight: 50, targetWeight: 60, reps: 8, targetReps: 8, rir: 1 },
+  ] }],
+}];
+assert.equal(getExerciseProgress(reducedDuringSessionHistory, bench.id).lastWeight, 50, 'A deliberate final work-set load reduction must not be hidden by the modal earlier load');
+const reducedNextWorkout = generateWorkout({ ...profile, loadInventory: { barbell: [50, 60] } }, reducedDuringSessionHistory, { targets: ['chest'], duration: 25 }).exercises[0];
+assert.equal(reducedNextWorkout.sets[0].weight, 50, 'The next workout must start from the reduced executable load');
+const missedRepsHistory = [{
+  id: 'missed-reps', completedAt: Date.now() - 1000,
+  exercises: [{ exerciseId: bench.id, sets: Array.from({ length: 3 }, () => ({ ...baseSet, weight: 60, targetWeight: 60, reps: 5, targetReps: 8, rir: 0 })) }],
+}];
+const missedRepsAdjustment = generateWorkout({ ...profile, loadInventory: { barbell: [50, 60] } }, missedRepsHistory, { targets: ['chest'], duration: 25 }).exercises[0];
+assert.equal(missedRepsAdjustment.sets[0].weight, 50, 'Significant repetition underperformance must use the next real lower load');
+assert.equal(missedRepsAdjustment.progressionStep, 'performance-adjustment');
 
 const saturatedChestHistory = [1, 3, 5].map((offset) => ({
   id: `saturated-chest-${offset}`,
@@ -888,6 +920,13 @@ assert.equal(withoutExercise.exercises.length, editingWorkout.exercises.length -
 assert(!withoutExercise.exercises.some((item) => item.exerciseId === removableId), 'The removed exercise must leave the current workout');
 assert.equal(withoutExercise.engine.composition.compounds + withoutExercise.engine.composition.accessories, withoutExercise.exercises.length, 'Removing an exercise must rebuild composition metadata');
 assert.deepEqual(withoutExercise.engine.movementFamilies, [...new Set(withoutExercise.exercises.map((item) => getMovementFamily(exercises.find((exercise) => exercise.id === item.exerciseId))).filter(Boolean))], 'Removing an exercise must rebuild movement-family metadata');
+const editableSetItem = editingWorkout.exercises[0];
+const withManualSet = addWorkoutSet(editableSetItem);
+assert.equal(withManualSet.sets.length, editableSetItem.sets.length + 1, 'A manual set must be appended to the selected exercise');
+assert.equal(withManualSet.sets.at(-1).done, false, 'A manually appended set must start unfinished');
+assert.equal(withManualSet.sets.at(-1).rir, null, 'A manually appended set must not copy recorded effort');
+assert.equal(removeWorkoutSet(withManualSet).sets.length, editableSetItem.sets.length, 'The final unfinished set must be removable');
+assert.equal(removeWorkoutSet({ ...withManualSet, sets: withManualSet.sets.map((set, index) => index === withManualSet.sets.length - 1 ? { ...set, done: true } : set) }).sets.length, withManualSet.sets.length, 'Completed-set evidence must never be removed by the manual set control');
 
 const currentExercise = exercises.find((exercise) => exercise.id === editingWorkout.exercises[0].exerciseId);
 const similarChoices = getSimilarExercises(editingWorkout, currentExercise.id, focusProfile);

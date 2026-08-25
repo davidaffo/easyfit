@@ -48,6 +48,9 @@ export function isWorkoutRecord(workout) {
     && (workout.createdAt == null || (Number.isFinite(Number(workout.createdAt)) && Number(workout.createdAt) > 0))
     && (workout.startedAt == null || (Number.isFinite(Number(workout.startedAt)) && Number(workout.startedAt) > 0))
     && (workout.completedAt == null || (Number.isFinite(Number(workout.completedAt)) && Number(workout.completedAt) > 0))
+    && (workout.pausedAt == null || (Number.isFinite(Number(workout.pausedAt)) && Number(workout.pausedAt) > 0))
+    && validOptionalNumber(workout.pausedDurationMs, 0, 7 * 864e5)
+    && validOptionalNumber(workout.sessionDurationSeconds, 0, 7 * 86400)
     && Array.isArray(workout.exercises)
     && workout.exercises.length > 0
     && workout.exercises.every((item) => item
@@ -75,6 +78,9 @@ function normalizeWorkoutRecord(workout) {
     ...(workout.createdAt != null ? { createdAt: Number(workout.createdAt) } : {}),
     ...(workout.startedAt != null ? { startedAt: Number(workout.startedAt) } : {}),
     ...(workout.completedAt != null ? { completedAt: Number(workout.completedAt) } : {}),
+    ...(workout.pausedAt != null ? { pausedAt: Number(workout.pausedAt) } : {}),
+    ...(workout.pausedDurationMs != null ? { pausedDurationMs: Number(workout.pausedDurationMs) } : {}),
+    ...(workout.sessionDurationSeconds != null ? { sessionDurationSeconds: Number(workout.sessionDurationSeconds) } : {}),
     duration: Number.isFinite(Number(workout.duration)) ? Number(workout.duration) : 0,
     targetMuscles: Array.isArray(workout.targetMuscles) ? workout.targetMuscles : [],
     exercises: workout.exercises.map((item) => ({
