@@ -167,6 +167,22 @@ test('training style replaces global RIR and set-cap controls and persists as on
   await waitFor(() => expect(JSON.parse(localStorage.getItem('easyfit-profile')).trainingStyle).toBe('intense'));
 });
 
+test('disabled core and calves never appear in today priorities or recovery details', async () => {
+  const user = userEvent.setup();
+  saveState({ savedProfile: {
+    ...profile,
+    exerciseFilters: { ...profile.exerciseFilters, excludeDirectCore: true, excludeCalves: true },
+  } });
+  render(<App/>);
+  expect(screen.getByText('PRIORITÀ DI OGGI')).toBeTruthy();
+  expect(screen.queryByText('PIÙ RECUPERATI')).toBeNull();
+  expect(screen.queryByText('Core')).toBeNull();
+  expect(screen.queryByText('Polpacci')).toBeNull();
+  await user.click(screen.getByRole('button', { name: 'Vedi recupero' }));
+  expect(screen.queryByText('Core')).toBeNull();
+  expect(screen.queryByText('Polpacci')).toBeNull();
+});
+
 test('a load entered during a workout is added to the available inventory', async () => {
   const user = userEvent.setup();
   saveState({ workout: activeWorkout() });

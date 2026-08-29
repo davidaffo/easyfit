@@ -563,8 +563,11 @@ function App() {
 }
 
 function Home({ profile, history, workout, onOpenWorkout, onDiscardWorkout, onGenerate, onShowRecovery, installPrompt, onInstalled }) {
-  const recovery = useMemo(() => getRecovery(history, Date.now(), profile), [history, profile.recoveryFeedback]);
-  const fresh = Object.entries(recovery).sort((a, b) => b[1] - a[1]).slice(0, 3);
+  const trainingStatus = useMemo(() => getMuscleTrainingStatus(profile, history), [history, profile]);
+  const currentPriorities = Object.entries(trainingStatus)
+    .filter(([, item]) => !item.excluded)
+    .sort((a, b) => b[1].priority - a[1].priority || b[1].recovery - a[1].recovery)
+    .slice(0, 3);
   const today = new Intl.DateTimeFormat('it-IT', { weekday: 'long', day: 'numeric', month: 'long' }).format(new Date());
   const completedWeek = history.filter((item) => item.completedAt <= Date.now() && Date.now() - item.completedAt < 7 * 864e5).length;
 
@@ -579,7 +582,7 @@ function Home({ profile, history, workout, onOpenWorkout, onDiscardWorkout, onGe
     <section className="welcome"><span className="eyebrow">{today.toUpperCase()}</span><h1>Ciao, sei pronto?</h1><p>{history.length ? `${completedWeek} allenament${completedWeek === 1 ? 'o' : 'i'} questa settimana. Continua così.` : 'Il tuo primo allenamento è già pronto.'}</p></section>
 
     <section className="recovery-strip">
-      <div><span className="section-kicker">PIÙ RECUPERATI</span><div className="fresh-list">{fresh.map(([muscle, value]) => <span key={muscle}><i style={{ '--value': `${value * 3.6}deg` }}/><b>{muscles[muscle]}</b><small>{value}%</small></span>)}</div></div>
+      <div><span className="section-kicker">PRIORITÀ DI OGGI</span><div className="fresh-list">{currentPriorities.map(([muscle, item]) => <span key={muscle}><i style={{ '--value': `${item.priority * 3.6}deg` }}/><b>{muscles[muscle]}</b><small>{item.priority}/100</small></span>)}</div></div>
       <button className="round-arrow" aria-label="Vedi recupero" onClick={onShowRecovery}><Icon name="chevron"/></button>
     </section>
 
@@ -1277,11 +1280,13 @@ function ExerciseHistorySheet({ exerciseId, history, language, onClose }) {
 
 function Recovery({ history, profile, setProfile }) {
   const status = useMemo(() => getMuscleTrainingStatus(profile, history), [profile, history]);
-  const sorted = Object.entries(status).sort((a, b) => b[1].priority - a[1].priority || b[1].recovery - a[1].recovery);
+  const sorted = Object.entries(status)
+    .filter(([, item]) => !item.excluded)
+    .sort((a, b) => b[1].priority - a[1].priority || b[1].recovery - a[1].recovery);
   const averageRecovery = Math.round(sorted.reduce((sum, [, item]) => sum + item.recovery, 0) / sorted.length);
   const priorities = sorted.filter(([, item]) => item.priority >= 45).slice(0, 3).map(([muscle]) => muscles[muscle]);
   const lastStimulusLabel = (hours) => hours == null ? 'Mai stimolato' : hours < 24 ? 'Stimolato oggi' : hours < 48 ? 'Stimolato ieri' : `${Math.floor(hours / 24)} giorni fa`;
-  const statusLabel = (item) => item.excluded ? 'Escluso' : item.recovery < 55 ? 'In recupero' : item.priority >= 65 ? 'Priorità alta' : item.doseStimulus >= item.targetStimulus ? 'Target raggiunto' : 'Disponibile';
+  const statusLabel = (item) => item.recovery < 55 ? 'In recupero' : item.priority >= 65 ? 'Priorità alta' : item.doseStimulus >= item.targetStimulus ? 'Target raggiunto' : 'Disponibile';
   const adjustRecovery = (muscle, amount) => setProfile((current) => ({
     ...current,
     recoveryFeedback: {
