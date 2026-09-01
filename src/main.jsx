@@ -316,7 +316,7 @@ function Onboarding({ onDone }) {
       </div>
     </section>
     <section className="form-section">
-      <div className="range-label"><label>Tempo massimo abituale</label><strong>{profile.duration} min</strong></div>
+      <div className="range-label"><label>Durata indicativa</label><strong>{profile.duration} min</strong></div>
       <input type="range" min="25" max="75" step="5" value={profile.duration} onChange={(event) => setProfile({ ...profile, duration: Number(event.target.value) })}/>
       <div className="range-scale"><span>25 min</span><span>75 min</span></div>
     </section>
@@ -1266,11 +1266,23 @@ function ExerciseHistorySheet({ exerciseId, history, language, onClose }) {
         </div>
         <ExerciseTrend points={stats.points} metric={stats.metric}/>
         <div className="exercise-session-list">
-          <h3>Sessioni recenti</h3>
-          {[...stats.sessions].reverse().slice(0, 8).map((session) => <article key={session.workoutId + session.completedAt}>
-            <div><strong>{formatDate(session.completedAt)}</strong></div>
-            <p>{session.sets.map((set) => `${Number(set.weight) > 0 ? `${set.weight} kg` : 'Corpo'} × ${set.reps} · RIR ${set.rir == null ? '—' : set.rir === 4 ? '4+' : set.rir}`).join('  /  ')}</p>
-            {session.bestE1rm && <small>e1RM migliore: {Math.round(session.bestE1rm * 10) / 10} kg</small>}
+          <h3>Sessioni precedenti <small>Più recente per prima</small></h3>
+          {[...stats.sessions].reverse().map((session) => <article key={session.workoutId + session.completedAt}>
+            <header><strong>{formatDate(session.completedAt)}</strong><span>{session.sets.length} {session.sets.length === 1 ? 'serie' : 'serie'}</span></header>
+            <div className="exercise-set-history" role="table" aria-label={`Serie del ${formatDate(session.completedAt)}`}>
+              <div className="exercise-set-history-head" role="row"><span>Serie</span><span>Peso</span><span>Reps</span><span>RIR</span></div>
+              {session.sets.map((set, index) => {
+                const actualRir = set.rir;
+                const displayedRir = actualRir ?? set.targetRir;
+                return <div className="exercise-set-history-row" role="row" key={`${session.workoutId}-${index}`}>
+                  <strong>{index + 1}</strong>
+                  <span>{weighted ? (Number(set.weight) > 0 ? `${set.weight} kg` : '—') : 'Corpo'}</span>
+                  <span>{Number(set.reps) || '—'}</span>
+                  <span className={actualRir == null && displayedRir != null ? 'target-value' : ''}>{displayedRir == null ? '—' : displayedRir === 4 ? '4+' : displayedRir}{actualRir == null && displayedRir != null && <small>target</small>}</span>
+                </div>;
+              })}
+            </div>
+            {session.bestE1rm && <footer>e1RM migliore: {Math.round(session.bestE1rm * 10) / 10} kg</footer>}
           </article>)}
         </div>
       </>}
@@ -1345,7 +1357,7 @@ function History({ history, profile }) {
           const latest = item.stats.points.at(-1)?.value;
           return <button key={item.exerciseId} className="focus-progress-card" onClick={() => setHistoryExerciseId(item.exerciseId)}>
             <div className="focus-progress-head"><span className="focus-glyph"><Icon name="spark" size={16}/></span><div><strong>{getExerciseName(exercise, profile.exerciseLanguage)}</strong><small>{muscles[exercise.primary]}</small></div><Icon name="chevron" size={17}/></div>
-            <div className="focus-cycle-row"><span>L’engine mantiene lo stesso movimento finché resta utile e compatibile.</span></div>
+            <div className="focus-cycle-row"><span>L’engine alterna varianti compatibili in multifrequenza e ne misura fino a quattro utilizzi.</span></div>
             <div className="focus-metric-row"><span><small>VALORE ATTUALE</small><strong>{metricLabel(item, latest)}</strong></span><span className={item.overallStrengthChange > 0 ? 'positive' : ''}><small>DA INIZIO STORICO</small><strong>{formatPercent(item.overallStrengthChange)}</strong></span></div>
           </button>;
         })}
@@ -1569,7 +1581,7 @@ function Profile({ profile, setProfile, history, workout, onRestoreBackup, insta
     <SettingsGroup title="Stile di allenamento"><div className="training-style-list settings-style-list">{Object.entries(trainingStyles).map(([id, style]) => <button key={id} className={profile.trainingStyle === id ? 'selected' : ''} onClick={() => update({ trainingStyle: id })}>
       <span><strong>{style.label}{style.recommended ? ' · Consigliato' : ''}</strong><small>{trainingStyleSummaries[id]}<br/>{style.description}</small></span><span className="radio"><i/></span>
     </button>)}</div><p className="setting-help">Lo stile controlla automaticamente serie, prossimità al cedimento e recuperi. I multiarticolari ad alta fatica restano più prudenti degli esercizi stabili e degli isolamenti.</p></SettingsGroup>
-    <SettingsGroup title="Durata"><div className="range-label"><span>Tempo massimo per workout</span><strong>{profile.duration} min</strong></div><input type="range" min="25" max="75" step="5" value={profile.duration} onChange={(event) => setProfile({ ...profile, duration: Number(event.target.value) })} onPointerUp={() => showToast('Durata aggiornata')}/><p className="setting-help">È un tetto: con attrezzatura o gruppi disponibili limitati la scheda può terminare prima, e mostrerà sempre la stima reale.</p></SettingsGroup>
+    <SettingsGroup title="Durata"><div className="range-label"><span>Durata indicativa del workout</span><strong>{profile.duration} min</strong></div><input type="range" min="25" max="75" step="5" value={profile.duration} onChange={(event) => setProfile({ ...profile, duration: Number(event.target.value) })} onPointerUp={() => showToast('Durata aggiornata')}/><p className="setting-help">È un obiettivo indicativo: l’engine può superarlo fino a 5 minuti per non tagliare serie o esercizi sensati. La scheda mostra sempre la stima reale.</p></SettingsGroup>
     <SettingsGroup title="Nomi degli esercizi"><div className="settings-options language-options">
       <button className={profile.exerciseLanguage === 'en' ? 'selected' : ''} onClick={() => update({ exerciseLanguage: 'en' })}>English <span><Icon name="check" size={14}/></span></button>
       <button className={profile.exerciseLanguage === 'it' ? 'selected' : ''} onClick={() => update({ exerciseLanguage: 'it' })}>Italiano, con fallback inglese <span><Icon name="check" size={14}/></span></button>

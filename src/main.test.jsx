@@ -5,6 +5,7 @@ import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 import { App, applyExercisePrescriptionLimits } from './main.jsx';
 import { generateWorkout, startWorkout } from './engine/generator.js';
+import { exercises } from './data/exercises.js';
 
 const profile = {
   goal: 'muscle',
@@ -181,6 +182,42 @@ test('disabled core and calves never appear in today priorities or recovery deta
   await user.click(screen.getByRole('button', { name: 'Vedi recupero' }));
   expect(screen.queryByText('Core')).toBeNull();
   expect(screen.queryByText('Polpacci')).toBeNull();
+});
+
+test('exercise history lists every completed set by session with the newest session first', async () => {
+  const user = userEvent.setup();
+  const bench = exercises.find((exercise) => exercise.name === 'Bench Press');
+  const now = Date.now();
+  const session = (id, completedAt, weight, reps, rir) => ({
+    id,
+    completedAt,
+    duration: 45,
+    targetMuscles: ['chest'],
+    exercises: [{
+      exerciseId: bench.id,
+      sets: [
+        { done: true, weight, reps, targetRir: 2, rir: null },
+        { done: true, weight, reps: reps - 1, targetRir: 1, rir },
+      ],
+    }],
+  });
+  saveState({ history: [
+    session('older', now - 5 * 864e5, 60, 10, 2),
+    session('newer', now - 2 * 864e5, 65, 8, 1),
+  ] });
+  render(<App/>);
+
+  await user.click(screen.getByRole('button', { name: 'Progressi' }));
+  await user.click(screen.getByRole('button', { name: /Bench Press/ }));
+  const dialog = screen.getByRole('dialog', { name: /Storico Bench Press/ });
+  const sessions = dialog.querySelectorAll('.exercise-session-list article');
+  expect(sessions).toHaveLength(2);
+  expect(sessions[0].textContent).toContain('65 kg');
+  expect(sessions[0].textContent).toContain('RIR');
+  expect(sessions[0].textContent).toContain('1');
+  expect(sessions[1].textContent).toContain('60 kg');
+  expect(dialog.querySelectorAll('.exercise-set-history-row')).toHaveLength(4);
+  expect(sessions[0].textContent).toContain('target');
 });
 
 test('a load entered during a workout is added to the available inventory', async () => {

@@ -80,7 +80,7 @@ const serviceWorkerSource = await readFile(new URL('../public/sw.js', import.met
 const appSource = await readFile(new URL('../src/main.jsx', import.meta.url), 'utf8');
 assert(serviceWorkerSource.includes('cache.addAll(images)'), 'The service worker install must fail atomically if any bundled guide image cannot be cached');
 assert(!serviceWorkerSource.includes('Promise.allSettled(images'), 'Offline installation must not silently ignore missing guide images');
-assert(serviceWorkerSource.includes("const CACHE = 'easyfit-v23'"), 'An engine/cache change must bump the offline cache version');
+assert(serviceWorkerSource.includes("const CACHE = 'easyfit-v25'"), 'An engine/cache change must bump the offline cache version');
 assert(serviceWorkerSource.includes("cache.delete(request)"), 'The current PWA cache must remove assets no longer present in the build or guide index');
 assert(serviceWorkerSource.includes("requestUrl.origin !== self.location.origin"), 'The service worker must never intercept cross-origin WebDAV traffic');
 assert(serviceWorkerSource.includes("headers.has('Authorization')"), 'Authenticated responses must never enter the PWA cache');
@@ -538,6 +538,8 @@ assert(intenseGenerated.exercises.every((item) => {
   const exercise = exercises.find((candidate) => candidate.id === item.exerciseId);
   return item.sets.length <= (exercise.compound ? 2 : 3);
 }), 'The intense style must use at most two compound sets and three accessory sets');
+assert(intenseGenerated.exercises.filter((item) => !exercises.find((candidate) => candidate.id === item.exerciseId).compound)
+  .every((item) => item.sets.length === 3), 'Every prescribed intense accessory must retain all three work sets after time fitting');
 assert(intenseGenerated.exercises.every((item) => item.sets.map((set) => set.targetRir).at(-1) <= 1), 'Every intense prescription must finish close to the selected effort limit');
 assert(balancedGenerated.exercises.some((item) => item.sets.length === 3), 'A regular balanced workout must retain a three-set prescription where the dose requires it');
 assert(volumeGenerated.exercises.every((item) => item.sets.length <= getExercisePrescription({ ...styleGenerationBase, trainingStyle: 'volume' }, exercises.find((exercise) => exercise.id === item.exerciseId)).maxSets), 'Generated volume prescriptions must respect their exercise-class set ceiling');
@@ -547,7 +549,7 @@ for (const generated of [intenseGenerated, balancedGenerated, volumeGenerated]) 
     return sum + estimatePrescriptionMinutes(exercise, item);
   }, 0);
   assert.equal(generated.engine.estimatedMinutes, Math.round(recalculatedMinutes), 'Displayed workout time must be derived from the actual prescribed sets and recovery intervals');
-  assert(generated.engine.estimatedMinutes <= generated.duration, 'Every style must fit the selected time ceiling after set-aware time fitting');
+  assert(generated.engine.estimatedMinutes <= generated.duration + 5, 'Every style must remain inside the explicit five-minute scheduling tolerance');
 }
 const essentialMachinePresses = exercises.filter((exercise) => ['Chest Press', 'Hammerstrength Decline Chest Press'].includes(exercise.name) && isEssentialExercise(exercise, { ...focusProfile, equipment: allEquipment, exerciseFilters: { essentialCatalog: true, preferLoadedVariants: false } }));
 assert.equal(essentialMachinePresses.length, 1, 'The essential catalog must collapse reviewed variants even when Wger omits variation_group');
@@ -625,7 +627,7 @@ assert.deepEqual(adaptiveWithSixLegacyDays.engine.movementFamilies, adaptiveWith
 assert.equal(adaptiveWithTwoLegacyDays.engine.movementFamilies.length, 2, 'A regular adaptive workout must select one upper and one lower family');
 assert(adaptiveWithTwoLegacyDays.exercises.length <= 6, 'A first 45-minute workout must remain capped at six exercises');
 assert(adaptiveWithTwoLegacyDays.engine.composition.compounds <= 2, 'A 45-minute workout must contain at most two compound exercises');
-assert(adaptiveWithTwoLegacyDays.engine.estimatedMinutes <= 47, 'A 45-minute workout must respect the time budget');
+assert(adaptiveWithTwoLegacyDays.engine.estimatedMinutes <= 50, 'A 45-minute workout must respect the five-minute scheduling tolerance');
 assert.deepEqual(getWeeklyTargets({ ...profile, split: 'ppl' }), getWeeklyTargets(profile), 'Retired split values must not alter adaptive dose targets');
 
 const upperBodyFatigue = [{
@@ -873,16 +875,20 @@ const continuityHistory = Array.from({ length: 3 }, (_, index) => ({
 }));
 const continuity = getExerciseContinuity(continuityHistory);
 const continuityPattern = exercises.find((exercise) => exercise.id === continuityExerciseId).pattern;
-assert.equal(continuity[continuityPattern].exposures, 3, 'Continuity must count consecutive exposures of the same movement pattern');
+assert.equal(continuity[continuityPattern].exercises[continuityExerciseId].exposures, 3, 'Continuity must count each exercise exposure inside its movement-pattern pool');
 const continuityWorkout = generateWorkout(focusProfile, continuityHistory, { targets: ['chest'], duration: 30, now: continuityNow });
-assert(continuityWorkout.exercises.some((item) => item.exerciseId === continuityExerciseId), 'A useful compatible exercise must recur long enough to measure progress');
+assert(!continuityWorkout.exercises.some((item) => item.exerciseId === continuityExerciseId), 'Multifrequency must not repeat the exercise used most recently when a compatible pattern alternative exists');
+assert(continuityWorkout.exercises.some((item) => exercises.find((exercise) => exercise.id === item.exerciseId)?.pattern === continuityPattern), 'Multifrequency variation must preserve the requested movement pattern');
+const onlyContinuityExercise = Object.fromEntries(exercises.map((exercise) => [exercise.id, exercise.id === continuityExerciseId ? 'normal' : 'exclude']));
+const noAlternativeWorkout = generateWorkout({ ...focusProfile, preferences: onlyContinuityExercise }, continuityHistory, { targets: ['chest'], duration: 30, now: continuityNow });
+assert(noAlternativeWorkout.exercises.some((item) => item.exerciseId === continuityExerciseId), 'The same exercise may repeat when no compatible alternative is actually available');
 assert(!continuityWorkout.exercises.some((item) => 'isFocus' in item), 'Generated exercises must no longer carry Focus state');
 const completedContinuityHistory = [43, 29, 15, 1].map((daysAgo, index) => ({
   id: `completed-continuity-${index}`,
   completedAt: continuityNow - daysAgo * 864e5,
   exercises: [{ exerciseId: continuityExerciseId, sets: [{ targetReps: 8, reps: 8 + index, weight: 20, rir: 2, done: true }] }],
 }));
-assert.equal(getExerciseContinuity(completedContinuityHistory, continuityNow)[continuityPattern].exposures, 4, 'Four exposures must remain measurable even at a sparse five-to-seven-day training cadence');
+assert.equal(getExerciseContinuity(completedContinuityHistory, continuityNow)[continuityPattern].exercises[continuityExerciseId].exposures, 4, 'Four uses must remain measurable even at a sparse five-to-seven-day training cadence');
 const rotatedContinuityWorkout = generateWorkout(focusProfile, completedContinuityHistory, { targets: ['chest'], duration: 30, now: continuityNow, variation: 991 });
 assert(!rotatedContinuityWorkout.exercises.some((item) => item.exerciseId === continuityExerciseId), 'After four measured exposures the engine must rotate the exercise instead of pinning it forever');
 assert.deepEqual(getExerciseContinuity(continuityHistory, continuityNow + 40 * 864e5), {}, 'Exercise continuity must expire after a long interruption');
@@ -1036,7 +1042,7 @@ for (const goal of ['muscle', 'strength', 'fitness']) {
       const families = new Set(generatedExercises.map(getMovementFamily));
       assert(generated.exercises.length > 0 && generated.exercises.length <= limits.maxExercises, 'Stress generation must always return a bounded non-empty workout');
       assert(generated.engine.composition.compounds <= limits.maxCompounds, 'Stress generation must respect compound caps');
-      assert(generated.engine.estimatedMinutes <= duration, 'Stress generation must respect the selected maximum duration exactly');
+      assert(generated.engine.estimatedMinutes <= duration + 5, 'Stress generation must respect the five-minute scheduling tolerance');
       assert(generated.exercises.every((item) => item.sets.length > 0), 'Stress generation must never emit an exercise without sets');
       assert(!(families.has('knee') && families.has('hip')), 'Stress generation must not combine both lower-body families');
       assert(generatedExercises.filter(isLowerBodyExercise).length <= 1, 'Every adaptive workout must contain at most one lower-body exercise');

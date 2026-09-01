@@ -9,7 +9,10 @@ const MIN_CYCLE_HOURS = 36;
 const MIN_TRAINING_READINESS = 45;
 const CONTINUITY_HISTORY_DAYS = 90;
 const CONTINUITY_BREAK_DAYS = 28;
-export const ENGINE_VERSION = 23;
+const RECENT_VARIATION_DAYS = 7;
+const EXERCISE_ROTATION_EXPOSURES = 4;
+export const SESSION_TIME_TOLERANCE_MINUTES = 5;
+export const ENGINE_VERSION = 25;
 
 const muscleBaseImportance = {
   chest: 100,
@@ -952,6 +955,11 @@ function prescribedSetCount(exercise, profile, context, limits) {
   }));
   const remainingExposures = Math.max(1, Math.min(frequencyGap || 1, context.expectedUpcomingExposures || 1));
   const distributedSets = volumeGap > 0.25 ? Math.ceil(volumeGap / remainingExposures) : frequencyGap > 0 ? 1 : 0;
+  const intenseAccessorySets = profile.trainingStyle === 'intense'
+    && !exercise.compound
+    && !context.returningFromBreak
+    && limits.maxSets >= 3;
+  if (intenseAccessorySets && distributedSets > 0) return 3;
   const readiness = context.recovery?.[exercise.primary] ?? 100;
   let maximum = context.targetMinutes <= 30 ? 2 : context.targetMinutes <= 45 ? 3 : exercise.compound ? 3 : 4;
   maximum = Math.min(maximum, limits.maxSets);
@@ -1003,6 +1011,7 @@ function prescription(exercise, profile, history, context = {}) {
     targetRirs,
     repRange: { min: limits.minReps, max: limits.maxReps },
     progressionStep: progression.step,
+    minimumTimeFitSets: profile.trainingStyle === 'intense' && !exercise.compound && sets >= 3 ? 3 : 1,
     estimatedOneRepMax: progress.latestE1rm,
     needsInitialLoad: ['external', 'per-dumbbell'].includes(exercise.loadType) && progression.weight == null,
     needsInitialReps: exercise.loadType === 'bodyweight' && progress.sessions === 0,
@@ -1132,10 +1141,18 @@ export function getExerciseContinuity(history = [], now = Date.now()) {
         if (!exercise) return;
         const previous = state[exercise.pattern];
         const interrupted = previous && workout.completedAt - previous.lastPerformedAt > CONTINUITY_BREAK_DAYS * DAY;
+        const previousExercises = interrupted ? {} : previous?.exercises || {};
+        const previousExercise = previousExercises[exercise.id];
+        const exerciseState = {
+          exposures: (previousExercise?.exposures || 0) + 1,
+          lastPerformedAt: workout.completedAt,
+        };
         state[exercise.pattern] = {
           exerciseId: exercise.id,
-          exposures: !interrupted && previous?.exerciseId === exercise.id ? previous.exposures + 1 : 1,
+          lastExerciseId: exercise.id,
+          exposures: exerciseState.exposures,
           lastPerformedAt: workout.completedAt,
+          exercises: { ...previousExercises, [exercise.id]: exerciseState },
         };
       });
     });
@@ -1256,8 +1273,10 @@ function scoreExercise(exercise, targets, profile, recovery, weeklyLoad, muscleS
   score += exercise.selectionPriority;
   score -= chosen.filter((item) => item.primary === exercise.primary).length * 18;
   const patternContinuity = continuity[exercise.pattern];
-  if (patternContinuity?.exerciseId === exercise.id) score += patternContinuity.exposures < 4 ? 20 : -6;
-  else if (patternContinuity && patternContinuity.exposures < 4) score -= 5;
+  const exerciseContinuity = patternContinuity?.exercises?.[exercise.id];
+  if (exerciseContinuity) {
+    score += exerciseContinuity.exposures < EXERCISE_ROTATION_EXPOSURES ? 20 : 0;
+  }
   if (readiness < 45) score -= (45 - readiness) * 1.5;
   score += profile.preferences?.[exercise.id] === 'more' ? 12 : 0;
   score += profile.preferences?.[exercise.id] === 'less' ? -15 : 0;
@@ -1353,7 +1372,8 @@ export function getWorkoutCompositionLimits(targetMinutes = 45) {
 }
 
 function fitPrescriptionToMinutes(exercise, item, remainingMinutes) {
-  for (let setCount = item.sets.length; setCount >= 1; setCount -= 1) {
+  const minimumSetCount = Math.min(item.sets.length, Math.max(1, Number(item.minimumTimeFitSets) || 1));
+  for (let setCount = item.sets.length; setCount >= minimumSetCount; setCount -= 1) {
     const targetRirs = targetRirsForSetCount(item.targetRirs || [item.targetRir], setCount);
     const candidate = {
       ...item,
@@ -1466,7 +1486,11 @@ export function generateWorkout(profile, history = [], options = {}) {
   const addExercise = (exercise, allowMaintenance = false) => {
     const prescribed = prescription(exercise, profile, history, { ...prescriptionContext, allowMaintenance });
     if (!prescribed.sets.length) return false;
-    const item = fitPrescriptionToMinutes(exercise, prescribed, targetMinutes - usedMinutes);
+    const item = fitPrescriptionToMinutes(
+      exercise,
+      prescribed,
+      targetMinutes + SESSION_TIME_TOLERANCE_MINUTES - usedMinutes,
+    );
     if (!item) return false;
     chosen.push(exercise);
     prescriptions.set(exercise.id, item);
@@ -1481,8 +1505,10 @@ export function generateWorkout(profile, history = [], options = {}) {
     return true;
   };
 
-  const rankCandidates = (patterns = null) => exercises
+  const rankCandidates = (patterns = null) => {
+    const eligible = exercises
     .filter((exercise) => profile.preferences?.[exercise.id] !== 'exclude' && !chosen.some((item) => item.id === exercise.id))
+    .filter((exercise) => isExerciseAllowed(exercise, profile))
     .filter((exercise) => isEssentialExercise(exercise, profile))
     .filter((exercise) => !avoidIds.has(exercise.id))
     .filter((exercise) => {
@@ -1491,17 +1517,35 @@ export function generateWorkout(profile, history = [], options = {}) {
       return currentLowerBodyCount < 1;
     })
     .filter((exercise) => !patterns || patterns.includes(exercise.pattern))
-    .filter((exercise) => options.targets || exerciseReadiness(exercise, recovery) >= MIN_TRAINING_READINESS)
-    .map((exercise) => ({ exercise, score: scoreExercise(exercise, targets, profile, recovery, doseLoad, muscleStatus, continuity, chosen, random) }))
+    .filter((exercise) => options.targets || exerciseReadiness(exercise, recovery) >= MIN_TRAINING_READINESS);
+    const varied = eligible.filter((exercise) => {
+      const patternState = continuity[exercise.pattern];
+      const repeatedRecently = patternState?.lastExerciseId === exercise.id
+        && now - patternState.lastPerformedAt <= RECENT_VARIATION_DAYS * DAY;
+      if (!repeatedRecently) return true;
+      return !eligible.some((alternative) => alternative.pattern === exercise.pattern && alternative.id !== exercise.id);
+    });
+    const rotationEligible = varied.filter((exercise) => {
+      const exposures = continuity[exercise.pattern]?.exercises?.[exercise.id]?.exposures || 0;
+      if (exposures < EXERCISE_ROTATION_EXPOSURES) return true;
+      return !varied.some((alternative) => alternative.pattern === exercise.pattern
+        && alternative.id !== exercise.id
+        && (continuity[alternative.pattern]?.exercises?.[alternative.id]?.exposures || 0) < EXERCISE_ROTATION_EXPOSURES);
+    });
+    const pool = rotationEligible.length ? rotationEligible : varied.length ? varied : eligible;
+    return pool.map((exercise) => ({ exercise, score: scoreExercise(exercise, targets, profile, recovery, doseLoad, muscleStatus, continuity, chosen, random) }))
     .filter((item) => item.score > -100)
     .sort((a, b) => b.score - a.score);
+  };
 
   requiredFamilies.forEach((family) => {
     if (plannedFamilies.length >= Math.min(maxCompounds, adaptiveFamilyCount(targetMinutes))) return;
     if (chosen.filter((exercise) => exercise.compound).length >= maxCompounds) return;
     if (chosen.some((exercise) => getMovementFamily(exercise) === family.id)) return;
-    const next = rankCandidates(family.patterns).find(({ exercise }) => exercise.compound)?.exercise;
-    if (!next) {
+    const compatibleCompounds = rankCandidates(family.patterns)
+      .map(({ exercise }) => exercise)
+      .filter((exercise) => exercise.compound);
+    if (!compatibleCompounds.length) {
       const hasCompatibleExercise = exercises.some((exercise) => exercise.compound
         && family.patterns.includes(exercise.pattern)
         && targets.includes(exercise.primary)
@@ -1510,7 +1554,7 @@ export function generateWorkout(profile, history = [], options = {}) {
       if (!hasCompatibleExercise) unavailableMovementFamilies.push(family.id);
       return;
     }
-    if (addExercise(next)) plannedFamilies.push(family);
+    if (compatibleCompounds.some((exercise) => addExercise(exercise))) plannedFamilies.push(family);
   });
 
   while (chosen.filter((exercise) => !exercise.compound).length < compositionLimits.desiredAccessories
@@ -1523,7 +1567,10 @@ export function generateWorkout(profile, history = [], options = {}) {
       avoidIds.add(next.id);
       continue;
     }
-    if (!addExercise(next)) break;
+    if (!addExercise(next)) {
+      avoidIds.add(next.id);
+      continue;
+    }
   }
 
   while (profile.trainingStyle !== 'intense' && usedMinutes < targetMinutes - 4 && chosen.length < maxExercises) {
@@ -1589,7 +1636,8 @@ export function generateWorkout(profile, history = [], options = {}) {
       recoveryBlocked: !chosen.length && !options.targets,
       maintenanceMode,
       estimatedMinutes: Math.round(usedMinutes),
-      evidenceProfile: 'V23-STYLE-AWARE-ADAPTIVE-PERFORMANCE-TIME',
+      timeToleranceMinutes: SESSION_TIME_TOLERANCE_MINUTES,
+      evidenceProfile: 'V25-FLEXIBLE-TIME-MULTIFREQUENCY-ROTATION',
     },
   };
 }
