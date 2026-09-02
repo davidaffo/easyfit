@@ -80,7 +80,7 @@ const serviceWorkerSource = await readFile(new URL('../public/sw.js', import.met
 const appSource = await readFile(new URL('../src/main.jsx', import.meta.url), 'utf8');
 assert(serviceWorkerSource.includes('cache.addAll(images)'), 'The service worker install must fail atomically if any bundled guide image cannot be cached');
 assert(!serviceWorkerSource.includes('Promise.allSettled(images'), 'Offline installation must not silently ignore missing guide images');
-assert(serviceWorkerSource.includes("const CACHE = 'easyfit-v25'"), 'An engine/cache change must bump the offline cache version');
+assert(serviceWorkerSource.includes("const CACHE = 'easyfit-v26'"), 'An engine/cache change must bump the offline cache version');
 assert(serviceWorkerSource.includes("cache.delete(request)"), 'The current PWA cache must remove assets no longer present in the build or guide index');
 assert(serviceWorkerSource.includes("requestUrl.origin !== self.location.origin"), 'The service worker must never intercept cross-origin WebDAV traffic');
 assert(serviceWorkerSource.includes("headers.has('Authorization')"), 'Authenticated responses must never enter the PWA cache');
@@ -131,8 +131,8 @@ const benchHistory = getExerciseHistory(hardHistory, bench.id);
 assert.equal(benchHistory.sessionCount, 1, 'Exercise history must count completed sessions');
 assert.equal(benchHistory.totalSets, 2, 'Exercise history must expose the completed sets');
 assert(benchHistory.bestE1rm > 80, 'Exercise history must expose the best estimated 1RM');
-assert.equal(getWeeklyMuscleLoad(hardHistory).volume.chest, 2, 'Failure must not reduce productive stimulus credit');
-assert.equal(getWeeklyMuscleLoad(hardHistory).volume.shoulders, 1, 'Indirect work must use fractional-set credit');
+assert(getWeeklyMuscleLoad(hardHistory).volume.chest > 2, 'Extra repetitions at failure must increase productive stimulus credit within the safety cap');
+assert(getWeeklyMuscleLoad(hardHistory).volume.shoulders > 1, 'Indirect work must inherit fractional credit from actual repetition performance');
 assert(getWeeklyMuscleLoad(hardHistory).frequency.shoulders > .99, 'Enough accumulated indirect work must count as an exposure without a weekly cliff');
 assert.deepEqual(
   getExerciseMuscleContributions(bench),
@@ -280,7 +280,7 @@ assert.deepEqual(getExercisePrescription({ ...profile, trainingStyle: 'intense' 
 assert.equal(getExercisePrescription({ ...profile, trainingStyle: 'intense' }, bench).rest, 150, 'High-fatigue compounds must receive a practical rest interval in the intense style');
 assert.deepEqual(getExercisePrescription({ ...profile, trainingStyle: 'intense' }, stableCompound).targetRirs, [1, 0], 'Stable compounds must retain the two-set intense prescription');
 assert.equal(getExercisePrescription({ ...profile, trainingStyle: 'intense' }, stableCompound).rest, 120, 'Stable compounds may use less recovery than high-fatigue compounds');
-assert.deepEqual(getExercisePrescription({ ...profile, trainingStyle: 'intense' }, isolation).targetRirs, [1, 0, 0], 'The intense style must give accessories three hard work sets');
+assert.deepEqual(getExercisePrescription({ ...profile, trainingStyle: 'intense' }, isolation).targetRirs, [1, 1, 0], 'The intense style must reserve failure for the final accessory set');
 assert.equal(getExercisePrescription({ ...profile, trainingStyle: 'intense' }, isolation).rest, 75, 'Hard isolation work must use a compact but usable recovery interval');
 assert.deepEqual(getExercisePrescription({ ...profile, trainingStyle: 'balanced' }, bench).targetRirs, [2, 2, 1], 'The balanced style must distribute effort across three compound sets');
 assert.deepEqual(getExercisePrescription({ ...profile, trainingStyle: 'volume' }, isolation).targetRirs, [2, 2, 1, 1], 'The volume style must keep four controlled isolation sets available');
@@ -728,6 +728,40 @@ assert.equal(gradualProgress.sets[0].weight, 60, 'Double progression must keep l
 assert.equal(gradualProgress.sets[0].reps, 9, 'Double progression must add exactly one target repetition');
 assert.equal(gradualProgress.progressionStep, 'reps');
 
+const overPerformedHistory = [{
+  id: 'over-performed-reps',
+  completedAt: Date.now() - 36e5,
+  exercises: [{ exerciseId: bench.id, sets: Array.from({ length: 3 }, () => ({
+    ...baseSet, targetReps: 8, reps: 10, targetRir: 2, rir: 2,
+  })) }],
+}];
+const overPerformedProgress = generateWorkout(profile, overPerformedHistory, { targets: ['chest'], duration: 25 }).exercises[0];
+assert.equal(overPerformedProgress.sets[0].weight, 60, 'Exceeding prescribed reps must retain the load actually performed');
+assert.equal(overPerformedProgress.sets[0].reps, 10, 'The next prescription must anchor to demonstrated reps instead of adding one to the stale old target');
+assert.equal(overPerformedProgress.progressionStep, 'performance-reps', 'A multi-rep calibration must not display a false +1 rep badge');
+
+const slightlyUnderPerformedHistory = [{
+  id: 'slightly-under-performed-reps',
+  completedAt: Date.now() - 36e5,
+  exercises: [{ exerciseId: bench.id, sets: Array.from({ length: 3 }, () => ({
+    ...baseSet, targetReps: 10, reps: 9, targetRir: 2, rir: 2,
+  })) }],
+}];
+const slightlyUnderProgress = generateWorkout({ ...profile, loadInventory: { barbell: [50, 60] } }, slightlyUnderPerformedHistory, { targets: ['chest'], duration: 25 }).exercises[0];
+assert.equal(slightlyUnderProgress.sets[0].weight, 60, 'Missing one repetition must not cause an unnecessary load drop');
+assert.equal(slightlyUnderProgress.sets[0].reps, 9, 'A small shortfall must be reflected directly in the next repetition target');
+assert.equal(slightlyUnderProgress.progressionStep, 'regress-reps');
+
+const doseWorkout = (id, reps) => ({
+  id,
+  completedAt: Date.now() - 36e5,
+  exercises: [{ exerciseId: bench.id, sets: [{ ...baseSet, targetReps: 10, reps, targetRir: 2, rir: 2 }] }],
+});
+const underDose = getWeeklyMuscleLoad([doseWorkout('under-dose', 5)]).volume.chest;
+const exactDose = getWeeklyMuscleLoad([doseWorkout('exact-dose', 10)]).volume.chest;
+const overDose = getWeeklyMuscleLoad([doseWorkout('over-dose', 12)]).volume.chest;
+assert(underDose < exactDose && exactDose < overDose, 'Adaptive volume must use actual repetitions above and below the prescription');
+
 const loadProgressHistory = [{
   id: 'load-progress',
   completedAt: Date.now() - 36e5,
@@ -746,6 +780,27 @@ const inventoriedProfile = { ...profile, loadInventory: { barbell: [60, 61, 62.5
 assert.deepEqual(getAvailableLoads(bench, inventoriedProfile), [60, 61, 62.5], 'The engine must read the user’s actual available barbell loads');
 const inventoriedProgress = generateWorkout(inventoriedProfile, loadProgressHistory, { targets: ['chest'], duration: 25 }).exercises[0];
 assert.equal(inventoriedProgress.sets[0].weight, 61, 'Load progression must choose the smallest real available weight instead of a fixed increment');
+const dumbbellCurl = exercises.find((exercise) => exercise.name === 'Biceps Curls With Dumbbell');
+const manualCurlProfile = {
+  ...profile,
+  trainingStyle: 'intense',
+  equipment: ['dumbbells'],
+  loadInventory: { dumbbells: [17] },
+  preferences: Object.fromEntries(exercises.map((exercise) => [exercise.id, exercise.id === dumbbellCurl.id ? 'normal' : 'exclude'])),
+  exerciseOverrides: { [dumbbellCurl.id]: { minReps: 8, maxReps: 12 } },
+};
+const manualCurlHistory = [{
+  id: 'manual-curl-load',
+  completedAt: Date.now() - 36e5,
+  exercises: [{ exerciseId: dumbbellCurl.id, sets: Array.from({ length: 3 }, (_, index) => ({
+    done: true, weight: 17, targetWeight: 15, targetReps: 8, reps: 10,
+    targetRir: [1, 1, 0][index], rir: [1, 1, 0][index],
+  })) }],
+}];
+const manualCurlProgress = generateWorkout(manualCurlProfile, manualCurlHistory, { targets: ['biceps'], duration: 30 }).exercises[0];
+assert.equal(manualCurlProgress.sets[0].weight, 17, 'A manually performed and inventoried dumbbell load must override the older target weight');
+assert.equal(manualCurlProgress.sets[0].reps, 10, 'Manual reps at the overridden load must calibrate the next prescription from actual performance');
+assert.deepEqual(manualCurlProgress.targetRirs, [1, 1, 0], 'Intense accessories must use failure only on their final set');
 const failureStyleHistory = [{
   id: 'failure-style-history',
   completedAt: Date.now() - 36e5,

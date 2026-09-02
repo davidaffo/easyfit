@@ -12,7 +12,7 @@ const CONTINUITY_BREAK_DAYS = 28;
 const RECENT_VARIATION_DAYS = 7;
 const EXERCISE_ROTATION_EXPOSURES = 4;
 export const SESSION_TIME_TOLERANCE_MINUTES = 5;
-export const ENGINE_VERSION = 25;
+export const ENGINE_VERSION = 26;
 
 const muscleBaseImportance = {
   chest: 100,
@@ -65,7 +65,7 @@ export const trainingStyles = {
     classes: {
       'high-fatigue-compound': { targetRirs: [1, 0], rest: 150 },
       'stable-compound': { targetRirs: [1, 0], rest: 120 },
-      isolation: { targetRirs: [1, 0, 0], rest: 75 },
+      isolation: { targetRirs: [1, 1, 0], rest: 75 },
     },
   },
   balanced: {
@@ -356,6 +356,7 @@ export function getExerciseProgress(history = [], exerciseId, now = Date.now()) 
         ? completed
         : completed.filter((set) => Math.abs(Number(set.weight) - workingWeight) / workingWeight <= 0.03);
       const repCapacities = comparableSets.map((set) => Number(set.reps) + recordedRir(set));
+      const performedReps = comparableSets.map((set) => Number(set.reps)).filter((value) => value > 0);
       const targetRirs = comparableSets.map((set) => Number(set.targetRir ?? 2));
       const supportedReps = comparableSets.map((set, index) => repCapacities[index] - targetRirs[index]);
       const prescribedSets = Math.max(completed.length, item.sets?.length || 0);
@@ -368,6 +369,8 @@ export function getExerciseProgress(history = [], exerciseId, now = Date.now()) 
         targetReps: median(comparableSets.map((set) => Number(set.targetReps)).filter((value) => value > 0)),
         supportedReps: median(supportedReps),
         minimumSupportedReps: supportedReps.length ? Math.min(...supportedReps) : null,
+        performedReps: median(performedReps),
+        minimumPerformedReps: performedReps.length ? Math.min(...performedReps) : null,
         repCapacities,
         targetRirs,
         targetRir: median(targetRirs),
@@ -388,6 +391,8 @@ export function getExerciseProgress(history = [], exerciseId, now = Date.now()) 
     latestTargetReps: latest?.targetReps ?? null,
     latestSupportedReps: latest?.supportedReps ?? null,
     minimumSupportedReps: latest?.minimumSupportedReps ?? null,
+    latestPerformedReps: latest?.performedReps ?? null,
+    minimumPerformedReps: latest?.minimumPerformedReps ?? null,
     latestRepCapacities: latest?.repCapacities || [],
     latestTargetRirs: latest?.targetRirs || [],
     latestTargetRir: latest?.targetRir ?? null,
@@ -452,8 +457,11 @@ function setStimulusQuality(set) {
   const targetReps = Number(set.targetReps);
   const completedReps = Number(set.reps);
   if (!Number.isFinite(completedReps) || completedReps <= 0) return 0;
-  const minimumProductiveReps = targetReps > 0 ? Math.min(5, Math.max(2, Math.ceil(targetReps * 0.6))) : 5;
-  const repQuality = clamp(completedReps / minimumProductiveReps, 0.2, 1);
+  // Anchor adaptive dose to the actual/prescribed repetition ratio. The cap
+  // keeps a single exceptional set from dominating the next sessions.
+  const repQuality = targetReps > 0
+    ? clamp(completedReps / targetReps, 0.25, 1.15)
+    : 1;
   const rir = recordedRir(set);
   const proximityQuality = rir <= 3 ? 1 : rir === 4 ? .85 : rir === 5 ? .7 : .55;
   return repQuality * proximityQuality;
@@ -846,11 +854,27 @@ function doubleProgression(exercise, profile, progress, limits, intensity, setCo
     progressionMinimum,
     limits.maxReps,
   );
-  const supportedReps = progress.latestSupportedReps;
   const minimumSupportedReps = progress.minimumSupportedReps;
   const completedPrescription = progress.latestCompletionRate == null || progress.latestCompletionRate >= .8;
   const reachedTop = completedPrescription && minimumSupportedReps != null && minimumSupportedReps >= limits.maxReps;
-  const canAddRep = completedPrescription && minimumSupportedReps != null && minimumSupportedReps >= previousTarget;
+  const demonstratedReps = minimumSupportedReps == null
+    ? null
+    : clamp(Math.floor(Number(minimumSupportedReps)), 1, limits.maxReps);
+  const canAddRep = completedPrescription && demonstratedReps != null && demonstratedReps >= previousTarget;
+  const underPerformed = demonstratedReps != null && demonstratedReps < previousTarget;
+  const exceededPrescription = completedPrescription && demonstratedReps != null && demonstratedReps > previousTarget;
+  const nextRepTarget = underPerformed
+    ? demonstratedReps
+    : exceededPrescription
+      ? demonstratedReps
+      : canAddRep
+        ? Math.min(limits.maxReps, previousTarget + 1)
+        : previousTarget;
+  const repetitionStep = underPerformed
+    ? 'regress-reps'
+    : exceededPrescription
+      ? 'performance-reps'
+      : canAddRep ? 'reps' : progress.sessions ? 'hold' : 'start';
   const desiredRirs = targetRirsForSetCount(limits.targetRirs, Math.max(1, progress.latestRepCapacities.length || setCount));
   const previousRir = Number(progress.latestTargetRir);
   const nextRir = median(desiredRirs);
@@ -873,8 +897,8 @@ function doubleProgression(exercise, profile, progress, limits, intensity, setCo
     }
     return {
       weight: 0,
-      reps: reachedTop ? limits.maxReps : canAddRep ? Math.min(limits.maxReps, previousTarget + 1) : previousTarget,
-      step: reachedTop ? 'top' : canAddRep ? 'reps' : progress.sessions ? 'hold' : 'start',
+      reps: reachedTop ? limits.maxReps : nextRepTarget,
+      step: reachedTop ? 'top' : repetitionStep,
     };
   }
 
@@ -915,8 +939,8 @@ function doubleProgression(exercise, profile, progress, limits, intensity, setCo
 
   let weight = lastAvailableWeight;
   if (!weight && progress.latestE1rm) weight = roundLoad(progress.latestE1rm * intensity, exercise, profile);
-  const underPerformed = supportedReps != null && supportedReps < previousTarget - 1;
-  if (lastAvailableWeight && underPerformed) {
+  const substantiallyUnderPerformed = demonstratedReps != null && demonstratedReps < previousTarget - 1;
+  if (lastAvailableWeight && substantiallyUnderPerformed) {
     const lowerLoad = getAvailableLoads(exercise, profile).filter((load) => load < lastAvailableWeight - .001).at(-1);
     if (lowerLoad) {
       return {
@@ -928,10 +952,8 @@ function doubleProgression(exercise, profile, progress, limits, intensity, setCo
   }
   return {
     weight: weight ?? null,
-    reps: underPerformed
-      ? clamp(Math.floor(Number(minimumSupportedReps) || previousTarget - 1), 1, limits.maxReps)
-      : canAddRep ? Math.min(limits.maxReps, previousTarget + 1) : previousTarget,
-    step: underPerformed ? 'regress-reps' : canAddRep ? 'reps' : progress.sessions ? 'hold' : 'start',
+    reps: nextRepTarget,
+    step: repetitionStep,
   };
 }
 
@@ -1637,7 +1659,7 @@ export function generateWorkout(profile, history = [], options = {}) {
       maintenanceMode,
       estimatedMinutes: Math.round(usedMinutes),
       timeToleranceMinutes: SESSION_TIME_TOLERANCE_MINUTES,
-      evidenceProfile: 'V25-FLEXIBLE-TIME-MULTIFREQUENCY-ROTATION',
+      evidenceProfile: 'V26-PERFORMED-REPS-LOAD-AND-VOLUME-CALIBRATION',
     },
   };
 }
