@@ -31,6 +31,7 @@ import {
   isCompatibleWorkout,
   isPreparedWorkoutStale,
   isWorkoutActive,
+  migrateWorkoutToCurrentEngine,
   removeExercise,
   removeWorkoutSet,
   recalibrateTrainingTargets,
@@ -397,7 +398,8 @@ function App() {
     const saved = load('easyfit-workout', null);
     if (!isCompatibleWorkout(saved, profile)) return null;
     const hasRecordedSets = saved.exercises.some((item) => item.sets?.some((set) => set.done));
-    return hasRecordedSets && !saved.startedAt ? startWorkout(saved, saved.createdAt) : saved;
+    const activeSaved = hasRecordedSets && !saved.startedAt ? startWorkout(saved, saved.createdAt) : saved;
+    return migrateWorkoutToCurrentEngine(activeSaved, profile, history);
   });
   const [view, setView] = useState('home');
   const [toast, setToast] = useState('');
@@ -517,7 +519,8 @@ function App() {
   };
   const restoreBackup = (backup) => {
     const restoredProfile = normalizeProfile(backup.profile);
-    const restoredWorkout = isCompatibleWorkout(backup.workout, restoredProfile) ? backup.workout : null;
+    const compatibleWorkout = isCompatibleWorkout(backup.workout, restoredProfile) ? backup.workout : null;
+    const restoredWorkout = migrateWorkoutToCurrentEngine(compatibleWorkout, restoredProfile, backup.history);
     if (!persistAppStateAtomically([
       ['easyfit-profile', restoredProfile],
       ['easyfit-history', backup.history],

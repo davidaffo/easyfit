@@ -4,7 +4,7 @@ import { cleanup, render, screen, waitFor, within } from '@testing-library/react
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 import { App, applyExercisePrescriptionLimits } from './main.jsx';
-import { generateWorkout, startWorkout } from './engine/generator.js';
+import { ENGINE_VERSION, generateWorkout, startWorkout } from './engine/generator.js';
 import { exercises } from './data/exercises.js';
 
 const profile = {
@@ -76,6 +76,22 @@ beforeEach(() => {
 afterEach(cleanup);
 
 describe('critical workout lifecycle', () => {
+  test('an active old-engine workout is conservatively migrated on startup', async () => {
+    const oldWorkout = activeWorkout();
+    oldWorkout.engine.version = ENGINE_VERSION - 1;
+    oldWorkout.exercises[0].sets[0] = { ...oldWorkout.exercises[0].sets[0], done: true, reps: 7, rir: 1 };
+    const protectedSet = structuredClone(oldWorkout.exercises[0].sets[0]);
+    saveState({ workout: oldWorkout });
+
+    render(<App/>);
+
+    await waitFor(() => expect(JSON.parse(localStorage.getItem('easyfit-workout')).engine.version).toBe(ENGINE_VERSION));
+    const migrated = JSON.parse(localStorage.getItem('easyfit-workout'));
+    expect(migrated.startedAt).toBe(oldWorkout.startedAt);
+    const protectedExercise = migrated.exercises.find((item) => item.exerciseId === oldWorkout.exercises[0].exerciseId);
+    expect(protectedExercise.sets[0]).toEqual(protectedSet);
+  });
+
   test('an active workout survives navigation and reload state without exposing generation', async () => {
     const user = userEvent.setup();
     saveState({ workout: activeWorkout({ restEndsAt: Date.now() + 60_000 }) });

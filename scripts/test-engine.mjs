@@ -49,6 +49,7 @@ import {
   isLowerBodyExercise,
   isReturningAfterBreak,
   isWorkoutActive,
+  migrateWorkoutToCurrentEngine,
   removeExercise,
   removeWorkoutSet,
   recalibrateTrainingTargets,
@@ -80,7 +81,7 @@ const serviceWorkerSource = await readFile(new URL('../public/sw.js', import.met
 const appSource = await readFile(new URL('../src/main.jsx', import.meta.url), 'utf8');
 assert(serviceWorkerSource.includes('cache.addAll(images)'), 'The service worker install must fail atomically if any bundled guide image cannot be cached');
 assert(!serviceWorkerSource.includes('Promise.allSettled(images'), 'Offline installation must not silently ignore missing guide images');
-assert(serviceWorkerSource.includes("const CACHE = 'easyfit-v26'"), 'An engine/cache change must bump the offline cache version');
+assert(serviceWorkerSource.includes("const CACHE = 'easyfit-v28'"), 'An engine/cache change must bump the offline cache version');
 assert(serviceWorkerSource.includes("cache.delete(request)"), 'The current PWA cache must remove assets no longer present in the build or guide index');
 assert(serviceWorkerSource.includes("requestUrl.origin !== self.location.origin"), 'The service worker must never intercept cross-origin WebDAV traffic');
 assert(serviceWorkerSource.includes("headers.has('Authorization')"), 'Authenticated responses must never enter the PWA cache');
@@ -557,6 +558,23 @@ const essentialCablePulldowns = exercises.filter((exercise) => ['Close-grip supi
 assert.equal(essentialCablePulldowns.length, 1, 'Null Wger variation groups must not leak near-identical pulldowns into standard generation');
 const essentialPullups = exercises.filter((exercise) => ['Chin Up', 'Pull-ups'].includes(exercise.name) && isEssentialExercise(exercise, { ...focusProfile, equipment: allEquipment, exerciseFilters: { essentialCatalog: true, preferLoadedVariants: false } }));
 assert.equal(essentialPullups.length, 1, 'The essential catalog must collapse structurally identical pull-up grips regardless of inconsistent Wger variation groups');
+const canonicalPullup = essentialPullups[0];
+const pullupOnlyPreferences = Object.fromEntries(exercises.map((exercise) => [exercise.id, exercise.id === canonicalPullup.id ? 'normal' : 'exclude']));
+const pullupOnlyProfile = {
+  ...focusProfile,
+  trainingStyle: 'intense',
+  equipment: canonicalPullup.equipment,
+  preferences: pullupOnlyPreferences,
+  exerciseFilters: { essentialCatalog: true, preferLoadedVariants: false, excludeDirectCore: false, excludeCalves: false },
+};
+const pullupOnlyWorkout = generateWorkout(pullupOnlyProfile, [], { targets: [canonicalPullup.primary], duration: 25, variation: 19 });
+assert.equal(pullupOnlyWorkout.exercises[0].exerciseId, canonicalPullup.id, 'The isolated pull-up fixture must generate the reviewed pull-up');
+assert.equal(pullupOnlyWorkout.exercises[0].sets.length, 2, 'A generated compound must never collapse to one set');
+const oneSetPullupOverride = generateWorkout({
+  ...pullupOnlyProfile,
+  exerciseOverrides: { [canonicalPullup.id]: { maxSets: 1 } },
+}, [], { targets: [canonicalPullup.primary], duration: 25, variation: 19 });
+assert.equal(oneSetPullupOverride.exercises[0].sets.length, 1, 'Only an explicit per-exercise override may reduce a compound to one set');
 const directCore = exercises.find((exercise) => exercise.primary === 'core' && exercise.equipment.every((item) => allEquipment.includes(item)));
 const directCalves = exercises.find((exercise) => exercise.primary === 'calves' && exercise.equipment.every((item) => allEquipment.includes(item)));
 const directFilterProfile = { ...focusProfile, equipment: allEquipment, exerciseFilters: { preferLoadedVariants: false, excludeDirectCore: true, excludeCalves: true } };
@@ -606,6 +624,21 @@ assert(adaptiveWorkout.exercises.length <= 3, 'A 25–30 minute workout must con
 assert.deepEqual(adaptiveWorkout.engine.composition, { compounds: 2, accessories: 1, lowerBody: 1, ...getWorkoutCompositionLimits(25) }, 'A short workout must balance two compounds with one accessory and only one leg exercise');
 assert.equal(adaptiveWorkout.engine.version, ENGINE_VERSION, 'The workout must preserve the programming model version');
 assert.deepEqual(adaptiveWorkout.engine.movementFamilies, ['knee', 'pull'], 'The workout must expose the selected adaptive families');
+const armAccessoryPreferences = Object.fromEntries(exercises
+  .filter((exercise) => !exercise.compound && !['biceps', 'triceps'].includes(exercise.primary))
+  .map((exercise) => [exercise.id, 'exclude']));
+const pullWithFreshAntagonist = generateWorkout({
+  ...focusProfile,
+  equipment: allEquipment,
+  duration: 30,
+  trainingStyle: 'intense',
+  preferences: armAccessoryPreferences,
+  exerciseFilters: { essentialCatalog: true, preferLoadedVariants: false, excludeDirectCore: true, excludeCalves: true },
+}, [], { targets: ['back', 'quads'], duration: 30, now: 1700000000000, variation: 512 });
+const directArmAccessories = pullWithFreshAntagonist.exercises
+  .map((item) => exercises.find((exercise) => exercise.id === item.exerciseId))
+  .filter((exercise) => !exercise.compound && ['biceps', 'triceps'].includes(exercise.primary));
+assert.equal(directArmAccessories[0]?.primary, 'triceps', 'A pull workout must prefer fresh triceps over mechanically appending biceps after back');
 const sparseEquipmentWorkout = generateWorkout({ ...focusProfile, equipment: ['barbell', 'bench'], split: 'adaptive', duration: 30 }, [], { variation: 410 });
 assert(sparseEquipmentWorkout.exercises.length > 0, 'Adaptive ranking must fall back to a family compatible with sparse equipment');
 assert(sparseEquipmentWorkout.exercises.every((item) => isExerciseAllowed(exercises.find((exercise) => exercise.id === item.exerciseId), { ...focusProfile, equipment: ['barbell', 'bench'] })), 'Sparse-equipment fallback must remain executable');
@@ -693,6 +726,35 @@ assert.equal(isPreparedWorkoutStale(freshPrepared, focusProfile, [], preparedAt 
 assert.equal(isPreparedWorkoutStale(freshPrepared, { ...focusProfile, targetRir: 1 }, [], preparedAt + 1000), true, 'Changed training settings must stale a prepared workout');
 assert.equal(isPreparedWorkoutStale(freshPrepared, focusProfile, [{ ...hardHistory[0], completedAt: preparedAt + 1000 }], preparedAt + 2000), true, 'New completed training data must stale an older prepared workout');
 assert.equal(isPreparedWorkoutStale({ ...freshPrepared, startedAt: preparedAt + 500 }, { ...focusProfile, targetRir: 1 }, [], preparedAt + 1000), false, 'An opened workout must never be regenerated underneath the user');
+
+const migrationNow = Date.now();
+const oldRotationWorkout = startWorkout(generateWorkout(focusProfile, [], {
+  targets: ['chest'], duration: 30, now: migrationNow - 3 * 864e5, variation: 221,
+}), migrationNow - 2 * 36e5);
+oldRotationWorkout.engine.version = ENGINE_VERSION - 1;
+const oldRotationExercise = exercises.find((exercise) => exercise.id === oldRotationWorkout.exercises[0].exerciseId);
+const oldRotationHistory = [{
+  id: 'old-engine-fixed-exercise',
+  completedAt: migrationNow - 2 * 864e5,
+  exercises: [{
+    exerciseId: oldRotationExercise.id,
+    sets: [{ targetReps: 8, reps: 8, targetRir: 2, rir: 2, weight: 10, done: true }],
+  }],
+}];
+const migratedRotationWorkout = migrateWorkoutToCurrentEngine(oldRotationWorkout, focusProfile, oldRotationHistory, migrationNow);
+assert.equal(migratedRotationWorkout.engine.version, ENGINE_VERSION, 'An active workout from an older engine must migrate to the current programming model');
+assert.equal(migratedRotationWorkout.startedAt, oldRotationWorkout.startedAt, 'Active-workout migration must preserve elapsed-session timing');
+assert(!migratedRotationWorkout.exercises.some((item) => item.exerciseId === oldRotationExercise.id), 'An untouched old fixed exercise must adopt the current multifrequency rotation');
+assert(migratedRotationWorkout.exercises.some((item) => exercises.find((exercise) => exercise.id === item.exerciseId)?.pattern === oldRotationExercise.pattern), 'Migration must replace an old fixed exercise with the same current movement pattern');
+
+const partiallyCompletedOldWorkout = structuredClone(oldRotationWorkout);
+partiallyCompletedOldWorkout.exercises[0].sets[0] = {
+  ...partiallyCompletedOldWorkout.exercises[0].sets[0], done: true, reps: 7, rir: 1,
+};
+const migratedPartialWorkout = migrateWorkoutToCurrentEngine(partiallyCompletedOldWorkout, focusProfile, oldRotationHistory, migrationNow);
+const protectedExercise = migratedPartialWorkout.exercises.find((item) => item.exerciseId === oldRotationExercise.id);
+assert(protectedExercise, 'Migration must retain an exercise once the user has completed one of its sets');
+assert.deepEqual(protectedExercise.sets[0], partiallyCompletedOldWorkout.exercises[0].sets[0], 'Migration must never rewrite completed-set evidence');
 
 adaptiveWithTwoLegacyDays.completedAt = Date.now() - 36e5;
 adaptiveWithTwoLegacyDays.exercises.forEach((item) => item.sets.forEach((set) => { set.done = true; set.rir = 2; }));
@@ -890,7 +952,7 @@ const saturatedChestHistory = [1, 3, 5].map((offset) => ({
 }));
 const maintenanceWorkout = generateWorkout(profile, saturatedChestHistory, { targets: ['chest'], duration: 25 });
 assert.equal(maintenanceWorkout.exercises.length, 1, 'A valid generated workout must never be empty when compatible exercises exist');
-assert.equal(maintenanceWorkout.exercises[0].sets.length, 1, 'Covered targets must receive only a maintenance set, not arbitrary volume');
+assert.equal(maintenanceWorkout.exercises[0].sets.length, 2, 'A compound maintenance fallback must retain the minimum useful two-set dose');
 assert.equal(maintenanceWorkout.engine.maintenanceMode, true, 'The engine must explicitly expose its maintenance fallback');
 
 const customProfile = {

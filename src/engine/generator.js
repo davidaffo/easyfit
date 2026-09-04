@@ -12,7 +12,7 @@ const CONTINUITY_BREAK_DAYS = 28;
 const RECENT_VARIATION_DAYS = 7;
 const EXERCISE_ROTATION_EXPOSURES = 4;
 export const SESSION_TIME_TOLERANCE_MINUTES = 5;
-export const ENGINE_VERSION = 26;
+export const ENGINE_VERSION = 28;
 
 const muscleBaseImportance = {
   chest: 100,
@@ -977,11 +977,10 @@ function prescribedSetCount(exercise, profile, context, limits) {
   }));
   const remainingExposures = Math.max(1, Math.min(frequencyGap || 1, context.expectedUpcomingExposures || 1));
   const distributedSets = volumeGap > 0.25 ? Math.ceil(volumeGap / remainingExposures) : frequencyGap > 0 ? 1 : 0;
-  const intenseAccessorySets = profile.trainingStyle === 'intense'
-    && !exercise.compound
-    && !context.returningFromBreak
-    && limits.maxSets >= 3;
-  if (intenseAccessorySets && distributedSets > 0) return 3;
+  const intenseStyleSets = profile.trainingStyle === 'intense' && !context.returningFromBreak
+    ? Math.min(limits.maxSets, exercise.compound ? 2 : 3)
+    : null;
+  if (intenseStyleSets && distributedSets > 0) return intenseStyleSets;
   const readiness = context.recovery?.[exercise.primary] ?? 100;
   let maximum = context.targetMinutes <= 30 ? 2 : context.targetMinutes <= 45 ? 3 : exercise.compound ? 3 : 4;
   maximum = Math.min(maximum, limits.maxSets);
@@ -991,8 +990,10 @@ function prescribedSetCount(exercise, profile, context, limits) {
   if (!context.returningFromBreak && profile.level === 'advanced' && context.targetMinutes >= 40 && readiness >= 65) {
     maximum = Math.min(limits.maxSets, Math.max(maximum, 4));
   }
-  if (distributedSets === 0) return context.allowMaintenance ? 1 : 0;
-  const minimum = distributedSets === 1 ? 1 : 2;
+  if (distributedSets === 0) return context.allowMaintenance
+    ? intenseStyleSets || Math.min(limits.maxSets, exercise.compound ? 2 : 1)
+    : 0;
+  const minimum = exercise.compound ? Math.min(2, limits.maxSets) : distributedSets === 1 ? 1 : 2;
   return clamp(distributedSets, Math.min(minimum, maximum), maximum);
 }
 
@@ -1033,7 +1034,9 @@ function prescription(exercise, profile, history, context = {}) {
     targetRirs,
     repRange: { min: limits.minReps, max: limits.maxReps },
     progressionStep: progression.step,
-    minimumTimeFitSets: profile.trainingStyle === 'intense' && !exercise.compound && sets >= 3 ? 3 : 1,
+    minimumTimeFitSets: profile.trainingStyle === 'intense'
+      ? Math.min(sets, exercise.compound ? 2 : 3)
+      : exercise.compound ? Math.min(sets, 2) : 1,
     estimatedOneRepMax: progress.latestE1rm,
     needsInitialLoad: ['external', 'per-dumbbell'].includes(exercise.loadType) && progression.weight == null,
     needsInitialReps: exercise.loadType === 'bodyweight' && progress.sessions === 0,
@@ -1294,6 +1297,10 @@ function scoreExercise(exercise, targets, profile, recovery, weeklyLoad, muscleS
   score += exercise.compound && chosen.length < 3 ? 12 : 6;
   score += exercise.selectionPriority;
   score -= chosen.filter((item) => item.primary === exercise.primary).length * 18;
+  if (!exercise.compound && chosen.some((item) => item.compound
+    && Number(getExerciseMuscleContributions(item)[exercise.primary] || 0) >= .35)) {
+    score -= 16;
+  }
   const patternContinuity = continuity[exercise.pattern];
   const exerciseContinuity = patternContinuity?.exercises?.[exercise.id];
   if (exerciseContinuity) {
@@ -1495,6 +1502,9 @@ export function generateWorkout(profile, history = [], options = {}) {
     if (auxiliary) targets.push(auxiliary);
   }
   prescriptionContext.targetMuscles = targets;
+  const accessoryTargets = [...new Set([...targets, 'biceps', 'triceps'])]
+    .filter((muscle) => !muscleStatus[muscle]?.excluded)
+    .filter((muscle) => recovery[muscle] >= MIN_TRAINING_READINESS);
   const chosen = [];
   const prescriptions = new Map();
   const plannedExposureMuscles = new Set();
@@ -1505,8 +1515,12 @@ export function generateWorkout(profile, history = [], options = {}) {
   const unavailableMovementFamilies = [];
   let usedMinutes = 7;
 
-  const addExercise = (exercise, allowMaintenance = false) => {
-    const prescribed = prescription(exercise, profile, history, { ...prescriptionContext, allowMaintenance });
+  const addExercise = (exercise, allowMaintenance = false, exerciseTargets = targets) => {
+    const prescribed = prescription(exercise, profile, history, {
+      ...prescriptionContext,
+      allowMaintenance,
+      targetMuscles: exerciseTargets,
+    });
     if (!prescribed.sets.length) return false;
     const item = fitPrescriptionToMinutes(
       exercise,
@@ -1527,7 +1541,7 @@ export function generateWorkout(profile, history = [], options = {}) {
     return true;
   };
 
-  const rankCandidates = (patterns = null) => {
+  const rankCandidates = (patterns = null, scoringTargets = targets) => {
     const eligible = exercises
     .filter((exercise) => profile.preferences?.[exercise.id] !== 'exclude' && !chosen.some((item) => item.id === exercise.id))
     .filter((exercise) => isExerciseAllowed(exercise, profile))
@@ -1555,7 +1569,7 @@ export function generateWorkout(profile, history = [], options = {}) {
         && (continuity[alternative.pattern]?.exercises?.[alternative.id]?.exposures || 0) < EXERCISE_ROTATION_EXPOSURES);
     });
     const pool = rotationEligible.length ? rotationEligible : varied.length ? varied : eligible;
-    return pool.map((exercise) => ({ exercise, score: scoreExercise(exercise, targets, profile, recovery, doseLoad, muscleStatus, continuity, chosen, random) }))
+    return pool.map((exercise) => ({ exercise, score: scoreExercise(exercise, scoringTargets, profile, recovery, doseLoad, muscleStatus, continuity, chosen, random) }))
     .filter((item) => item.score > -100)
     .sort((a, b) => b.score - a.score);
   };
@@ -1581,30 +1595,30 @@ export function generateWorkout(profile, history = [], options = {}) {
 
   while (chosen.filter((exercise) => !exercise.compound).length < compositionLimits.desiredAccessories
     && chosen.length < maxExercises) {
-    const ranked = rankCandidates().filter(({ exercise }) => !exercise.compound);
+    const ranked = rankCandidates(null, accessoryTargets).filter(({ exercise }) => !exercise.compound);
     if (!ranked.length) break;
     const next = ranked[0].exercise;
-    const nextItem = prescription(next, profile, history, prescriptionContext);
+    const nextItem = prescription(next, profile, history, { ...prescriptionContext, targetMuscles: accessoryTargets });
     if (!nextItem.sets.length) {
       avoidIds.add(next.id);
       continue;
     }
-    if (!addExercise(next)) {
+    if (!addExercise(next, false, accessoryTargets)) {
       avoidIds.add(next.id);
       continue;
     }
   }
 
   while (profile.trainingStyle !== 'intense' && usedMinutes < targetMinutes - 4 && chosen.length < maxExercises) {
-    const ranked = rankCandidates().filter(({ exercise }) => !exercise.compound);
+    const ranked = rankCandidates(null, accessoryTargets).filter(({ exercise }) => !exercise.compound);
     if (!ranked.length) break;
     const next = ranked[0].exercise;
-    const nextItem = prescription(next, profile, history, prescriptionContext);
+    const nextItem = prescription(next, profile, history, { ...prescriptionContext, targetMuscles: accessoryTargets });
     if (!nextItem.sets.length) {
       avoidIds.add(next.id);
       continue;
     }
-    if (!addExercise(next)) break;
+    if (!addExercise(next, false, accessoryTargets)) break;
   }
 
   let maintenanceMode = false;
@@ -1659,9 +1673,99 @@ export function generateWorkout(profile, history = [], options = {}) {
       maintenanceMode,
       estimatedMinutes: Math.round(usedMinutes),
       timeToleranceMinutes: SESSION_TIME_TOLERANCE_MINUTES,
-      evidenceProfile: 'V26-PERFORMED-REPS-LOAD-AND-VOLUME-CALIBRATION',
+      evidenceProfile: 'V28-GLOBAL-ACCESSORY-BALANCE',
     },
   };
+}
+
+function conservativeUnfinishedValue(previous, generated, targetKey, valueKey) {
+  const numeric = (value) => value === null || value === undefined || value === '' ? null : Number(value);
+  const previousValue = numeric(previous?.[valueKey]);
+  const generatedValue = numeric(generated?.[valueKey]);
+  const previousTarget = numeric(previous?.[targetKey]);
+  const manuallyChanged = previousValue !== null && Number.isFinite(previousValue)
+    && (previousTarget === null || !Number.isFinite(previousTarget) || Math.abs(previousValue - previousTarget) > .001);
+  if (manuallyChanged) return previousValue;
+  if (previousValue === null || !Number.isFinite(previousValue)) return generatedValue !== null && Number.isFinite(generatedValue) ? generatedValue : generated?.[valueKey] ?? null;
+  if (generatedValue === null || !Number.isFinite(generatedValue)) return previousValue;
+  return Math.min(previousValue, generatedValue);
+}
+
+function mergeCurrentExercise(previous, generated) {
+  const hasProtectedState = previous.sets.some((set) => set.done
+    || set.rir != null
+    || (set.weight != null && Number(set.weight) !== Number(set.targetWeight))
+    || (set.reps != null && Number(set.reps) !== Number(set.targetReps)));
+  const setCount = hasProtectedState
+    ? Math.max(previous.sets.length, generated.sets.length)
+    : generated.sets.length;
+  const sets = Array.from({ length: setCount }, (_, index) => {
+    const oldSet = previous.sets[index];
+    const newSet = generated.sets[index] || generated.sets.at(-1);
+    if (oldSet?.done) return oldSet;
+    if (!oldSet) return { ...newSet };
+    return {
+      ...newSet,
+      weight: conservativeUnfinishedValue(oldSet, newSet, 'targetWeight', 'weight'),
+      reps: conservativeUnfinishedValue(oldSet, newSet, 'targetReps', 'reps'),
+      rir: oldSet.rir ?? null,
+      done: false,
+    };
+  });
+  return {
+    ...generated,
+    sets,
+    targetRirs: sets.map((set) => set.targetRir),
+    targetRir: sets.at(-1)?.targetRir ?? generated.targetRir,
+  };
+}
+
+export function migrateWorkoutToCurrentEngine(workout, profile, history = [], now = Date.now()) {
+  if (!workout || workout.completedAt || workout.engine?.version === ENGINE_VERSION) return workout;
+  if (!isCompatibleWorkout(workout, profile)) return null;
+  const targets = [...new Set((workout.targetMuscles || []).filter((muscle) => allMuscles.includes(muscle)))];
+  const generated = generateWorkout(profile, history, {
+    duration: workout.duration || profile.duration,
+    variation: Number(workout.createdAt) || Number(now),
+    now,
+    ...(targets.length ? { targets } : {}),
+  });
+  if (!generated.exercises.length) return workout;
+
+  const previousById = new Map(workout.exercises.map((item) => [item.exerciseId, item]));
+  const migratedExercises = generated.exercises.map((item) => {
+    const previous = previousById.get(item.exerciseId);
+    return previous ? mergeCurrentExercise(previous, item) : item;
+  });
+
+  workout.exercises.forEach((previous, previousIndex) => {
+    if (!previous.sets.some((set) => set.done)) return;
+    if (migratedExercises.some((item) => item.exerciseId === previous.exerciseId)) return;
+    const previousExercise = resolveRecordedExercise(previous);
+    const samePatternIndex = migratedExercises.findIndex((item) => (
+      resolveRecordedExercise(item)?.pattern === previousExercise?.pattern
+    ));
+    if (samePatternIndex >= 0) migratedExercises[samePatternIndex] = previous;
+    else migratedExercises.splice(Math.min(previousIndex, migratedExercises.length), 0, previous);
+  });
+
+  const migrated = rebuildWorkoutMetadata({
+    ...generated,
+    id: workout.id,
+    createdAt: workout.createdAt || generated.createdAt,
+    startedAt: workout.startedAt,
+    pausedAt: workout.pausedAt,
+    pausedDurationMs: Number(workout.pausedDurationMs || 0),
+    restEndsAt: workout.restEndsAt,
+    restDuration: workout.restDuration,
+    exercises: migratedExercises,
+    engine: {
+      ...generated.engine,
+      migratedFromVersion: workout.engine?.version ?? null,
+      migratedAt: Number(now),
+    },
+  });
+  return isCompatibleWorkout(migrated, profile) ? migrated : workout;
 }
 
 export function generateWorkoutAlternatives(profile, history, workout, { seed = Date.now(), now = Date.now(), limit = 3 } = {}) {
