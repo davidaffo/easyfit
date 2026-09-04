@@ -1,6 +1,6 @@
 {
   "source": "wger",
-  "syncedAt": "2026-08-20T12:59:00.083Z",
+  "syncedAt": "2026-09-04T18:15:53.577Z",
   "exercises": {
     "50": {
       "uuid": "13234b53-ea0c-41f1-9069-776865ea8eff",
@@ -9,6 +9,14 @@
         "it": "Posizionare il bilanciere in alto con una presa stretta.\nAbbassare l'avambraccio dietro il braccio superiore mantenendo i gomiti in alto. Estendere l'avambraccio sopra la testa. Abbassare e ripetere."
       },
       "image": "/exercise-images/50.webp",
+      "imageAttribution": {
+        "author": "Franpol",
+        "authorUrl": "",
+        "sourceUrl": "https://wger.de/media/exercise-images/50/695ced5c-9961-4076-add2-cb250d01089e.png",
+        "derivativeSourceUrl": "",
+        "licenseName": "CC-BY-SA 4",
+        "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/deed.en"
+      },
       "sourceUpdatedAt": "2026-06-19T18:46:16.135119+02:00",
       "descriptionSource": "wger",
       "imageSource": "wger"
@@ -20,6 +28,14 @@
         "it": "Distensione Panca Piana con BilanciereDistensione Panca Piana con Bilanciere"
       },
       "image": "/exercise-images/73.webp",
+      "imageAttribution": {
+        "author": "Everkinetic",
+        "authorUrl": "",
+        "sourceUrl": "https://wger.de/media/exercise-images/192/Bench-press-1.png",
+        "derivativeSourceUrl": "",
+        "licenseName": "CC-BY-SA 3",
+        "licenseUrl": "https://creativecommons.org/licenses/by-sa/3.0/deed.en"
+      },
       "sourceUpdatedAt": "2026-06-19T18:46:21.803261+02:00",
       "descriptionSource": "wger",
       "imageSource": "wger"
@@ -31,7 +47,34 @@
         "it": "Il movimento è molto simile a quello della panca con bilanciere, ma il peso viene portato al petto in un punto più basso.\nImpugnate due manubri e sdraiatevi su una panca. Tenete i pesi vicino al petto, all'altezza dei capezzoli, e spingeteli verso l'alto fino a tendere le braccia. Lasciare scendere il peso lentamente e in modo controllato."
       },
       "image": "/exercise-images/75.webp",
+      "imageAttribution": {
+        "author": "Everkinetic",
+        "authorUrl": "",
+        "sourceUrl": "https://wger.de/media/exercise-images/97/Dumbbell-bench-press-1.png",
+        "derivativeSourceUrl": "",
+        "licenseName": "CC-BY-SA 3",
+        "licenseUrl": "https://creativecommons.org/licenses/by-sa/3.0/deed.en"
+      },
       "sourceUpdatedAt": "2026-07-02T16:44:41.508287+02:00",
+      "descriptionSource": "wger",
+      "imageSource": "wger"
+    },
+    "76": {
+      "uuid": "3db63138-a047-4a4d-b616-1a0b7dfca105",
+      "descriptions": {
+        "en": "• Setup: Lie flat on the bench and grip the bar at shoulder-width (closer than a standard bench press).\n• Descent: Lower the bar with control to your lower chest.\n• Form: Keep your elbows tucked in tight against your torso—do not let them flare out.\n• Ascent: Press the bar straight back up, squeezing your triceps at the top.",
+        "it": "Sdraiatevi su una panca, il bilanciere è direttamente sopra gli occhi, le ginocchia formano un leggero angolo e i piedi sono ben saldi a terra. Impugnare la sbarra con una presa stretta (circa 20 cm). Portare il peso lentamente verso il basso fino a quando le braccia sono parallele al pavimento (gomito: angolo retto), premere poi il bilanciere verso l'alto. Quando si porta il bilanciere verso il basso, non farlo scendere sui capezzoli come nel normale esercizio di panca, ma un po' più in basso."
+      },
+      "image": "/exercise-images/76.webp",
+      "imageAttribution": {
+        "author": "Everkinetic",
+        "authorUrl": "",
+        "sourceUrl": "https://wger.de/media/exercise-images/88/Narrow-grip-bench-press-1.png",
+        "derivativeSourceUrl": "",
+        "licenseName": "CC-BY-SA 3",
+        "licenseUrl": "https://creativecommons.org/licenses/by-sa/3.0/deed.en"
+      },
+      "sourceUpdatedAt": "2026-07-02T16:14:26.402383+02:00",
       "descriptionSource": "wger",
       "imageSource": "wger"
     },
@@ -41,6 +84,14 @@
         "en": "With dumbbells in hand, bend at the hip until hands hang just below the knees (similar to straight-legged-deadlift starting position). Keep upper body angle constant while contracting your lats to pull you ellbows back pinching the shoulder blades at the top. Try not to stand up with every rep, check hands go below knees on every rep."
       },
       "image": "/exercise-images/81.webp",
+      "imageAttribution": {
+        "author": "Franpol",
+        "authorUrl": "",
+        "sourceUrl": "https://wger.de/media/exercise-images/81/a751a438-ae2d-4751-8d61-cef0e9292174.png",
+        "derivativeSourceUrl": "",
+        "licenseName": "CC-BY-SA 4",
+        "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/deed.en"
+      },
       "sourceUpdatedAt": "2026-06-19T18:46:18.172373+02:00",
       "descriptionSource": "wger",
       "imageSource": "wger"
@@ -52,6 +103,14 @@
         "it": "Impugnando un bilanciere con presa in pronazione (palmi rivolti verso il basso), piegare leggermente le ginocchia e portare il busto in avanti, piegando in vita, mantenendo la schiena dritta fino a portarla quasi parallela al pavimento. Suggerimento: assicurati di tenere la testa alta. Il bilanciere dovrebbe pendere direttamente davanti a te mentre le tue braccia pendono perpendicolarmente al pavimento e al busto. Questa è la tua posizione di partenza.     Ora, mantenendo fermo il busto, espira e solleva il bilanciere verso di te. Tieni i gomiti vicini al corpo e usa solo gli avambracci per sostenere il peso. Nella posizione contratta in alto, contrai i muscoli della schiena e mantieni la posizione per una breve pausa.     Quindi inspira e abbassa lentamente il bilanciere nella posizione iniziale.     Ripeti per la quantità consigliata di ripetizioni."
       },
       "image": "/exercise-images/83.webp",
+      "imageAttribution": {
+        "author": "Everkinetic",
+        "authorUrl": "",
+        "sourceUrl": "https://wger.de/media/exercise-images/109/Barbell-rear-delt-row-1.png",
+        "derivativeSourceUrl": "",
+        "licenseName": "CC-BY-SA 3",
+        "licenseUrl": "https://creativecommons.org/licenses/by-sa/3.0/deed.en"
+      },
       "sourceUpdatedAt": "2026-06-19T18:46:17.668412+02:00",
       "descriptionSource": "wger",
       "imageSource": "wger"
@@ -63,6 +122,14 @@
         "it": "Curl con bilanciereCurl con bilanciere"
       },
       "image": "/exercise-images/91.webp",
+      "imageAttribution": {
+        "author": "Everkinetic",
+        "authorUrl": "",
+        "sourceUrl": "https://wger.de/media/exercise-images/74/Bicep-curls-1.png",
+        "derivativeSourceUrl": "",
+        "licenseName": "CC-BY-SA 3",
+        "licenseUrl": "https://creativecommons.org/licenses/by-sa/3.0/deed.en"
+      },
       "sourceUpdatedAt": "2026-06-19T18:46:19.725861+02:00",
       "descriptionSource": "easyfit-curated",
       "imageSource": "wger"
@@ -74,6 +141,14 @@
         "it": "Impugnare due manubri, le braccia sono distese, le mani sono sul fianco, i palmi rivolti verso l'interno. Piegare le braccia e portare il peso con un movimento veloce verso l'alto. Allo stesso tempo, ruotate le braccia di 90 gradi all'inizio del movimento. Nel punto più alto, ruotate un po' i pesi verso l'esterno. Senza fare pause, riportateli giù, lentamente.\nNon lasciate che il corpo oscilli durante l'esercizio, tutto il lavoro è svolto dai bicipiti, che sono gli unici muscoli che devono muoversi (fate attenzione ai gomiti)."
       },
       "image": "/exercise-images/92.webp",
+      "imageAttribution": {
+        "author": "Everkinetic",
+        "authorUrl": "",
+        "sourceUrl": "https://wger.de/media/exercise-images/81/Biceps-curl-1.png",
+        "derivativeSourceUrl": "",
+        "licenseName": "CC-BY-SA 3",
+        "licenseUrl": "https://creativecommons.org/licenses/by-sa/3.0/deed.en"
+      },
       "sourceUpdatedAt": "2026-06-19T19:55:06.817496+02:00",
       "descriptionSource": "easyfit-curated",
       "imageSource": "wger"
@@ -84,6 +159,14 @@
         "en": "Stand upright holding the EZ bar with a comfortable angled grip. Brace the trunk and keep the elbows close to the sides. Curl the bar by bending the elbows while keeping the shoulders quiet and the wrists aligned with the forearms. Pause briefly near the top, then lower the bar under control to full extension. Avoid leaning backward or accelerating the weight."
       },
       "image": "/exercise-images/94.webp",
+      "imageAttribution": {
+        "author": "Franpol",
+        "authorUrl": "",
+        "sourceUrl": "https://wger.de/media/exercise-images/94/6dee2f60-aea2-4f2d-9bf6-aef50c4f9483.png",
+        "derivativeSourceUrl": "",
+        "licenseName": "CC-BY-SA 4",
+        "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/deed.en"
+      },
       "sourceUpdatedAt": "2026-06-19T18:46:18.692960+02:00",
       "descriptionSource": "easyfit-curated",
       "imageSource": "wger"
@@ -94,6 +177,14 @@
         "en": "Stand tall facing a low cable with the handle held at shoulder width. Keep the ribs down, shoulders relaxed, and elbows close to the torso. Curl the handle by bending only the elbows until the forearms approach the upper arms. Pause without letting the elbows drift forward, then lower the load under control to full elbow extension. Avoid swinging or using momentum."
       },
       "image": "/exercise-images/95.webp",
+      "imageAttribution": {
+        "author": "Everkinetic",
+        "authorUrl": "",
+        "sourceUrl": "https://wger.de/media/exercise-images/129/Standing-biceps-curl-1.png",
+        "derivativeSourceUrl": "",
+        "licenseName": "CC-BY-SA 3",
+        "licenseUrl": "https://creativecommons.org/licenses/by-sa/3.0/deed.en"
+      },
       "sourceUpdatedAt": "2026-07-23T12:36:13.168665+02:00",
       "descriptionSource": "easyfit-curated",
       "imageSource": "wger"
@@ -104,6 +195,14 @@
         "en": "• Adjust the seat height so that the grips are parallel to your chest.\n• Use your legs to push the foot forward pedal.\n• Bring the handles to the start position.\n• Keep your back in contact with the back pad, press outwards.\n• Press the handles away from your chest and exhale.\n• Allow the handles to come in gently until they reach your chest.\n• Allow the handles to return to your chest as you inhale."
       },
       "image": "/exercise-images/129.webp",
+      "imageAttribution": {
+        "author": "roneydya",
+        "authorUrl": "https://fitnessvolt.com/wp-content/uploads/2020/01/machine-chest-press-exercise.jpg.webp",
+        "sourceUrl": "https://wger.de/media/exercise-images/129/b263c968-e067-4750-916a-d8758a7df23e.webp",
+        "derivativeSourceUrl": "https://fitnessvolt.com/wp-content/uploads/2020/01/machine-chest-press-exercise.jpg.webp",
+        "licenseName": "CC-BY-SA 4",
+        "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/deed.en"
+      },
       "sourceUpdatedAt": "2026-07-02T16:14:27.445801+02:00",
       "descriptionSource": "wger",
       "imageSource": "wger"
@@ -114,6 +213,14 @@
         "en": "Sit on the butterfly machine, the feet have a good contact with the floor, the upper arms are parallel to the floor. Press your arms together till the handles are practically together (but aren't!). Go slowly back. The weights should stay all the time in the air."
       },
       "image": "/exercise-images/135.webp",
+      "imageAttribution": {
+        "author": "Everkinetic",
+        "authorUrl": "",
+        "sourceUrl": "https://wger.de/media/exercise-images/98/Butterfly-machine-2.png",
+        "derivativeSourceUrl": "",
+        "licenseName": "CC-BY-SA 3",
+        "licenseUrl": "https://creativecommons.org/licenses/by-sa/3.0/deed.en"
+      },
       "sourceUpdatedAt": "2026-06-19T18:46:27.982120+02:00",
       "descriptionSource": "wger",
       "imageSource": "wger"
@@ -125,6 +232,14 @@
         "it": "Metter le punte dei piedi sulla base di spinta della leg press. Usate i polpacci per premere il peso flettendo i piedi/le dita dei piedi in una posizione appuntita e rilasciandoli in una posizione rilassata.\nQuesto esercizio aumenta la massa e la forza dei muscoli Gastrocnemio e Soleo come, se non meglio, di qualsiasi altro esercizio per i polpacci."
       },
       "image": "/exercise-images/146.webp",
+      "imageAttribution": {
+        "author": "nate303303",
+        "authorUrl": "",
+        "sourceUrl": "https://wger.de/media/exercise-images/146/8b284904-d072-4381-a256-4c81d8fd9c1f.png",
+        "derivativeSourceUrl": "",
+        "licenseName": "CC-BY-SA 4",
+        "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/deed.en"
+      },
       "sourceUpdatedAt": "2026-06-19T18:46:26.446370+02:00",
       "descriptionSource": "wger",
       "imageSource": "wger"
@@ -136,6 +251,14 @@
         "it": "Il chin-up (noto anche come mento o chinup) è un esercizio di allenamento della forza. Le persone spesso eseguono questo esercizio con l'intenzione di rafforzare muscoli come il gran dorsale e il bicipite, che rispettivamente estendono la spalla e flettono il gomito. In questa manovra, i palmi sono rivolti verso il corpo. È una forma di pull-up in cui il range di movimento è stabilito in relazione al mento di una persona."
       },
       "image": "/exercise-images/152.webp",
+      "imageAttribution": {
+        "author": "Everkinetic",
+        "authorUrl": "",
+        "sourceUrl": "https://wger.de/media/exercise-images/152/6c1a7459-266d-491a-bd50-7cbaea2bc771.png",
+        "derivativeSourceUrl": "",
+        "licenseName": "CC-BY-SA 3",
+        "licenseUrl": "https://creativecommons.org/licenses/by-sa/3.0/deed.en"
+      },
       "sourceUpdatedAt": "2026-07-23T12:24:55.130199+02:00",
       "descriptionSource": "wger",
       "imageSource": "wger"
@@ -147,6 +270,14 @@
         "it": "Afferra un manubrio di peso moderato in modo che i palmi delle mani siano piatti contro la parte inferiore delle piastre superiori e i pollici siano attorno alla barra. Sdraiati sulla schiena su una panca piana in modo che solo la parte superiore della schiena e le spalle siano a contatto con la panca. I tuoi piedi dovrebbero essere posizionati alla larghezza delle spalle e la tua testa dovrebbe pendere leggermente verso il basso. Con il manubrio appoggiato a distanza di un braccio direttamente sul petto, piega le braccia di circa 15 gradi e tienile piegate per tutto il movimento. Abbassa lentamente il manubrio all'indietro e verso il basso in un arco di semicerchio nella posizione più bassa possibile. Sollevalo lentamente lungo lo stesso arco fino al punto di partenza e ripeti per il numero richiesto di ripetizioni."
       },
       "image": "/exercise-images/161.webp",
+      "imageAttribution": {
+        "author": "powerade69",
+        "authorUrl": "",
+        "sourceUrl": "https://wger.de/media/exercise-images/161/b9b1803e-2817-40bf-8ac7-e398ca86d8b4.png",
+        "derivativeSourceUrl": "",
+        "licenseName": "CC-BY-SA 4",
+        "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/deed.en"
+      },
       "sourceUpdatedAt": "2026-06-19T18:42:57.213301+02:00",
       "descriptionSource": "wger",
       "imageSource": "wger"
@@ -158,6 +289,14 @@
         "it": "• Sdraiati a pancia in su sul pavimento con le ginocchia piegate.\n• Solleva il busto verso il bacino, a 30° / 40° dal suolo. Le mani possono essere dietro o accanto al collo o incrociate sul petto.\n• Ripeti"
       },
       "image": "/exercise-images/167.webp",
+      "imageAttribution": {
+        "author": "wger.de",
+        "authorUrl": "",
+        "sourceUrl": "https://wger.de/media/exercise-images/91/Crunches-1.png",
+        "derivativeSourceUrl": "",
+        "licenseName": "CC-BY-SA 3",
+        "licenseUrl": "https://creativecommons.org/licenses/by-sa/3.0/deed.en"
+      },
       "sourceUpdatedAt": "2026-04-15T22:23:56.689712+02:00",
       "descriptionSource": "easyfit-curated",
       "imageSource": "wger"
@@ -169,7 +308,34 @@
         "it": "StaccoStacco\nStacco"
       },
       "image": "/exercise-images/184.webp",
+      "imageAttribution": {
+        "author": "philip",
+        "authorUrl": "",
+        "sourceUrl": "https://wger.de/media/exercise-images/184/1709c405-620a-4d07-9658-fade2b66a2df.jpeg",
+        "derivativeSourceUrl": "",
+        "licenseName": "CC-BY-SA 4",
+        "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/deed.en"
+      },
       "sourceUpdatedAt": "2026-06-19T19:55:07.473226+02:00",
+      "descriptionSource": "wger",
+      "imageSource": "wger"
+    },
+    "194": {
+      "uuid": "09dd3e3c-e53a-4e2c-a2e3-645d334f53e2",
+      "descriptions": {
+        "en": "A dip is an upper-body strength exercise. Narrow, shoulder-width dips primarily train the triceps, with major synergists being the anterior deltoid, the pectoralis muscles (sternal, clavicular, and minor), and the rhomboid muscles of the back (in that order).[1] Wide arm training places additional emphasis on the pectoral muscles, similar in respect to the way a wide grip bench press would focus more on the pectorals and less on the triceps.",
+        "it": "È un esercizio di forza della parte superiore del corpo. Dip stretti, alla larghezza delle spalle, allenano principalmente i tricipiti, con i principali sinergici che sono il deltoide anteriore, i muscoli pettorali (sternale, clavicolare e minore) e i muscoli romboidali della schiena (in quest'ordine).[1] L'allenamento con le braccia larghe pone ulteriore enfasi sui muscoli pettorali, in modo simile al modo in cui una panca con presa larga si concentrerebbe maggiormente sui pettorali e meno sui tricipiti."
+      },
+      "image": "/exercise-images/194.webp",
+      "imageAttribution": {
+        "author": "cshep442",
+        "authorUrl": "",
+        "sourceUrl": "https://wger.de/media/exercise-images/194/34600351-8b0b-4cb0-8daa-583537be15b0.png",
+        "derivativeSourceUrl": "",
+        "licenseName": "CC-BY-SA 4",
+        "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/deed.en"
+      },
+      "sourceUpdatedAt": "2026-07-23T12:08:29.998443+02:00",
       "descriptionSource": "wger",
       "imageSource": "wger"
     },
@@ -179,6 +345,14 @@
         "en": "Grasp dumbbell with both hands at the sides of the upper plates. Hold dumbbell in front of chest, close to torso. Place feet about shoulderwide apart, keep knees slightly bent.\nSquat down until thighs are parallel to floor. Keep back straight, bend and move hips backward to keep knees above feet. Return, keep knees slightly flexed. Repeat.\nKeep bodyweight on heels and look ahead or slightly above to keep back straight."
       },
       "image": "/exercise-images/203.webp",
+      "imageAttribution": {
+        "author": "philip",
+        "authorUrl": "",
+        "sourceUrl": "https://wger.de/media/exercise-images/203/1c052351-2af0-4227-aeb0-244008e4b0a8.jpeg",
+        "derivativeSourceUrl": "",
+        "licenseName": "CC-BY-SA 4",
+        "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/deed.en"
+      },
       "sourceUpdatedAt": "2026-06-19T18:56:54.257029+02:00",
       "descriptionSource": "wger",
       "imageSource": "wger"
@@ -189,6 +363,14 @@
         "en": "• Starting Position: Stand with feet hip-width apart and hands either on your hips or holding dumbbells at your sides.\n• The Stride: Take a wide step forward with your right leg.\n• The Descent: Lower your hips until both knees are bent at approximately 90-degree angles.\n• The Transition: Drive through your front heel to stand up, bringing your back foot forward to step directly into the next lunge."
       },
       "image": "/exercise-images/206.webp",
+      "imageAttribution": {
+        "author": "Everkinetic",
+        "authorUrl": "",
+        "sourceUrl": "https://wger.de/media/exercise-images/113/Walking-lunges-1.png",
+        "derivativeSourceUrl": "",
+        "licenseName": "CC-BY-SA 3",
+        "licenseUrl": "https://creativecommons.org/licenses/by-sa/3.0/deed.en"
+      },
       "sourceUpdatedAt": "2026-07-02T16:14:28.985601+02:00",
       "descriptionSource": "wger",
       "imageSource": "wger"
@@ -199,6 +381,14 @@
         "en": "Set both pulleys around chest height and take one handle in each hand. Step forward into a stable staggered stance with the torso upright and a slight bend in the elbows. Bring the handles together in a wide arc without shrugging or changing the elbow angle. Pause when the hands meet, then return under control until the chest is comfortably stretched."
       },
       "image": "/exercise-images/237.webp",
+      "imageAttribution": {
+        "author": "Everkinetic",
+        "authorUrl": "",
+        "sourceUrl": "https://wger.de/media/exercise-images/122/Incline-cable-flyes-1.png",
+        "derivativeSourceUrl": "",
+        "licenseName": "CC-BY-SA 3",
+        "licenseUrl": "https://creativecommons.org/licenses/by-sa/3.0/deed.en"
+      },
       "sourceUpdatedAt": "2026-07-23T12:36:15.243649+02:00",
       "descriptionSource": "easyfit-curated",
       "imageSource": "wger"
@@ -210,9 +400,33 @@
         "it": "Croci su panca InclinataCroci su panca Inclinata"
       },
       "image": "/exercise-images/238.webp",
+      "imageAttribution": {
+        "author": "cshep442",
+        "authorUrl": "",
+        "sourceUrl": "https://wger.de/media/exercise-images/238/2fc242d3-5bdd-4f97-99bd-678adb8c96fc.png",
+        "derivativeSourceUrl": "",
+        "licenseName": "CC-BY-SA 4",
+        "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/deed.en"
+      },
       "sourceUpdatedAt": "2026-06-19T18:46:35.176852+02:00",
       "descriptionSource": "wger",
       "imageSource": "wger"
+    },
+    "245": {
+      "uuid": "893c07ea-2e24-49b6-92e4-d0033eedec62",
+      "descriptions": {
+        "en": "Hold the dumbbells and lay down on a flat bench in such a way that around 1/4 of your head is over the edge. Stretch arms straight up and then lean dumbbells away from your toes to a 10-20 degree angle. Keep upper arm at this angle throughout exercise. Dumbbell shall not be amed at your head, but away over your head. This will maximise gain from exercise with load on triceps all the time.\nPay attention to your elbows and arms: only the triceps are doing the work, the rest of the arms should not move."
+      },
+      "image": "/exercise-images/245.svg",
+      "imageAttribution": {
+        "author": "Everkinetic",
+        "sourceUrl": "https://commons.wikimedia.org/wiki/File:Lying_triceps_extension_with_dumbbells_1.svg",
+        "licenseName": "CC BY-SA 3.0",
+        "licenseUrl": "https://creativecommons.org/licenses/by-sa/3.0/"
+      },
+      "sourceUpdatedAt": "2026-06-19T18:46:39.770835+02:00",
+      "descriptionSource": "wger",
+      "imageSource": "easyfit-curated"
     },
     "265": {
       "uuid": "ceb0c2d0-06ac-4a49-89e7-8d7b1c1e5672",
@@ -220,7 +434,13 @@
         "en": "Lie on your back with the knees bent, feet flat around hip width, and arms relaxed beside the torso. Brace the abdomen gently and press through the whole foot to lift the hips. Stop when the knees, hips, and shoulders form a straight line without arching the lower back. Pause while contracting the glutes, then lower the pelvis under control. Keep the knees tracking over the feet throughout the repetition."
       },
       "image": "/exercise-images/265.webp",
-      "sourceUpdatedAt": "2026-06-19T18:56:50.762205+02:00",
+      "imageAttribution": {
+        "author": "Easyfit",
+        "sourceUrl": "",
+        "licenseName": "Easyfit original asset",
+        "licenseUrl": ""
+      },
+      "sourceUpdatedAt": "2026-08-27T17:04:27.003100+02:00",
       "descriptionSource": "easyfit-curated",
       "imageSource": "easyfit-curated"
     },
@@ -231,6 +451,14 @@
         "it": "Alzate LateraliAlzate Laterali"
       },
       "image": "/exercise-images/348.webp",
+      "imageAttribution": {
+        "author": "Everkinetic",
+        "authorUrl": "",
+        "sourceUrl": "https://wger.de/media/exercise-images/148/lateral-dumbbell-raises-large-2.png",
+        "derivativeSourceUrl": "",
+        "licenseName": "CC-BY-SA 3",
+        "licenseUrl": "https://creativecommons.org/licenses/by-sa/3.0/deed.en"
+      },
       "sourceUpdatedAt": "2026-06-19T18:46:42.325194+02:00",
       "descriptionSource": "wger",
       "imageSource": "wger"
@@ -241,6 +469,14 @@
         "en": "The leg curl, also known as the hamstring curl, is an isolation exercise that targets the hamstring muscles. The exercise involves flexing the lower leg against resistance towards the buttocks. Other exercises that can be used to strengthen the hamstrings are the glute-ham raise and the deadlift."
       },
       "image": "/exercise-images/364.webp",
+      "imageAttribution": {
+        "author": "Franpol",
+        "authorUrl": "",
+        "sourceUrl": "https://wger.de/media/exercise-images/364/b318dde9-f5f2-489f-940a-cd864affb9e3.png",
+        "derivativeSourceUrl": "",
+        "licenseName": "CC-BY-SA 4",
+        "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/deed.en"
+      },
       "sourceUpdatedAt": "2026-06-19T18:56:59.133439+02:00",
       "descriptionSource": "wger",
       "imageSource": "wger"
@@ -251,6 +487,14 @@
         "en": "Lay on a bench and put your calves behind the leg holder (better if they are hold on around the lower calves). Hold a grip on the bars to make sure the body is firmly in place. Bend your legs bringing the weight up, go slowly back. During the exercise the body should not move, all work is done by the legs."
       },
       "image": "/exercise-images/365.webp",
+      "imageAttribution": {
+        "author": "Everkinetic",
+        "authorUrl": "",
+        "sourceUrl": "https://wger.de/media/exercise-images/154/lying-leg-curl-machine-large-1.png",
+        "derivativeSourceUrl": "",
+        "licenseName": "CC-BY-SA 3",
+        "licenseUrl": "https://creativecommons.org/licenses/by-sa/3.0/deed.en"
+      },
       "sourceUpdatedAt": "2026-06-19T18:56:57.741764+02:00",
       "descriptionSource": "wger",
       "imageSource": "wger"
@@ -261,6 +505,14 @@
         "en": "The leg extension is a resistance weight training exercise that targets the quadriceps muscle in the legs. The exercise is done using a machine called the Leg Extension Machine. There are various manufacturers of these machines and each one is slightly different. Most gym and weight rooms will have the machine in their facility. The leg extension is an isolated exercise targeting one specific muscle group, the quadriceps. It should not be considered as a total leg workout, such as the squat or deadlift. The exercise consists of bending the leg at the knee and extending the legs, then lowering them back to the original position."
       },
       "image": "/exercise-images/369.webp",
+      "imageAttribution": {
+        "author": "Franpol",
+        "authorUrl": "",
+        "sourceUrl": "https://wger.de/media/exercise-images/369/78c915d1-e46d-4d30-8124-65d68664c3ef.png",
+        "derivativeSourceUrl": "",
+        "licenseName": "CC-BY-SA 4",
+        "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/deed.en"
+      },
       "sourceUpdatedAt": "2026-06-19T18:50:33.557969+02:00",
       "descriptionSource": "wger",
       "imageSource": "wger"
@@ -271,6 +523,14 @@
         "en": "The leg press is a weight training exercise in which the individual pushes a weight or resistance away from them using their legs."
       },
       "image": "/exercise-images/371.webp",
+      "imageAttribution": {
+        "author": "BFad07",
+        "authorUrl": "",
+        "sourceUrl": "https://wger.de/media/exercise-images/371/d2136f96-3a43-4d4c-9944-1919c4ca1ce1.webp",
+        "derivativeSourceUrl": "",
+        "licenseName": "CC-BY-SA 4",
+        "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/deed.en"
+      },
       "sourceUpdatedAt": "2026-07-23T12:08:30.382258+02:00",
       "descriptionSource": "wger",
       "imageSource": "wger"
@@ -282,7 +542,15 @@
         "it": "Sedersi, appoggiare i piedi sui punti di appoggio e afferrare la sbarra con una presa larga. Tirate il peso con un movimento rapido verso l'ombelico, non in alto. Durante il movimento, tenere le braccia e i gomiti vicini al corpo. Le spalle sono unite. Lasciare scendere lentamente il peso finché le braccia non sono completamente distese."
       },
       "image": "/exercise-images/394.webp",
-      "sourceUpdatedAt": "2026-08-05T11:02:33.722626+02:00",
+      "imageAttribution": {
+        "author": "wger.de",
+        "authorUrl": "",
+        "sourceUrl": "https://wger.de/media/exercise-images/394/5e0c015f-9e4c-4034-beea-b0afbf15d0bd.png",
+        "derivativeSourceUrl": "",
+        "licenseName": "CC-BY-SA 4",
+        "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/deed.en"
+      },
+      "sourceUpdatedAt": "2026-08-27T18:14:52.999322+02:00",
       "descriptionSource": "easyfit-curated",
       "imageSource": "wger"
     },
@@ -293,6 +561,14 @@
         "it": "Posizione di sguardo:\nCane rivolto verso il basso:Il tuo corpo dovrebbe formare una forma a V, con la schiena, le braccia e le gambe dritte. I tuoi fianchi dovrebbero essere in aria.Puoi raggiungere questa posizione camminando con le mani indietro da un plank alto.\nPassi:\n\n• Piegare i gomiti di lato, mantenendo la schiena e le gambe dritte e avvicinando la testa al pavimento.\n• Raddrizzare le braccia, spingendo i fianchi verso l'alto e mantenendo la schiena e le gambe dritte.\n• Ripetere."
       },
       "image": "/exercise-images/454.webp",
+      "imageAttribution": {
+        "author": "Nash",
+        "authorUrl": "",
+        "sourceUrl": "https://wger.de/media/exercise-images/454/447f3c17-405f-46e0-b138-65c2a8caaab0.png",
+        "derivativeSourceUrl": "",
+        "licenseName": "CC-BY-SA 4",
+        "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/deed.en"
+      },
       "sourceUpdatedAt": "2026-06-06T13:35:29.120812+02:00",
       "descriptionSource": "easyfit-curated",
       "imageSource": "wger"
@@ -304,6 +580,14 @@
         "it": "Posizione di partenza:\nIniziare appendendosi alla barra di pull-up, con i palmi rivolti verso l'esterno e i piedi fuori dal pavimento.Le vostre mani dovrebbero essere leggermente più larghe della larghezza delle spalle. Solo leggermente, in modo che i gomiti siano ancora di fronte al corpo piuttosto che esattamente di lato.Il corpo deve essere dritto e puntato leggermente in avanti. Le braccia devono essere distese.\nPassi:\n\n• Usa la tua forza per tirare il tuo corpo verso l'alto in modo uniforme, avvicinando il tuo petto alla barra del pull-up e il tuo mento appena sopra di essa. NON sollevarsi usando lo slancio, come i calci.\n• Abbassare con attenzione il corpo fino alla posizione di partenza.\n• Ripetere.\n\nSuggerimenti:\n\n• Per fare correttamente le trazioni, dovete prima costruire la forza in diverse aree chiave, comprese le spalle, le braccia e gli addominali. Iniziate con le trazioni solo dopo aver acquisito abbastanza forza con altri esercizi."
       },
       "image": "/exercise-images/475.webp",
+      "imageAttribution": {
+        "author": "Imobard",
+        "authorUrl": "",
+        "sourceUrl": "https://wger.de/media/exercise-images/475/b0554016-16fd-4dbe-be47-a2a17d16ae0e.jpg",
+        "derivativeSourceUrl": "",
+        "licenseName": "CC-BY-SA 4",
+        "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/deed.en"
+      },
       "sourceUpdatedAt": "2026-04-15T22:23:56.751242+02:00",
       "descriptionSource": "easyfit-curated",
       "imageSource": "wger"
@@ -314,6 +598,14 @@
         "en": "• Tighten muscles\n• Controlled movement\n• Slow movement\n• Keep upper body upright\n• Do not lean back\n• Pull toward chest"
       },
       "image": "/exercise-images/512.webp",
+      "imageAttribution": {
+        "author": "wger.de",
+        "authorUrl": "",
+        "sourceUrl": "https://wger.de/media/exercise-images/512/b938437e-ff00-4679-9036-acb41bb28bbd.png",
+        "derivativeSourceUrl": "",
+        "licenseName": "CC-BY-SA 4",
+        "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/deed.en"
+      },
       "sourceUpdatedAt": "2026-06-19T18:46:53.825320+02:00",
       "descriptionSource": "wger",
       "imageSource": "wger"
@@ -324,6 +616,14 @@
         "en": "Sit on a bench, the back rest should be almost vertical. Take a barbell with a shoulder wide grip and bring it up to chest height. Press the weight up, but don't stretch the arms completely. Go slowly down and repeat."
       },
       "image": "/exercise-images/566.webp",
+      "imageAttribution": {
+        "author": "Everkinetic",
+        "authorUrl": "",
+        "sourceUrl": "https://wger.de/media/exercise-images/119/seated-barbell-shoulder-press-large-1.png",
+        "derivativeSourceUrl": "",
+        "licenseName": "CC-BY-SA 3",
+        "licenseUrl": "https://creativecommons.org/licenses/by-sa/3.0/deed.en"
+      },
       "sourceUpdatedAt": "2026-06-19T18:57:22.944103+02:00",
       "descriptionSource": "wger",
       "imageSource": "wger"
@@ -334,6 +634,14 @@
         "en": "Sit on a bench, the back rest should be almost vertical. Take two dumbbells and bring them up to shoulder height, the palms and the elbows point during the whole exercise to the front. Press the weights up, at the highest point they come very near but don't touch. Go slowly down and repeat."
       },
       "image": "/exercise-images/567.webp",
+      "imageAttribution": {
+        "author": "Everkinetic",
+        "authorUrl": "",
+        "sourceUrl": "https://wger.de/media/exercise-images/123/dumbbell-shoulder-press-large-1.png",
+        "derivativeSourceUrl": "",
+        "licenseName": "CC-BY-SA 3",
+        "licenseUrl": "https://creativecommons.org/licenses/by-sa/3.0/deed.en"
+      },
       "sourceUpdatedAt": "2026-06-19T18:46:58.504753+02:00",
       "descriptionSource": "wger",
       "imageSource": "wger"
@@ -345,9 +653,33 @@
         "it": "Salite sulla macchina per i sollevamenti dei polpacci, dovreste essere in grado di spingere completamente i polpacci verso il basso. State dritti, non inarcate la schiena e non piegate le gambe. Tiratevi su il più possibile. Fate una piccola pausa di 1-2 secondi e scendete lentamente."
       },
       "image": "/exercise-images/622.webp",
+      "imageAttribution": {
+        "author": "clafal",
+        "authorUrl": "",
+        "sourceUrl": "https://wger.de/media/exercise-images/622/9a429bd0-afd3-4ad0-8043-e9beec901c81.jpeg",
+        "derivativeSourceUrl": "",
+        "licenseName": "CC-BY-SA 4",
+        "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/deed.en"
+      },
       "sourceUpdatedAt": "2026-06-19T18:47:04.282658+02:00",
       "descriptionSource": "wger",
       "imageSource": "wger"
+    },
+    "655": {
+      "uuid": "5915fabe-c941-4dac-b196-bc4e8c7ce57b",
+      "descriptions": {
+        "en": "• Start with a dumbbell in each hand and your palms facing your torso. Keep your back straight with a slight bend in the knees and bend forward at the waist. Your torso should be almost parallel to the floor. Make sure to keep your head up. Your upper arms should be close to your torso and parallel to the floor. Your forearms should be pointed towards the floor as you hold the weights. There should be a 90-degree angle formed between your forearm and upper arm. This is your starting position.\n• Now, while keeping your upper arms stationary, exhale and use your triceps to lift the weights until the arm is fully extended. Focus on moving the forearm.\n• After a brief pause at the top contraction, inhale and slowly lower the dumbbells back down to the starting position.\n• Repeat the movement for the prescribed amount of repetitions.\n\nVariations: This exercise can be executed also one arm at a time much like the one arm rows are performed.\nAlso, if you like the one arm variety, you can use a low pulley handle instead of a dumbbell for better peak contraction. In this case, the palms should be facing up (supinated grip) as opposed to the torso (neutral grip)."
+      },
+      "image": "/exercise-images/655.svg",
+      "imageAttribution": {
+        "author": "Everkinetic",
+        "sourceUrl": "https://commons.wikimedia.org/wiki/File:Triceps_kickback_with_dumbbell_1.svg",
+        "licenseName": "CC BY-SA 3.0",
+        "licenseUrl": "https://creativecommons.org/licenses/by-sa/3.0/"
+      },
+      "sourceUpdatedAt": "2026-04-15T22:23:56.145134+02:00",
+      "descriptionSource": "wger",
+      "imageSource": "easyfit-curated"
     },
     "659": {
       "uuid": "3188868c-84e2-4a3b-b7dc-f79d8650988d",
@@ -355,6 +687,14 @@
         "en": "Grab the cable, stand with your feet shoulder wide, keep your back straight and lean forward a little. Push the bar down, making sure the elbows don't move during the exercise. Rotate your hands outwards at the very end and go back to the initial position without pause."
       },
       "image": "/exercise-images/659.webp",
+      "imageAttribution": {
+        "author": "Franpol",
+        "authorUrl": "",
+        "sourceUrl": "https://wger.de/media/exercise-images/659/a60452f1-e2ea-43fe-baa6-c1a2208d060c.png",
+        "derivativeSourceUrl": "",
+        "licenseName": "CC-BY-SA 4",
+        "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/deed.en"
+      },
       "sourceUpdatedAt": "2026-07-23T12:36:19.710591+02:00",
       "descriptionSource": "wger",
       "imageSource": "wger"
@@ -365,6 +705,14 @@
         "en": "The reverse cable fly, also known as the cable rear delt fly, is a deltoid muscle strengthening and definition exercise. It’s one of the best isolation exercises for your back and posterior deltoid.This workout targets your posterior (back) deltoids while using a range of upper body muscles.\n\n• Adjust the weight and the pulleys to the right height. You should be able to see the pulleys because they should be above your head.\n• With your right hand, grab the left pulley, and with your left hand, grab the right pulley, crossing them in front of you. This is where you’ll begin your journey.\n• Start the movement by moving your arms back and forth while keeping your arms straight.\n• Pause at the finish of the move for a brief moment before returning the handles to their starting positions."
       },
       "image": "/exercise-images/822.webp",
+      "imageAttribution": {
+        "author": "cshep442",
+        "authorUrl": "",
+        "sourceUrl": "https://wger.de/media/exercise-images/822/74affc0d-03b6-4f33-b5f4-a822a2615f68.png",
+        "derivativeSourceUrl": "",
+        "licenseName": "CC-BY-SA 4",
+        "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/deed.en"
+      },
       "sourceUpdatedAt": "2026-07-23T12:36:22.670251+02:00",
       "descriptionSource": "wger",
       "imageSource": "wger"
@@ -376,6 +724,14 @@
         "it": "• Preparare il box: Posizionate il box dietro di voi, a circa un metro e mezzo da un rack per lo squat se utilizzate un bilanciere. Scegliete un'altezza che vi consenta di accovacciarvi e di battere delicatamente i glutei sul box con la schiena dritta.\n• In piedi, con una forma corretta: State in piedi con i piedi alla larghezza delle spalle e le punte dei piedi leggermente rivolte verso l'esterno. Impegnate il core e mantenete la schiena neutra. Se si utilizza un bilanciere, posizionarlo all'altezza delle spalle.\n• Abbassarsi: Sedetevi come se doveste sedervi su una sedia, piegando le ginocchia e abbassando i fianchi verso il box. Mantenete il core teso e la schiena dritta durante tutto il movimento.\n• Discesa controllata: Scendere in modo controllato finché i glutei non toccano delicatamente il box. Non buttatevi a terra.\n• Pausa e rialzo: Fate una breve pausa sul fondo con la schiena dritta e il core impegnato. Quindi, premere sui talloni per risalire alla posizione di partenza.\n\nMigliora la coordinazione, l'equilibrio e la resistenza, tonifica i muscoli delle gambe e dei glutei e aumenta la densità ossea eliminando il rischio di osteoporosi."
       },
       "image": "/exercise-images/977.webp",
+      "imageAttribution": {
+        "author": "clafal",
+        "authorUrl": "",
+        "sourceUrl": "https://wger.de/media/exercise-images/977/3124c091-6395-4377-96c5-56048b627ceb.png",
+        "derivativeSourceUrl": "",
+        "licenseName": "CC-BY-SA 4",
+        "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/deed.en"
+      },
       "sourceUpdatedAt": "2026-07-23T12:08:28.395702+02:00",
       "descriptionSource": "wger",
       "imageSource": "wger"
@@ -387,6 +743,14 @@
         "it": "• Stai in piedi a schiena dritta\n• Fai un grande passo avanti con la gamba sinistra\n• Abbassa il bacino fino a toccare quasi il pavimento con il ginocchio destro\n• Tendi il bacino in avanti\n• Ritorna in posizione eretta facendo un passo indietro\n• Ripeti, alternando le gambe ogni volta"
       },
       "image": "/exercise-images/984.webp",
+      "imageAttribution": {
+        "author": "Franpol",
+        "authorUrl": "",
+        "sourceUrl": "https://wger.de/media/exercise-images/984/5c7ffe68-e7b2-47f3-a22a-f9cc28640432.png",
+        "derivativeSourceUrl": "",
+        "licenseName": "CC-BY-SA 4",
+        "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/deed.en"
+      },
       "sourceUpdatedAt": "2026-07-23T12:25:02.411880+02:00",
       "descriptionSource": "wger",
       "imageSource": "wger"
@@ -398,6 +762,14 @@
         "it": "Posizione di partenza:\nStare alla larghezza delle anche, con il kettlebell centrato tra le caviglie. La schiena deve essere dritta, la testa rivolta in avanti.\nPassi:\n\n• Inclinarsi sui fianchi e piegare leggermente le ginocchia per mettere le mani sulle maniglie del kettlebell. La schiena deve essere dritta mentre si esegue il movimento.\n• Afferrare le maniglie del kettlebell, con le mani che spingono in direzioni opposte come se si volesse separare la maniglia.\n• Mentre contattate gli addominali e i glutei, alzatevi in piedi.\n• Inclinarsi di nuovo sui fianchi per riportare il kettlebell verso il basso, in modo simile al passo 1.\n• Ripetere dal punto 3.\n\nSuggerimenti:\n\n• Assicuratevi di eseguire i movimenti correttamente, perché altrimenti potreste farvi male. Per esempio, non accovacciarsi invece di piegarsi sui fianchi, non arrotondare la schiena mentre si raggiunge il kettlebell, e non piegarsi all'indietro mentre ci si alza."
       },
       "image": "/exercise-images/1003.webp",
+      "imageAttribution": {
+        "author": "wger contributors",
+        "authorUrl": "",
+        "sourceUrl": "https://wger.de/media/exercise-images/1003/772d6e47-3865-4944-9255-7435d0b06782.png",
+        "derivativeSourceUrl": "",
+        "licenseName": "CC-BY-SA 4",
+        "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/deed.en"
+      },
       "sourceUpdatedAt": "2026-07-23T12:25:06.546463+02:00",
       "descriptionSource": "wger",
       "imageSource": "wger"
@@ -408,6 +780,14 @@
         "en": "Decline push-ups are another modified version of the traditional push-up that target the upper body muscles in a different way. To perform a decline push-up, elevate your feet on an elevated surface, such as a bench, chair, or step, while placing your hands on the ground in a push-up position. Lower your body towards the ground while maintaining a straight line from your shoulders to your ankles, and then push back up to the starting position.\nUnlike the inclined push-up, the decline push-up places more emphasis on the shoulders and triceps, while still engaging the chest muscles to a lesser extent. By elevating your feet, you increase the difficulty of the exercise by placing more weight on your upper body, forcing your shoulders and triceps to work harder to push your body back up. The decline push-up can be a great way to challenge your upper body strength and improve your ability to perform other push-up variations. As with any exercise, be sure to use proper form and start with a height that is appropriate for your strength and fitness level."
       },
       "image": "/exercise-images/1112.webp",
+      "imageAttribution": {
+        "author": "anon1337",
+        "authorUrl": "",
+        "sourceUrl": "https://wger.de/media/exercise-images/1112/81f40bee-4adf-4317-8476-1a87706e3031.png",
+        "derivativeSourceUrl": "",
+        "licenseName": "CC-BY-SA 4",
+        "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/deed.en"
+      },
       "sourceUpdatedAt": "2026-06-19T18:49:51.910814+02:00",
       "descriptionSource": "wger",
       "imageSource": "wger"
@@ -418,6 +798,14 @@
         "en": "Downward movement\n•  Pull the bar down so that it passes close to your chin and touches the upper part of your chest.\n•  Keep the rest of your body still."
       },
       "image": "/exercise-images/1127.webp",
+      "imageAttribution": {
+        "author": "Franpol",
+        "authorUrl": "",
+        "sourceUrl": "https://wger.de/media/exercise-images/1127/4942b7c0-6bda-4983-88e5-86547c3d445e.png",
+        "derivativeSourceUrl": "",
+        "licenseName": "CC-BY-SA 4",
+        "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/deed.en"
+      },
       "sourceUpdatedAt": "2026-07-23T12:36:25.919621+02:00",
       "descriptionSource": "wger",
       "imageSource": "wger"
@@ -428,7 +816,33 @@
         "en": "The lat pulldown is an important exercise for strengthening the back and improving posture, which can contribute to a healthier life. To perform this exercise correctly and avoid injury, it is important to follow a few key steps:\n\n• \nPosition yourself in front of the cable machine with your knees slightly bent and your feet on the floor.\n\n• \nGrip the cable handle with your palms facing each other and your hands shoulder-width apart.\n\n• \nPull the handle down until it touches or comes close to your chest, holding the position for one or two seconds.\n\n• \nSlowly raise the handle back to the starting position, making sure to keep your arms and hands straight and your back straight throughout the movement."
       },
       "image": "/exercise-images/1136.webp",
+      "imageAttribution": {
+        "author": "Franpol",
+        "authorUrl": "",
+        "sourceUrl": "https://wger.de/media/exercise-images/1136/5778a8e9-c606-4843-89c8-9d9469eeb6e4.PNG",
+        "derivativeSourceUrl": "",
+        "licenseName": "CC-BY-SA 4",
+        "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/deed.en"
+      },
       "sourceUpdatedAt": "2026-07-23T12:36:26.761073+02:00",
+      "descriptionSource": "wger",
+      "imageSource": "wger"
+    },
+    "1298": {
+      "uuid": "4ef75e13-c058-4410-91c0-2f2d2df98130",
+      "descriptions": {
+        "en": "The high-cable cross tricep extension is an isolation exercise for targeting the triceps,\nparticularly the long head. It utilizes cables and handles grasped with opposite hands, allowing for a unique pressing motion that can be effective for building tricep strength. Unlike exercises that use a straight bar or rope, this variation can be more comfortable on your wrists and elbows"
+      },
+      "image": "/exercise-images/1298.webp",
+      "imageAttribution": {
+        "author": "JackSparrow",
+        "authorUrl": "",
+        "sourceUrl": "https://wger.de/media/exercise-images/1298/ec4b83ec-5a8f-4303-9050-99ec4389bc2a.png",
+        "derivativeSourceUrl": "",
+        "licenseName": "CC-BY-SA 4",
+        "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/deed.en"
+      },
+      "sourceUpdatedAt": "2026-07-23T12:36:30.040993+02:00",
       "descriptionSource": "wger",
       "imageSource": "wger"
     },
@@ -438,6 +852,14 @@
         "en": "• Keep the elbows fixed\n• Engage the muscles\n• Don't use momentum\n• Controlled movement\n• Slow movement\n• Don't overextend"
       },
       "image": "/exercise-images/1336.webp",
+      "imageAttribution": {
+        "author": "Anastasious",
+        "authorUrl": "",
+        "sourceUrl": "https://wger.de/media/exercise-images/1336/ebf88217-df26-4ef7-94cb-f0c2220c6abe.webp",
+        "derivativeSourceUrl": "",
+        "licenseName": "CC-BY-SA 4",
+        "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/deed.en"
+      },
       "sourceUpdatedAt": "2026-06-19T19:55:24.212769+02:00",
       "descriptionSource": "wger",
       "imageSource": "wger"
@@ -448,6 +870,14 @@
         "en": "The single arm cable lateral raise is a variation of the lateral raise and an exercise used to build the muscles of the shoulders.\n\n• Position a cable at the lowest position possible and attach a single handle.\n• Reach across your body and grab the handle with a neutral grip.\n• Keep the elbow slightly bent and pull the handle across your body and raise laterally.\n• Slowly lower the handle back to the starting position under control."
       },
       "image": "/exercise-images/1378.webp",
+      "imageAttribution": {
+        "author": "carlos3c",
+        "authorUrl": "https://www.flickr.com/photos/ptpioneer/48317524901/",
+        "sourceUrl": "https://commons.wikimedia.org/wiki/File:Girl_doing_one_arm_shoulder_raise.jpg",
+        "derivativeSourceUrl": "",
+        "licenseName": "CC-BY-SA 4",
+        "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/deed.en"
+      },
       "sourceUpdatedAt": "2026-07-23T12:36:30.445670+02:00",
       "descriptionSource": "wger",
       "imageSource": "wger"
@@ -458,6 +888,14 @@
         "en": "The push-up is a fundamental bodyweight exercise that targets the chest, arms, and shoulders while engaging the core for stability. It requires no equipment and is excellent for building upper body strength.\nInstructions:\n\n• Start in a plank position with hands placed slightly wider than shoulder-width, feet together, and body in a straight line from head to heels.\n• Engage your core and lower your body by bending your elbows, keeping them close to your body or flared slightly outward.\n• Lower until your chest nearly touches the ground while maintaining a neutral spine.\n• Push through your palms to return to the starting position, fully extending your arms."
       },
       "image": "/exercise-images/1551.webp",
+      "imageAttribution": {
+        "author": "Settebello",
+        "authorUrl": "",
+        "sourceUrl": "https://wger.de/media/exercise-images/1551/a6a9e561-3965-45c6-9f2b-ee671e1a3a45.png",
+        "derivativeSourceUrl": "",
+        "licenseName": "CC-BY-SA 4",
+        "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/deed.en"
+      },
       "sourceUpdatedAt": "2026-06-19T18:57:50.900240+02:00",
       "descriptionSource": "wger",
       "imageSource": "wger"
@@ -468,6 +906,14 @@
         "en": "• Starting Position: Kneel on the floor with the ab wheel in front of you.\n• Grip the Wheel: Hold the handles firmly.\n• Roll Out: Slowly roll the wheel forward, extending your body while keeping your core tight.\n• Return: Pull the wheel back towards your knees, maintaining tension in your core."
       },
       "image": "/exercise-images/1573.webp",
+      "imageAttribution": {
+        "author": "lhegedus",
+        "authorUrl": "",
+        "sourceUrl": "https://wger.de/media/exercise-images/1573/a9ab402b-61ef-4d60-b91a-df52bf7f41a9.jpg",
+        "derivativeSourceUrl": "",
+        "licenseName": "CC-BY-SA 4",
+        "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/deed.en"
+      },
       "sourceUpdatedAt": "2026-06-19T18:54:16.316438+02:00",
       "descriptionSource": "wger",
       "imageSource": "wger"
@@ -478,6 +924,14 @@
         "en": "The seated dumbbell calf raise is a targeted exercise for strengthening the lower leg muscles. It follows the same movement pattern as the machine version: you place the weight on your knees, and by extending and flexing your ankles, you move the weight."
       },
       "image": "/exercise-images/1620.webp",
+      "imageAttribution": {
+        "author": "AlucardEvil40",
+        "authorUrl": "",
+        "sourceUrl": "https://training.fit/exercise/seated-dumbbell-calf-raise/",
+        "derivativeSourceUrl": "",
+        "licenseName": "CC-BY-SA 4",
+        "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/deed.en"
+      },
       "sourceUpdatedAt": "2026-06-19T18:54:53.981469+02:00",
       "descriptionSource": "wger",
       "imageSource": "wger"
@@ -488,6 +942,14 @@
         "en": "This exercise involves sitting on the ground with a dumbbell resting on the hips, then thrusting the hips upward while squeezing the glutes. It is a great exercise for strengthening the glutes and improving hip mobility."
       },
       "image": "/exercise-images/1642.webp",
+      "imageAttribution": {
+        "author": "AlucardEvil40",
+        "authorUrl": "",
+        "sourceUrl": "https://wger.de/media/exercise-images/1642/a81ad922-caf5-47f8-99b4-640cb0717436.webp",
+        "derivativeSourceUrl": "",
+        "licenseName": "CC-BY-SA 4",
+        "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/deed.en"
+      },
       "sourceUpdatedAt": "2026-06-19T18:49:31.505813+02:00",
       "descriptionSource": "wger",
       "imageSource": "wger"
@@ -498,6 +960,14 @@
         "en": "The Weighted Crunch is a variation of the classic crunch exercise that involves adding resistance (a weight) to increase the intensity of the abdominal work.\n\n• Lay down\n• (Optional) Bend your knees to add difficulty\n• (Optional) Bend your knees and let your feet rest on a bench or a box or something (90 degree angle on knees)\n• Lift your head and torso while bending your back forward (if you don't it's a sit-up and also involves some back muscles). The higher you go, the more you should feel your abs contracting.\n• Go back to starting position an repeat"
       },
       "image": "/exercise-images/1648.webp",
+      "imageAttribution": {
+        "author": "AlucardEvil40",
+        "authorUrl": "",
+        "sourceUrl": "https://wger.de/media/exercise-images/1648/63ae02d6-6dd9-4e9e-84da-d4905e78a33c.jpg",
+        "derivativeSourceUrl": "",
+        "licenseName": "CC-BY-SA 4",
+        "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/deed.en"
+      },
       "sourceUpdatedAt": "2026-06-19T18:49:34.206768+02:00",
       "descriptionSource": "wger",
       "imageSource": "wger"
@@ -508,6 +978,14 @@
         "en": "This exercise involves holding a dumbbell in each hand and bending forward at the hips while keeping the back straight, then returning to a standing position. It primarily targets the hamstrings and glutes."
       },
       "image": "/exercise-images/1652.webp",
+      "imageAttribution": {
+        "author": "AlucardEvil40",
+        "authorUrl": "",
+        "sourceUrl": "https://wger.de/media/exercise-images/1652/0306c8c0-70cc-45d4-92de-6fa72ceaa834.webp",
+        "derivativeSourceUrl": "",
+        "licenseName": "CC-BY-SA 4",
+        "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/deed.en"
+      },
       "sourceUpdatedAt": "2026-06-19T18:49:43.204115+02:00",
       "descriptionSource": "wger",
       "imageSource": "wger"
@@ -518,6 +996,14 @@
         "en": "The machine lateral raise is an isolation exercise that targets the medial (side) deltoid muscle to build wider, more defined shoulders. The machine's fixed path of motion provides greater stability than dumbbells, making it ideal for beginners or those who want to focus solely on muscle activation."
       },
       "image": "/exercise-images/1654.webp",
+      "imageAttribution": {
+        "author": "roneydya",
+        "authorUrl": "https://fitnessvolt.com/wp-content/uploads/2022/11/Machine-Lateral-Raise-Exercise-Target-Muscle-750x500.jpg",
+        "sourceUrl": "https://fitnessvolt.com/wp-content/uploads/2022/11/Machine-Lateral-Raise-Exercise-Target-Muscle-750x500.jpg",
+        "derivativeSourceUrl": "",
+        "licenseName": "CC-BY-SA 4",
+        "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/deed.en"
+      },
       "sourceUpdatedAt": "2026-06-19T19:55:05.772016+02:00",
       "descriptionSource": "wger",
       "imageSource": "wger"
@@ -528,6 +1014,14 @@
         "en": "The Bulgarian split squat consists of performing a squat on one leg with the rear foot resting on a raised platform. Elevating your back leg on a bench creates instability and increases the range of motion of the exercise."
       },
       "image": "/exercise-images/1706.webp",
+      "imageAttribution": {
+        "author": "AlucardEvil40",
+        "authorUrl": "",
+        "sourceUrl": "https://wger.de/media/exercise-images/1706/0c5243cc-2539-4005-aee0-d3a8c5d3a32c.jfif",
+        "derivativeSourceUrl": "",
+        "licenseName": "CC-BY-SA 4",
+        "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/deed.en"
+      },
       "sourceUpdatedAt": "2026-06-19T18:54:06.798695+02:00",
       "descriptionSource": "wger",
       "imageSource": "wger"
@@ -538,6 +1032,14 @@
         "en": "Keep arms straight but not locked, pulling with your lats, not your shoulders.\nDon’t let your shoulders shrug up during the movement."
       },
       "image": "/exercise-images/1726.webp",
+      "imageAttribution": {
+        "author": "barry",
+        "authorUrl": "",
+        "sourceUrl": "https://wger.de/media/exercise-images/1726/2e7e541b-5f55-405a-ae78-3e71b3f42db4.png",
+        "derivativeSourceUrl": "",
+        "licenseName": "CC-BY-SA 4",
+        "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/deed.en"
+      },
       "sourceUpdatedAt": "2026-07-23T12:36:44.796486+02:00",
       "descriptionSource": "wger",
       "imageSource": "wger"
@@ -548,6 +1050,14 @@
         "en": "• The barbell full squat is a compound exercise that targets multiple muscle groups in the lower body, including the quadriceps, hamstrings, and glutes.\n• Proper form is crucial for maximizing results and preventing injuries during the barbell full squat. This includes maintaining a shoulder-width stance, creating whole body tension, controlling your descent, and maintaining proper depth and knee positioning.\n• Assistance moves such as the front squat, goblet squat, split squat, and Bulgarian split squat can help improve your performance in the barbell full squat by targeting specific muscle groups and improving overall technique.\n• To achieve new personal records in your back squat, gradually increase weight over time, vary rep ranges and sets to stimulate muscle growth, and prioritize rest and recovery between training sessions."
       },
       "image": "/exercise-images/1801.webp",
+      "imageAttribution": {
+        "author": "Workout Guru",
+        "authorUrl": "",
+        "sourceUrl": "https://wger.de/media/exercise-images/1801/60043328-1cfb-4289-9865-aaf64d5aaa28.jpg",
+        "derivativeSourceUrl": "https://workoutguru.fit/exercises/barbell-full-squat-video-exercise-guide-tips-004312/",
+        "licenseName": "CC-BY-SA 4",
+        "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/deed.en"
+      },
       "sourceUpdatedAt": "2026-06-19T18:57:50.216398+02:00",
       "descriptionSource": "wger",
       "imageSource": "wger"
@@ -558,6 +1068,14 @@
         "en": "Step 1: Stand with your feet hip-width apart, holding a barbell on your upper back.\nStep 2: Keep your back straight, chest up, and core engaged.\nStep 3: Take a step back with one leg and lower your body by bending both knees. Ensure that your back knee nearly touches the ground.\nStep 4: Push off your back foot to return to the starting position.\nStep 5: Repeat the movement with the other leg.\nContinue alternating between legs for the desired repetitions."
       },
       "image": "/exercise-images/1830.webp",
+      "imageAttribution": {
+        "author": "hans",
+        "authorUrl": "",
+        "sourceUrl": "https://wger.de/media/exercise-images/1830/3b6c547c-ab3d-4472-93cf-561710279eab.jpg",
+        "derivativeSourceUrl": "",
+        "licenseName": "CC-BY-SA 4",
+        "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/deed.en"
+      },
       "sourceUpdatedAt": "2026-06-19T18:55:43.452552+02:00",
       "descriptionSource": "wger",
       "imageSource": "wger"
@@ -568,6 +1086,14 @@
         "en": "• Sit upright in a hammerstrength decline chest press machine while squeezing your shoulder blades together and placing your heels firmly on the ground underneath your knees.\n• The back pad should be contact with your head, shoulders, and butt at all times.\n• Grab ahold of the handles with an overhand grip just outside shoulder-width apart just below your chest.\n• Keeping your core braced by breathing into your stomach and flexing the abdominal muscles, push through your palms to extend your elbows while keeping them at a 45 degree angle from your torso.\n• Once your arms are fully extended, return to the starting position."
       },
       "image": "/exercise-images/1831.webp",
+      "imageAttribution": {
+        "author": "hans",
+        "authorUrl": "",
+        "sourceUrl": "https://wger.de/media/exercise-images/1831/2d9d509f-707b-4132-961e-91a2459ca198.jpg",
+        "derivativeSourceUrl": "",
+        "licenseName": "CC-BY-SA 4",
+        "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/deed.en"
+      },
       "sourceUpdatedAt": "2026-06-19T18:55:44.799925+02:00",
       "descriptionSource": "wger",
       "imageSource": "wger"

@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Easyfit Catalog Editor</title>
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <header><div><span>DEVELOPER TOOL</span><h1>Exercise Catalog</h1></div><div class="actions"><button id="build">Genera catalogo</button><button id="sync" class="primary">Sync Wger + genera</button></div></header>
+  <main>
+    <aside>
+      <label class="search"><span>Cerca</span><input id="search" type="search" placeholder="Nome o Wger ID"></label>
+      <div class="filters"><button data-filter="all" class="active">Tutti</button><button data-filter="approved">Approvati</button><button data-filter="unapproved">Da valutare</button><button data-filter="changed">Modificati</button></div>
+      <div class="filter-panel">
+        <label><span>Lingua</span><select id="filter-language" class="catalog-filter"><option value="all">Qualsiasi</option><option value="en">English</option><option value="it">Italiano disponibile</option></select></label>
+        <label><span>Attrezzatura</span><select id="filter-equipment" class="catalog-filter"><option value="all">Qualsiasi</option></select></label>
+        <label><span>Muscolo</span><select id="filter-muscle" class="catalog-filter"><option value="all">Qualsiasi</option></select></label>
+        <label><span>Categoria</span><select id="filter-category" class="catalog-filter"><option value="all">Qualsiasi</option></select></label>
+        <label><span>Tipo</span><select id="filter-kind" class="catalog-filter"><option value="all">Qualsiasi</option><option value="compound">Multiarticolare</option><option value="accessory">Accessorio</option><option value="unclassified">Non classificato</option></select></label>
+        <label><span>Pattern</span><select id="filter-pattern" class="catalog-filter"><option value="all">Qualsiasi</option></select></label>
+        <label><span>Immagine</span><select id="filter-image" class="catalog-filter"><option value="all">Qualsiasi</option><option value="with">Presente</option><option value="local">Locale nel bundle</option><option value="remote">Solo remota</option><option value="without">Assente</option></select></label>
+        <label><span>Guida inglese</span><select id="filter-guide" class="catalog-filter"><option value="all">Qualsiasi</option><option value="complete">Completa</option><option value="short">Troppo breve</option><option value="missing">Assente</option></select></label>
+      </div>
+      <button id="reset-filters" class="reset-filters">Azzera filtri</button>
+      <div id="count"></div><div id="list" class="list"></div>
+    </aside>
+    <section id="editor" class="editor"><div class="placeholder">Seleziona un esercizio dal catalogo Wger.</div></section>
+  </main>
+  <section id="console" class="console hidden"><header><strong>Output</strong><button id="close-console">×</button></header><pre></pre></section>
+  <script type="module" src="/app.js"></script>
+</body>
+</html>

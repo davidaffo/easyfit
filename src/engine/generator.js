@@ -12,7 +12,7 @@ const CONTINUITY_BREAK_DAYS = 28;
 const RECENT_VARIATION_DAYS = 7;
 const EXERCISE_ROTATION_EXPOSURES = 4;
 export const SESSION_TIME_TOLERANCE_MINUTES = 5;
-export const ENGINE_VERSION = 28;
+export const ENGINE_VERSION = 29;
 
 const muscleBaseImportance = {
   chest: 100,
@@ -463,7 +463,10 @@ function setStimulusQuality(set) {
     ? clamp(completedReps / targetReps, 0.25, 1.15)
     : 1;
   const rir = recordedRir(set);
-  const proximityQuality = rir <= 3 ? 1 : rir === 4 ? .85 : rir === 5 ? .7 : .55;
+  // Effective dose is not binary. A set stopped at 3 RIR must not receive the
+  // same credit as a set taken to the prescribed 0 RIR, otherwise the adaptive
+  // target cannot react when the user deliberately (or necessarily) stops early.
+  const proximityQuality = rir <= 2 ? 1 : rir === 3 ? .75 : rir === 4 ? .6 : rir === 5 ? .5 : .4;
   return repQuality * proximityQuality;
 }
 
@@ -820,13 +823,24 @@ export function getExercisePrescription(profile, exercise) {
     ? styleRule.targetRirs.length
     : Number(legacyTypeCap) || (exercise.compound ? 3 : 4);
   const minReps = clamp(Number(override.minReps) || rule.reps, 1, 50);
-  const maxReps = clamp(Number(override.maxReps) || rule.maxReps, minReps, 50);
   const maxSets = clamp(Number(override.maxSets) || defaultMaxSets, 1, 6);
   const targetRirs = override.targetRir != null
     ? Array.from({ length: maxSets }, () => clamp(Number(override.targetRir), 0, 4))
     : styleEnabled
       ? targetRirsForSetCount(styleRule.targetRirs, maxSets)
       : Array.from({ length: maxSets }, () => clamp(profile.targetRir ?? goal.targetRir, 0, 4));
+  const requestedMaxReps = Number(override.maxReps) || rule.maxReps;
+  // Long lower-body compound sets taken to failure have a disproportionate
+  // systemic/cardiorespiratory cost. Keep the automatic prescription at ten
+  // reps when its final set targets 0 RIR. An explicit exercise override still
+  // wins, because it is an intentional user decision rather than an engine default.
+  const automaticFailureCap = override.maxReps == null
+    && exercise.compound
+    && isLowerBodyExercise(exercise)
+    && targetRirs.includes(0)
+    ? 10
+    : 50;
+  const maxReps = clamp(Math.min(requestedMaxReps, automaticFailureCap), minReps, 50);
   return {
     minReps,
     maxReps,
@@ -1150,8 +1164,9 @@ export function getCanonicalExercise(exercise, profile) {
 }
 
 export function isEssentialExercise(exercise, profile) {
-  if (profile.exerciseFilters?.essentialCatalog === false) return true;
-  return getCanonicalExercise(exercise, profile)?.id === exercise.id;
+  // Kept as a compatibility export for old backups/tests. The old
+  // "essential catalog" filter was too destructive and is no longer applied.
+  return Boolean(exercise);
 }
 
 export function getExerciseContinuity(history = [], now = Date.now()) {
@@ -1831,7 +1846,6 @@ export function getSimilarExercises(workout, exerciseId, profile, options = {}) 
   const used = workout.exercises
     .filter((item) => item.exerciseId !== exerciseId)
     .map((item) => exercises.find((exercise) => exercise.id === item.exerciseId));
-  const currentVariantKey = getExerciseVariantKey(current);
   const broadCandidates = exercises
     .filter((exercise) => exercise.id !== exerciseId && exercise.primary === current.primary)
     .filter((exercise) => isExerciseAllowed(exercise, profile))
@@ -1842,15 +1856,7 @@ export function getSimilarExercises(workout, exerciseId, profile, options = {}) 
       return patternDifference || compoundDifference || canonicalScore(b, profile) - canonicalScore(a, profile) || a.name.localeCompare(b.name);
     });
   const samePattern = broadCandidates.filter((exercise) => exercise.pattern === current.pattern);
-  const candidates = samePattern.length ? samePattern : broadCandidates;
-  if (options.includeVariants || profile.exerciseFilters?.essentialCatalog === false) return candidates;
-  const seen = new Set();
-  return candidates.filter((exercise) => {
-    const key = getExerciseVariantKey(exercise);
-    if (key === currentVariantKey || seen.has(key)) return false;
-    seen.add(key);
-    return true;
-  });
+  return samePattern.length ? samePattern : broadCandidates;
 }
 
 export function replaceExercise(workout, exerciseId, profile, history = [], replacementId = null) {

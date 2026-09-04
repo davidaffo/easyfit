@@ -72,21 +72,33 @@ assert(benchGuide.description.length > 100, 'The lazy wger guide must expose the
 assert(benchGuide.image?.startsWith('/exercise-images/'), 'The bundled wger guide must use a local exercise image');
 for (const exercise of exercises) {
   const guide = await getExerciseDetails(exercise.wgerId, 'en');
-  assert(guide?.description?.length >= 100 && guide?.image?.includes('/exercise-images/'), `Approved exercise ${exercise.name} must ship with a useful complete offline guide`);
+  assert(guide?.description?.length >= 100, `Approved exercise ${exercise.name} must ship with a useful offline textual guide`);
   assert(!/fast movement|rapid movement|touches your neck|hands are behind your head/i.test(guide.description), `Approved guide ${exercise.name} must not retain unsafe or low-quality wording`);
-  const imageBytes = await readFile(new URL(`../public${guide.image}`, import.meta.url));
-  assert(imageBytes.length > 0, `Approved exercise ${exercise.name} must reference an image file that actually exists in the PWA`);
+  if (guide.image) {
+    assert(guide.image.includes('/exercise-images/'), `Approved exercise ${exercise.name} must use a local image when one is available`);
+    assert(guide.imageAttribution?.licenseName && guide.imageAttribution?.author, `Bundled image ${exercise.name} must retain separate author and license metadata`);
+    const imageBytes = await readFile(new URL(`../public${guide.image}`, import.meta.url));
+    assert(imageBytes.length > 0, `Approved exercise ${exercise.name} must reference an image file that actually exists in the PWA`);
+  }
 }
+assert(!String(await readFile(new URL('./curate-exercises.mjs', import.meta.url), 'utf8')).includes('!guide?.image'), 'A missing image must never exclude an otherwise reviewed exercise from the runtime catalog');
 const serviceWorkerSource = await readFile(new URL('../public/sw.js', import.meta.url), 'utf8');
 const appSource = await readFile(new URL('../src/main.jsx', import.meta.url), 'utf8');
+const catalogEditorHtml = await readFile(new URL('../tools/catalog-editor/index.html', import.meta.url), 'utf8');
+const catalogEditorSource = await readFile(new URL('../tools/catalog-editor/app.js', import.meta.url), 'utf8');
 assert(serviceWorkerSource.includes('cache.addAll(images)'), 'The service worker install must fail atomically if any bundled guide image cannot be cached');
 assert(!serviceWorkerSource.includes('Promise.allSettled(images'), 'Offline installation must not silently ignore missing guide images');
-assert(serviceWorkerSource.includes("const CACHE = 'easyfit-v28'"), 'An engine/cache change must bump the offline cache version');
+assert(serviceWorkerSource.includes("const CACHE = 'easyfit-v30'"), 'An app-shell or catalog change must bump the offline cache version');
 assert(serviceWorkerSource.includes("cache.delete(request)"), 'The current PWA cache must remove assets no longer present in the build or guide index');
 assert(serviceWorkerSource.includes("requestUrl.origin !== self.location.origin"), 'The service worker must never intercept cross-origin WebDAV traffic');
 assert(serviceWorkerSource.includes("headers.has('Authorization')"), 'Authenticated responses must never enter the PWA cache');
 assert(serviceWorkerSource.includes("addEventListener('notificationclick'"), 'Recovery notifications must reopen the installed PWA when tapped');
 assert(appSource.includes('createOscillator()') && appSource.includes('showNotification(title, options)'), 'The recovery timer must provide both an audible double beep and Web Notifications');
+assert(!appSource.includes('Catalogo essenziale') && !appSource.includes('Mostra tutte le varianti'), 'The removed essential-catalog mode must not remain exposed in settings or replacement UI');
+for (const filter of ['language', 'equipment', 'muscle', 'category', 'kind', 'pattern', 'image', 'guide']) {
+  assert(catalogEditorHtml.includes(`filter-${filter}`) && catalogEditorSource.includes(`state.filters.${filter}`), `The developer catalog must expose and apply its ${filter} filter`);
+}
+assert(catalogEditorSource.includes("Object.values(item.translations || {})"), 'Catalog search must include translated exercise names');
 assert(!exercises.some((exercise) => exercise.wgerId === 458), 'Rep-based prescriptions must not include a time-based plank');
 assert.equal(exercises.filter((exercise) => [659, 805, 1185].includes(exercise.wgerId)).length, 1, 'Near-identical cable triceps duplicates must collapse to one canonical exercise');
 assert(!appSource.includes('Push / Pull / Legs') && !appSource.includes('Upper / Lower'), 'The app must expose only adaptive scheduling, without selectable split modes');
@@ -101,7 +113,7 @@ const benchVariantProfile = {
 const reviewedVariant = exercises.find((exercise) => exercise.name === 'Leg Curl');
 const pressVariantCluster = exercises.filter((exercise) => getExerciseVariantKey(exercise) === getExerciseVariantKey(reviewedVariant));
 assert(pressVariantCluster.length > 1, 'The approved catalog must retain reviewed microvariants');
-assert.equal(pressVariantCluster.filter((exercise) => isEssentialExercise(exercise, { ...benchVariantProfile, equipment: ['machines'] })).length, 1, 'The essential catalog must retain one canonical representative');
+assert.equal(pressVariantCluster.filter((exercise) => isEssentialExercise(exercise, { ...benchVariantProfile, equipment: ['machines'] })).length, pressVariantCluster.length, 'The removed essential-catalog option must never hide reviewed variants');
 
 const baseSet = { targetReps: 8, targetWeight: 60, targetRir: 2, weight: 60, done: true };
 const preparedWorkout = { id: 'prepared', createdAt: Date.now(), exercises: [{ exerciseId: bench.id, sets: [{ ...baseSet, done: false }] }] };
@@ -156,6 +168,8 @@ assert.equal(getWeeklyMovementFrequency(tokenMovementHistory).push, 0, 'A token 
 const targetEffortSet = [{ completedAt: Date.now() - 1000, exercises: [{ exerciseId: bench.id, sets: [{ ...baseSet, reps: 8, rir: 2 }] }] }];
 const failureEffortSet = [{ completedAt: Date.now() - 1000, exercises: [{ exerciseId: bench.id, sets: [{ ...baseSet, reps: 8, rir: 0 }] }] }];
 assert.equal(getWeeklyMuscleLoad(failureEffortSet).volume.chest, getWeeklyMuscleLoad(targetEffortSet).volume.chest, 'Going closer to failure must raise fatigue without subtracting productive stimulus');
+const stoppedAtThreeRir = [{ completedAt: Date.now() - 1000, exercises: [{ exerciseId: bench.id, sets: [{ ...baseSet, targetRir: 0, reps: 8, rir: 3 }] }] }];
+assert(getWeeklyMuscleLoad(stoppedAtThreeRir).volume.chest < getWeeklyMuscleLoad(failureEffortSet).volume.chest, 'Stopping at RIR 3 when RIR 0 was prescribed must reduce the credited adaptive dose');
 
 const futureHistory = [{
   completedAt: Date.now() + 30 * 864e5,
@@ -288,6 +302,20 @@ assert.deepEqual(getExercisePrescription({ ...profile, trainingStyle: 'volume' }
 assert.deepEqual(getExercisePrescription({ ...profile, goal: 'strength', trainingStyle: 'intense' }, bench).targetRirs, [2, 1], 'Strength training must keep high-fatigue compounds one RIR farther from failure');
 assert.equal(getExercisePrescription({ ...profile, goal: 'strength', trainingStyle: 'intense' }, bench).rest, 180, 'Strength training must extend high-fatigue compound recovery');
 assert.equal(Object.keys(trainingStyles).length, 3, 'The UI and engine must share exactly the three supported training styles');
+assert.equal(getExercisePrescription({ ...profile, trainingStyle: 'intense' }, squat).maxReps, 10, 'Automatic lower-body compound work at RIR 0 must be capped at ten repetitions');
+assert.equal(getExercisePrescription({ ...profile, trainingStyle: 'balanced' }, squat).maxReps, 12, 'Lower-body work not prescribed at failure must keep its normal repetition range');
+assert.equal(getExercisePrescription({ ...profile, trainingStyle: 'intense', exerciseOverrides: { [squat.id]: { maxReps: 12 } } }, squat).maxReps, 12, 'An explicit per-exercise override must remain authoritative over the automatic failure cap');
+
+const rirSurplusNow = Date.now();
+const rirSurplusHistory = [{
+  id: 'rir-surplus', completedAt: rirSurplusNow - 4 * 864e5,
+  exercises: [{ exerciseId: bench.id, sets: [
+    { ...baseSet, targetReps: 8, reps: 8, targetRir: 1, rir: null },
+    { ...baseSet, targetReps: 8, reps: 8, targetRir: 0, rir: 3 },
+  ] }],
+}];
+const rirSurplusWorkout = generateWorkout({ ...profile, trainingStyle: 'intense' }, rirSurplusHistory, { targets: ['chest'], duration: 25, now: rirSurplusNow });
+assert.equal(rirSurplusWorkout.exercises[0].sets[0].targetReps, 9, 'Finishing at RIR 3 against a RIR 0 target must raise the next prescription instead of being ignored');
 
 const timedTwoSetBench = {
   rest: 150,
@@ -553,11 +581,11 @@ for (const generated of [intenseGenerated, balancedGenerated, volumeGenerated]) 
   assert(generated.engine.estimatedMinutes <= generated.duration + 5, 'Every style must remain inside the explicit five-minute scheduling tolerance');
 }
 const essentialMachinePresses = exercises.filter((exercise) => ['Chest Press', 'Hammerstrength Decline Chest Press'].includes(exercise.name) && isEssentialExercise(exercise, { ...focusProfile, equipment: allEquipment, exerciseFilters: { essentialCatalog: true, preferLoadedVariants: false } }));
-assert.equal(essentialMachinePresses.length, 1, 'The essential catalog must collapse reviewed variants even when Wger omits variation_group');
+assert.equal(essentialMachinePresses.length, 2, 'All reviewed machine-press alternatives must remain available after removing the essential-catalog filter');
 const essentialCablePulldowns = exercises.filter((exercise) => ['Close-grip supinated lat pulldown', 'Neutral-grip chest pulldown'].includes(exercise.name) && isEssentialExercise(exercise, { ...focusProfile, equipment: allEquipment, exerciseFilters: { essentialCatalog: true, preferLoadedVariants: false } }));
-assert.equal(essentialCablePulldowns.length, 1, 'Null Wger variation groups must not leak near-identical pulldowns into standard generation');
+assert.equal(essentialCablePulldowns.length, 2, 'All reviewed pulldown alternatives must remain available after removing the essential-catalog filter');
 const essentialPullups = exercises.filter((exercise) => ['Chin Up', 'Pull-ups'].includes(exercise.name) && isEssentialExercise(exercise, { ...focusProfile, equipment: allEquipment, exerciseFilters: { essentialCatalog: true, preferLoadedVariants: false } }));
-assert.equal(essentialPullups.length, 1, 'The essential catalog must collapse structurally identical pull-up grips regardless of inconsistent Wger variation groups');
+assert.equal(essentialPullups.length, 2, 'All reviewed pull-up alternatives must remain available after removing the essential-catalog filter');
 const canonicalPullup = essentialPullups[0];
 const pullupOnlyPreferences = Object.fromEntries(exercises.map((exercise) => [exercise.id, exercise.id === canonicalPullup.id ? 'normal' : 'exclude']));
 const pullupOnlyProfile = {
@@ -1055,8 +1083,18 @@ const currentExercise = exercises.find((exercise) => exercise.id === editingWork
 const similarChoices = getSimilarExercises(editingWorkout, currentExercise.id, focusProfile);
 assert(similarChoices.length > 1, 'The replacement picker must receive a list of compatible alternatives');
 const allSimilarChoices = getSimilarExercises(editingWorkout, currentExercise.id, focusProfile, { includeVariants: true });
-assert(allSimilarChoices.length >= similarChoices.length, 'Expanding reviewed variants must never remove compatible alternatives');
-assert.equal(new Set(similarChoices.map(getExerciseVariantKey)).size, similarChoices.length, 'The default replacement list must contain only one representative per variant family');
+assert.deepEqual(allSimilarChoices, similarChoices, 'The removed essential-catalog mode must expose every compatible replacement without a hidden variants mode');
+const dumbbellTriceps = exercises.find((exercise) => exercise.wgerId === 1336);
+const dumbbellSkullcrusher = exercises.find((exercise) => exercise.wgerId === 245);
+const dumbbellKickback = exercises.find((exercise) => exercise.wgerId === 655);
+assert(dumbbellTriceps && dumbbellSkullcrusher && dumbbellKickback, 'The reviewed catalog must bundle distinct triceps alternatives');
+const tricepsAlternatives = getSimilarExercises(
+  { exercises: [{ exerciseId: dumbbellTriceps.id }] },
+  dumbbellTriceps.id,
+  { ...focusProfile, equipment: ['dumbbells', 'bench', 'bodyweight'], preferences: {}, exerciseFilters: { preferLoadedVariants: true } },
+);
+assert(tricepsAlternatives.some((exercise) => exercise.id === dumbbellSkullcrusher.id)
+  && tricepsAlternatives.some((exercise) => exercise.id === dumbbellKickback.id), 'A dumbbell triceps exercise must expose both imaged and text-only compatible replacements');
 const selectedSimilar = similarChoices[0];
 const similarWorkout = replaceExercise(editingWorkout, currentExercise.id, focusProfile, [], selectedSimilar.id);
 const similarExercise = exercises.find((exercise) => exercise.id === similarWorkout.exercises[0].exerciseId);

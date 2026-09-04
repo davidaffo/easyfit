@@ -3,7 +3,7 @@ import { access, mkdir, readdir, unlink, writeFile } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
 import { promisify } from 'node:util';
 import { fileURLToPath } from 'node:url';
-import { curatedExercises, curatedGuideImageOverrides } from './curated-exercises.mjs';
+import { loadCatalogRegistry } from './curated-exercises.mjs';
 
 const run = promisify(execFile);
 
@@ -13,6 +13,9 @@ const detailsPath = resolve(root, 'src/generated/wger-exercise-details.json');
 const imagesDirectory = resolve(root, 'public/exercise-images');
 const imagesIndexPath = resolve(imagesDirectory, 'index.json');
 const apiRoot = 'https://wger.de/api/v2/exerciseinfo/?language=2&limit=100';
+const registry = await loadCatalogRegistry();
+const curatedExercises = registry.curatedExercises;
+const curatedGuideImageOverrides = registry.guideImages;
 
 function plainText(html = '') {
   return html
@@ -31,10 +34,12 @@ function translation(item, language) {
   return item.translations.find((entry) => entry.language === language && entry.name?.trim());
 }
 
-function normalize(item) {
+function normalize(item, licenseById) {
   const english = translation(item, 2);
   const italian = translation(item, 13);
   if (!english) return null;
+  const image = item.images.find((candidate) => candidate.is_main) || item.images[0] || null;
+  const imageLicense = image ? licenseById.get(image.license) : null;
 
   return {
     core: {
@@ -61,7 +66,15 @@ function normalize(item) {
         en: plainText(english.description),
         ...(italian ? { it: plainText(italian.description) } : {}),
       },
-      image: item.images.find((image) => image.is_main)?.image || item.images[0]?.image || null,
+      image: image?.image || null,
+      imageAttribution: image ? {
+        author: image.license_author || image.author_history?.filter(Boolean).join(', ') || item.license_author || 'wger contributors',
+        authorUrl: image.license_author_url || '',
+        sourceUrl: image.license_object_url || image.image,
+        derivativeSourceUrl: image.license_derivative_source_url || '',
+        licenseName: imageLicense?.short_name || `Wger license ${image.license}`,
+        licenseUrl: imageLicense?.url || '',
+      } : null,
       sourceUpdatedAt: item.last_update_global,
     },
   };
@@ -134,12 +147,17 @@ while (next) {
   process.stdout.write(`\rDownloaded ${records.length}/${page.count} exercises`);
 }
 
-const normalized = records.map(normalize).filter(Boolean).sort((a, b) => a.core.name.localeCompare(b.core.name));
+const licenseResponse = await fetchPage('https://wger.de/api/v2/license/?limit=100');
+const licenseById = new Map(licenseResponse.results.map((license) => [license.id, license]));
+
+const normalized = records.map((item) => normalize(item, licenseById)).filter(Boolean).sort((a, b) => a.core.name.localeCompare(b.core.name));
 await mkdir(imagesDirectory, { recursive: true });
 const curatedLocalImages = Object.values(curatedGuideImageOverrides);
 await Promise.all(curatedLocalImages.map((publicPath) => access(resolve(imagesDirectory, publicPath.split('/').at(-1)))));
 const approvedIds = new Set(Object.keys(curatedExercises).map(Number));
-const imageItems = normalized.filter((item) => approvedIds.has(item.core.wgerId) && item.details.image);
+const imageItems = normalized.filter((item) => approvedIds.has(item.core.wgerId)
+  && item.details.image
+  && !curatedGuideImageOverrides[item.core.wgerId]);
 const localImages = [...curatedLocalImages];
 for (let index = 0; index < imageItems.length; index += 4) {
   const downloaded = await Promise.all(imageItems.slice(index, index + 4).map(localizeImage));

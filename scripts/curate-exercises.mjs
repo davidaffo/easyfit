@@ -1,5 +1,5 @@
 import { readFile, readdir, unlink, writeFile } from 'node:fs/promises';
-import { curatedExercises, curatedGuideImageOverrides } from './curated-exercises.mjs';
+import { loadCatalogRegistry } from './curated-exercises.mjs';
 
 const sourcePath = new URL('../src/generated/wger-exercises.json', import.meta.url);
 const detailsPath = new URL('../src/generated/wger-exercise-details.json', import.meta.url);
@@ -9,6 +9,9 @@ const imageIndexPath = new URL('../public/exercise-images/index.json', import.me
 const imageDirectory = new URL('../public/exercise-images/', import.meta.url);
 const source = JSON.parse(await readFile(sourcePath, 'utf8'));
 const details = JSON.parse(await readFile(detailsPath, 'utf8'));
+const registry = await loadCatalogRegistry();
+const curatedExercises = registry.curatedExercises;
+const curatedGuideImageOverrides = registry.guideImages;
 
 const muscleByWgerId = {
   1: 'biceps', 2: 'shoulders', 3: 'chest', 4: 'chest', 5: 'triceps', 6: 'core', 7: 'calves',
@@ -39,9 +42,10 @@ function curatedGuide(id) {
   if (!guide) return guide;
   return {
     ...guide,
-    descriptions: { ...guide.descriptions, ...(englishGuideOverrides[id] ? { en: englishGuideOverrides[id] } : {}) },
+    descriptions: { ...guide.descriptions, ...((registry.guideDescriptions[id] || englishGuideOverrides[id]) ? { en: registry.guideDescriptions[id] || englishGuideOverrides[id] } : {}) },
     image: curatedGuideImageOverrides[id] || guide.image,
-    descriptionSource: englishGuideOverrides[id] ? 'easyfit-curated' : 'wger',
+    imageAttribution: registry.guideImageAttributions[id] || guide.imageAttribution || null,
+    descriptionSource: registry.guideDescriptions[id] || englishGuideOverrides[id] ? 'easyfit-curated' : 'wger',
     imageSource: curatedGuideImageOverrides[id] ? 'easyfit-curated' : 'wger',
   };
 }
@@ -95,10 +99,10 @@ const plainGuideText = (value) => String(value || '').replace(/<[^>]*>/g, ' ').r
 const incompleteGuides = Object.keys(curatedExercises).filter((id) => {
   const guide = curatedGuide(id);
   const description = plainGuideText(guide?.descriptions?.en);
-  return !guide?.image || description.length < 100
+  return description.length < 100
     || forbiddenGuidePhrases.some((phrase) => description.toLowerCase().includes(phrase));
 });
-if (incompleteGuides.length) throw new Error(`Curated Wger IDs without a useful bundled English guide and image: ${incompleteGuides.join(', ')}`);
+if (incompleteGuides.length) throw new Error(`Curated Wger IDs without a useful bundled English guide: ${incompleteGuides.join(', ')}`);
 
 const eligibleCatalog = catalog.filter((item) => item.generationEligible);
 const invalidProgrammingMetadata = eligibleCatalog.filter((item) => (

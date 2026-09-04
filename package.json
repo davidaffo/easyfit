@@ -7,6 +7,7 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
+    "catalog:editor": "node tools/catalog-editor/server.mjs",
     "curate:exercises": "node scripts/curate-exercises.mjs",
     "sync:wger": "node scripts/sync-wger.mjs && node scripts/curate-exercises.mjs",
     "postsync:wger": "vite build",

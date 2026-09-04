@@ -2,9 +2,26 @@
   "source": "wger",
   "sourceUrl": "https://wger.de",
   "language": "en",
-  "syncedAt": "2026-08-20T12:59:00.083Z",
-  "count": 860,
+  "syncedAt": "2026-09-04T18:15:53.577Z",
+  "count": 871,
   "exercises": [
+    {
+      "wgerId": 2534,
+      "name": "(D) Puente de glúteos",
+      "translations": {
+        "en": "(D) Puente de glúteos"
+      },
+      "category": "Legs",
+      "muscles": [],
+      "secondaryMuscles": [],
+      "equipment": [],
+      "variationGroup": null,
+      "license": {
+        "name": "CC-BY-SA 4",
+        "url": "https://creativecommons.org/licenses/by-sa/4.0/deed.en",
+        "author": "dvdfernandez95"
+      }
+    },
     {
       "wgerId": 1948,
       "name": "1 Leg Box Squat",
@@ -534,6 +551,25 @@
         "name": "CC-BY-SA 4",
         "url": "https://creativecommons.org/licenses/by-sa/4.0/deed.en",
         "author": "cleen"
+      }
+    },
+    {
+      "wgerId": 2533,
+      "name": "Arch Hang",
+      "translations": {
+        "en": "Arch Hang"
+      },
+      "category": "Shoulders",
+      "muscles": [],
+      "secondaryMuscles": [],
+      "equipment": [
+        "Pull-up bar"
+      ],
+      "variationGroup": null,
+      "license": {
+        "name": "CC-BY-SA 4",
+        "url": "https://creativecommons.org/licenses/by-sa/4.0/deed.en",
+        "author": "wintercyan"
       }
     },
     {
@@ -1602,6 +1638,33 @@
       }
     },
     {
+      "wgerId": 2536,
+      "name": "Bench Press Isometric",
+      "translations": {
+        "en": "Bench Press Isometric"
+      },
+      "category": "Chest",
+      "muscles": [
+        2,
+        4,
+        5
+      ],
+      "secondaryMuscles": [
+        14,
+        6,
+        3
+      ],
+      "equipment": [
+        "Barbell"
+      ],
+      "variationGroup": null,
+      "license": {
+        "name": "CC-BY-SA 4",
+        "url": "https://creativecommons.org/licenses/by-sa/4.0/deed.en",
+        "author": "HexoctusEngineering"
+      }
+    },
+    {
       "wgerId": 76,
       "name": "Bench Press Narrow Grip",
       "translations": {
@@ -2313,6 +2376,29 @@
         "name": "CC-BY-SA 4",
         "url": "https://creativecommons.org/licenses/by-sa/4.0/deed.en",
         "author": "clafal"
+      }
+    },
+    {
+      "wgerId": 2542,
+      "name": "Boxing",
+      "translations": {
+        "en": "Boxing"
+      },
+      "category": "Cardio",
+      "muscles": [
+        2,
+        5
+      ],
+      "secondaryMuscles": [
+        1,
+        12
+      ],
+      "equipment": [],
+      "variationGroup": null,
+      "license": {
+        "name": "CC-BY-SA 4",
+        "url": "https://creativecommons.org/licenses/by-sa/4.0/deed.en",
+        "author": "SAH"
       }
     },
     {
@@ -9572,6 +9658,27 @@
       }
     },
     {
+      "wgerId": 2540,
+      "name": "Lat Pulldown Isometric",
+      "translations": {
+        "en": "Lat Pulldown Isometric"
+      },
+      "category": "Back",
+      "muscles": [
+        12
+      ],
+      "secondaryMuscles": [],
+      "equipment": [
+        "Cable machine"
+      ],
+      "variationGroup": null,
+      "license": {
+        "name": "CC-BY-SA 4",
+        "url": "https://creativecommons.org/licenses/by-sa/4.0/deed.en",
+        "author": "HexoctusEngineering"
+      }
+    },
+    {
       "wgerId": 1325,
       "name": "Lateral Push Off",
       "translations": {
@@ -9592,6 +9699,27 @@
         "name": "CC-BY-SA 4",
         "url": "https://creativecommons.org/licenses/by-sa/4.0/deed.en",
         "author": "cleen"
+      }
+    },
+    {
+      "wgerId": 2538,
+      "name": "Lateral Raise Isometric",
+      "translations": {
+        "en": "Lateral Raise Isometric"
+      },
+      "category": "Shoulders",
+      "muscles": [
+        2
+      ],
+      "secondaryMuscles": [],
+      "equipment": [
+        "Cable machine"
+      ],
+      "variationGroup": null,
+      "license": {
+        "name": "CC-BY-SA 4",
+        "url": "https://creativecommons.org/licenses/by-sa/4.0/deed.en",
+        "author": "HexoctusEngineering"
       }
     },
     {
@@ -9862,6 +9990,27 @@
         "name": "CC0",
         "url": "http://creativecommons.org/publicdomain/zero/1.0/",
         "author": "BFad07"
+      }
+    },
+    {
+      "wgerId": 2535,
+      "name": "Leg Extension Isometric",
+      "translations": {
+        "en": "Leg Extension Isometric"
+      },
+      "category": "Legs",
+      "muscles": [
+        10
+      ],
+      "secondaryMuscles": [],
+      "equipment": [
+        "Cable machine"
+      ],
+      "variationGroup": null,
+      "license": {
+        "name": "CC-BY-SA 4",
+        "url": "https://creativecommons.org/licenses/by-sa/4.0/deed.en",
+        "author": "HexoctusEngineering"
       }
     },
     {
@@ -11441,6 +11590,28 @@
       }
     },
     {
+      "wgerId": 2537,
+      "name": "Overhead Press Isometric",
+      "translations": {
+        "en": "Overhead Press Isometric"
+      },
+      "category": "Shoulders",
+      "muscles": [
+        2,
+        5
+      ],
+      "secondaryMuscles": [],
+      "equipment": [
+        "Cable machine"
+      ],
+      "variationGroup": null,
+      "license": {
+        "name": "CC-BY-SA 4",
+        "url": "https://creativecommons.org/licenses/by-sa/4.0/deed.en",
+        "author": "HexoctusEngineering"
+      }
+    },
+    {
       "wgerId": 441,
       "name": "Overhead Squat",
       "translations": {
@@ -12219,6 +12390,27 @@
         "name": "CC-BY-SA 4",
         "url": "https://creativecommons.org/licenses/by-sa/4.0/deed.en",
         "author": "Shiladree"
+      }
+    },
+    {
+      "wgerId": 2539,
+      "name": "Preacher Curl Isometric",
+      "translations": {
+        "en": "Preacher Curl Isometric"
+      },
+      "category": "Arms",
+      "muscles": [
+        1
+      ],
+      "secondaryMuscles": [],
+      "equipment": [
+        "Dumbbell"
+      ],
+      "variationGroup": null,
+      "license": {
+        "name": "CC-BY-SA 4",
+        "url": "https://creativecommons.org/licenses/by-sa/4.0/deed.en",
+        "author": "HexoctusEngineering"
       }
     },
     {
@@ -17833,6 +18025,27 @@
       }
     },
     {
+      "wgerId": 2541,
+      "name": "Triceps Pushdown Isometric",
+      "translations": {
+        "en": "Triceps Pushdown Isometric"
+      },
+      "category": "Arms",
+      "muscles": [
+        5
+      ],
+      "secondaryMuscles": [],
+      "equipment": [
+        "Cable machine"
+      ],
+      "variationGroup": null,
+      "license": {
+        "name": "CC-BY-SA 4",
+        "url": "https://creativecommons.org/licenses/by-sa/4.0/deed.en",
+        "author": "HexoctusEngineering"
+      }
+    },
+    {
       "wgerId": 1230,
       "name": "Triceps stretch left",
       "translations": {
@@ -18921,6 +19134,23 @@
         "name": "CC-BY-SA 4",
         "url": "https://creativecommons.org/licenses/by-sa/4.0/deed.en",
         "author": "Happy"
+      }
+    },
+    {
+      "wgerId": 2543,
+      "name": "Wrist circles",
+      "translations": {
+        "en": "Wrist circles"
+      },
+      "category": "Arms",
+      "muscles": [],
+      "secondaryMuscles": [],
+      "equipment": [],
+      "variationGroup": null,
+      "license": {
+        "name": "CC-BY-SA 4",
+        "url": "https://creativecommons.org/licenses/by-sa/4.0/deed.en",
+        "author": "Awlex"
       }
     },
     {

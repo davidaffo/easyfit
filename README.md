@@ -26,11 +26,22 @@ Verifica del motore:
 npm test
 ```
 
+Editor del catalogo (solo sviluppo locale, non incluso nella PWA):
+
+```bash
+npm run catalog:editor
+```
+
+Apri `http://127.0.0.1:4178`. Lo strumento permette di cercare nell'intero
+dataset Wger, approvare o escludere esercizi, correggere metadati e guide, quindi
+rigenerare gli asset offline. I dettagli del flusso sono in
+`tools/catalog-editor/README.md`.
+
 ## Come viene generato un workout
 
-Il motore locale v28 separa due decisioni:
+Il motore locale v29 separa due decisioni:
 
-1. **Exercise selector** — filtra per attrezzatura e preferenze globali. Soltanto gli ID Wger presenti nel registro revisionato manualmente possono entrare nel generatore: non esiste classificazione tramite parole nel nome. Ogni esercizio approvato deve avere già nel bundle guida inglese e immagine locale. Il Catalogo essenziale usa un solo rappresentante per famiglia Wger oppure, quando Wger non la dichiara, per combinazione revisionata di pattern, target, attrezzatura e tipo di carico. Il motore adattivo sceglie globalmente le famiglie con maggiore necessità e impone un solo esercizio lower complessivo per seduta, accessori inclusi. Le sedute da 60 minuti in su possono includere spinta, tirata e un movimento lower; quelle più brevi scelgono due famiglie. Non esistono split selezionabili e non viene chiesto quanti giorni a settimana l’utente intenda allenarsi.
+1. **Exercise selector** — filtra per attrezzatura e preferenze globali. Soltanto gli ID Wger presenti nel registro revisionato manualmente possono entrare nel generatore: non esiste classificazione tramite parole nel nome. Ogni esercizio approvato deve avere una guida inglese valida; l'immagine è facoltativa e, quando disponibile, viene inclusa nel bundle con attribuzione e licenza separate. Tutte le varianti revisionate restano disponibili sia alla generazione sia alla sostituzione: il vecchio filtro “Catalogo essenziale” è stato rimosso e viene disattivato anche quando arriva da un backup precedente. Il motore adattivo sceglie globalmente le famiglie con maggiore necessità e impone un solo esercizio lower complessivo per seduta, accessori inclusi. Le sedute da 60 minuti in su possono includere spinta, tirata e un movimento lower; quelle più brevi scelgono due famiglie. Non esistono split selezionabili e non viene chiesto quanti giorni a settimana l’utente intenda allenarsi.
 2. **Prescription** — distribuisce la dose mobile a decadimento graduale sulle esposizioni ancora necessarie e applica una doppia progressione individuale a serie, ripetizioni, RIR, recupero e carico. In multifrequenza evita di ripetere entro sette giorni l'ultima variante dello stesso pattern quando ne esiste un'altra realmente compatibile; ogni variante resta misurabile per quattro utilizzi prima della rotazione. Gli accessori per bicipiti e tricipiti vengono confrontati globalmente sulla dose residua, penalizzando la catena già allenata dal multiarticolare invece di legare automaticamente curl alle tirate ed estensioni alle spinte. Un multiarticolare generato mantiene almeno due serie salvo override esplicito. La durata scelta è indicativa e ammette fino a cinque minuti di tolleranza per non tagliare lavoro utile. I workout attivi creati da un engine precedente vengono migrati conservando tempi, valori manuali e qualunque serie già completata. Lo stile scelto dall'utente definisce una sequenza RIR e un tetto di serie diversi per multiarticolari ad alta fatica, multiarticolari stabili e isolamenti; l'obiettivo forza mantiene prudenzialmente un RIR aggiuntivo sui multiarticolari ad alta fatica.
 
 Il volume usa serie equivalenti senza falsa precisione: una serie vale `1` per il muscolo direttamente allenato, `0,5` per un sinergista significativo e `0,25` per un contributo secondario minore revisionato. Stimolo produttivo, aderenza alla prescrizione e fatica sono tre segnali distinti: andare a cedimento non sottrae stimolo, ma aumenta la fatica. Per l’ipertrofia il target desiderato iniziale è 8 serie equivalenti e può adattarsi persistentemente nel range 6–10. Per ogni gruppo muscolare l’app calcola anche un target operativo raggiungibile dalla cadenza osservata, dalla composizione possibile, dalla durata, dallo stile, dal livello, dal rientro dopo una pausa e dagli override specifici dell’esercizio; il target desiderato resta separato e visibile. Un miglioramento conferma la dose corrente; l'aumento richiede invece almeno tre esposizioni primarie, aderenza alta, recupero adeguato, un plateau misurabile e almeno 21 giorni dall'ultima variazione. Non esiste una quota settimanale rigida: il ciclo di fatica si chiude al recupero completo, mentre dose, frequenza e rotazione mantengono una memoria a decadimento graduale di 21 giorni. In questo modo una pausa di 5–7 giorni non cancella il debito di stimolo e non riporta il ranking sempre allo stesso pareggio. La priorità combina deficit di dose, frequenza recente, tempo dall’ultimo stimolo e recupero. Dopo più di dieci giorni di pausa si attiva un rientro graduale con massimo due serie per esercizio.
@@ -126,7 +137,7 @@ Per un account Nextcloud normale si usa l’URL mostrato in **File → Impostazi
 - registrazione modificabile di serie, ripetizioni, peso e RIR;
 - stato per gruppo muscolare con recupero, stimolo nel ciclo mobile, recenza e priorità 0–100;
 - nomi inglesi canonici con traduzione italiana opzionale;
-- immagine locale visibile e guida inglese apribile per ogni esercizio approvato dal generatore;
+- guida inglese apribile per ogni esercizio approvato e immagine locale, con licenza distinta, quando disponibile;
 - timer di recupero;
 - area Progressi con riepilogo settimanale degli esercizi ricorrenti, schede Forza, Volume, Record e Attività, più storico del singolo esercizio;
 - menu Impostazioni completo e reset confermato di profilo, storico, workout e preferenze locali;

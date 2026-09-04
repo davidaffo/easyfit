@@ -60,7 +60,7 @@ const defaultProfile = {
   cloud: { webDavUrl: '', webDavUsername: '' },
   split: 'adaptive',
   exerciseLanguage: 'en',
-  exerciseFilters: { essentialCatalog: true, preferLoadedVariants: true, excludeDirectCore: false, excludeCalves: false },
+  exerciseFilters: { preferLoadedVariants: true, excludeDirectCore: false, excludeCalves: false },
   preferences: {},
 };
 
@@ -94,6 +94,8 @@ function normalizeProfile(profile = {}) {
     .map(([exerciseId, values]) => [exerciseId, [...new Set((Array.isArray(values) ? values : [])
       .map(Number).filter((value) => Number.isFinite(value) && value > 0))].sort((a, b) => a - b)])
     .filter(([, values]) => values.length));
+  const supportedExerciseFilters = Object.fromEntries(Object.entries(isObject(profile.exerciseFilters) ? profile.exerciseFilters : {})
+    .filter(([key]) => key !== 'essentialCatalog'));
   return {
     ...defaultProfile,
     ...cleanProfile,
@@ -103,9 +105,7 @@ function normalizeProfile(profile = {}) {
     recoveryFeedback: isObject(profile.recoveryFeedback) ? profile.recoveryFeedback : {},
     trainingAdaptation: isObject(profile.trainingAdaptation) ? profile.trainingAdaptation : {},
     preferences: isObject(profile.preferences) ? profile.preferences : {},
-    exerciseFilters: isObject(profile.exerciseFilters)
-      ? { ...defaultProfile.exerciseFilters, ...profile.exerciseFilters }
-      : defaultProfile.exerciseFilters,
+    exerciseFilters: { ...defaultProfile.exerciseFilters, ...supportedExerciseFilters },
     setCaps: shouldMigrateSetCaps ? defaultProfile.setCaps : { ...defaultProfile.setCaps, ...savedSetCaps },
     setCapsVersion: 2,
     exerciseOverrides: isObject(profile.exerciseOverrides) ? profile.exerciseOverrides : {},
@@ -1008,8 +1008,8 @@ function WorkoutView({ workout, setWorkout, profile, setProfile, history, showTo
 function ExercisePreview({ source, name, onOpen }) {
   const [failed, setFailed] = useState(false);
   useEffect(() => { setFailed(false); }, [source]);
-  if (!source || failed) return null;
-  return <button className="exercise-preview" onClick={onOpen} aria-label={`Apri guida ${name}`}><img src={source} alt={`Esecuzione di ${name}`} loading="lazy" onError={() => setFailed(true)}/><span><Icon name="guide" size={15}/> Apri guida</span></button>;
+  const showImage = source && !failed;
+  return <button className={`exercise-preview ${showImage ? '' : 'no-image'}`} onClick={onOpen} aria-label={`Apri guida ${name}`}>{showImage ? <img src={source} alt={`Esecuzione di ${name}`} loading="lazy" onError={() => setFailed(true)}/> : <span className="guide-only"><Icon name="guide" size={22}/><b>Guida esercizio</b></span>}<span><Icon name="guide" size={15}/> Apri guida</span></button>;
 }
 
 function SetNumberInput({ value, min, max, step, inputMode, label, onCommit }) {
@@ -1126,7 +1126,7 @@ function ExerciseGuideSheet({ exerciseId, language, onClose }) {
       <p>{muscles[exercise.primary]} · {equipment}</p>
       {details?.image && !imageFailed ? <div className="guide-image"><img src={details.image} alt={`Esecuzione di ${getExerciseName(exercise, language)}`} onError={() => setImageFailed(true)}/></div> : <div className="guide-image-placeholder"><Icon name="guide" size={31}/><span>Immagine non disponibile</span></div>}
       <section className="guide-copy"><span className="section-kicker">ESECUZIONE · {details?.descriptionSource === 'easyfit-curated' ? 'GUIDA CURATA EASYFIT' : 'FONTE INGLESE WGER'}</span>{details ? (details.description ? <p>{details.description}</p> : <p className="guide-missing">La spiegazione non è disponibile.</p>) : <p className="guide-missing">Caricamento della guida…</p>}</section>
-      <footer className="guide-source"><span>Esercizio: <a href="https://wger.de" target="_blank" rel="noreferrer">wger</a>{details?.descriptionSource === 'easyfit-curated' ? ' · istruzioni revisionate da Easyfit' : ''}</span>{exercise.license && <span>{exercise.license.name}{exercise.license.author ? ` · ${exercise.license.author}` : ''}</span>}</footer>
+      <footer className="guide-source"><span>Esercizio: <a href="https://wger.de" target="_blank" rel="noreferrer">wger</a>{details?.descriptionSource === 'easyfit-curated' ? ' · istruzioni revisionate da Easyfit' : ''}</span>{exercise.license && <span>Testo: {exercise.license.name}{exercise.license.author ? ` · ${exercise.license.author}` : ''}</span>}{details?.image && details.imageAttribution && <span>Immagine: {details.imageAttribution.sourceUrl ? <a href={details.imageAttribution.sourceUrl} target="_blank" rel="noreferrer">{details.imageAttribution.author || 'fonte'}</a> : details.imageAttribution.author}{details.imageAttribution.licenseName ? ' · ' : ''}{details.imageAttribution.licenseUrl ? <a href={details.imageAttribution.licenseUrl} target="_blank" rel="noreferrer">{details.imageAttribution.licenseName}</a> : details.imageAttribution.licenseName}</span>}</footer>
     </section>
   </div>;
 }
@@ -1190,12 +1190,8 @@ function ExercisePrescriptionSheet({ exerciseId, profile, language, onSave, onCl
 
 function SimilarExerciseSheet({ workout, exerciseId, profile, language, onChoose, onClose }) {
   const [query, setQuery] = useState('');
-  const [showVariants, setShowVariants] = useState(false);
   const current = exercises.find((candidate) => candidate.id === exerciseId);
-  const essentialAlternatives = useMemo(() => getSimilarExercises(workout, exerciseId, profile), [workout, exerciseId, profile]);
-  const allAlternatives = useMemo(() => getSimilarExercises(workout, exerciseId, profile, { includeVariants: true }), [workout, exerciseId, profile]);
-  const alternatives = showVariants || query.trim() ? allAlternatives : essentialAlternatives;
-  const hiddenVariantCount = Math.max(0, allAlternatives.length - essentialAlternatives.length);
+  const alternatives = useMemo(() => getSimilarExercises(workout, exerciseId, profile), [workout, exerciseId, profile]);
   const normalizedQuery = query.trim().toLocaleLowerCase();
   const filtered = alternatives.filter((exercise) => {
     if (!normalizedQuery) return true;
@@ -1220,7 +1216,6 @@ function SimilarExerciseSheet({ workout, exerciseId, profile, language, onChoose
       <h2>Scegli l’alternativa</h2>
       <p>Al posto di <strong>{getExerciseName(current, language)}</strong></p>
       <label className="similar-search"><span>CERCA</span><input type="search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Nome o attrezzatura"/></label>
-      {hiddenVariantCount > 0 && <button className={`variant-toggle ${showVariants ? 'active' : ''}`} onClick={() => setShowVariants((value) => !value)}><span><Icon name="more" size={17}/><span><strong>{showVariants ? 'Nascondi microvarianti' : 'Mostra tutte le varianti'}</strong><small>{hiddenVariantCount} alternative simili {showVariants ? 'visibili' : 'nascoste'}</small></span></span><Icon name="chevron" size={16}/></button>}
       {filtered.length ? <div className="similar-results">{renderGroup('Stesso movimento', exact)}{renderGroup('Stesso gruppo muscolare', related)}</div> : <div className="similar-empty"><Icon name="swap" size={27}/><strong>Nessuna alternativa trovata</strong><span>Prova un’altra ricerca o modifica l’attrezzatura.</span></div>}
     </section>
   </div>;
@@ -1414,7 +1409,6 @@ function ExerciseFilterSettings({ profile, update }) {
   const filters = { ...defaultProfile.exerciseFilters, ...(profile.exerciseFilters || {}) };
   const toggle = (key) => update({ exerciseFilters: { ...filters, [key]: !filters[key] } });
   const items = [
-    ['essentialCatalog', 'Catalogo essenziale', 'Propone una sola versione rappresentativa per ogni famiglia, pattern e attrezzatura.'],
     ['preferLoadedVariants', 'Evita corpo libero duplicato', 'Se esiste una variante caricabile compatibile con la tua attrezzatura, usa quella.'],
     ['excludeDirectCore', 'Escludi addominali diretti', 'Niente crunch, plank o altri esercizi con il core come target principale.'],
     ['excludeCalves', 'Escludi polpacci diretti', 'Rimuove calf raise e lavoro specifico per i polpacci.'],

@@ -1,3 +1,5 @@
+import { readFile } from 'node:fs/promises';
+
 // Registro revisionato manualmente. Le chiavi sono ID stabili Wger: nessuna
 // classificazione automatica dal nome puo rendere un esercizio prescrivibile.
 const C = {
@@ -109,8 +111,13 @@ export const curatedExercises = {
   94: item('ef', ['ezbar'], 14),
   95: item('ef', ['cables'], 14),
   50: item('ee', ['barbell'], 12),
+  76: item('ee', ['barbell', 'bench'], 13, { pattern: 'horizontal-push', compound: true, muscleContributions: { triceps: 1, chest: .5, shoulders: .25 }, effortClass: 'stable-compound' }),
   1336: item('ee', ['dumbbells'], 13, { loadType: 'external', loadMultiplier: 1, loadUnit: 'single-dumbbell' }),
+  245: item('ee', ['dumbbells', 'bench'], 14),
+  655: item('ee', ['dumbbells'], 12, { loadType: 'external', loadMultiplier: 1, loadUnit: 'single-dumbbell' }),
   659: item('ee', ['cables'], 15),
+  1298: item('ee', ['cables'], 12),
+  194: item('ee', ['bodyweight'], 13, { pattern: 'horizontal-push', compound: true, muscleContributions: { triceps: 1, chest: .5, shoulders: .25 }, effortClass: 'stable-compound', loadType: 'bodyweight' }),
   622: item('cr', ['bodyweight'], 14),
   1620: item('cr', ['dumbbells'], 13, { loadType: 'external', loadMultiplier: 1, loadUnit: 'single-dumbbell' }),
   146: item('cr', ['machines'], 13),
@@ -124,4 +131,53 @@ export const curatedExercises = {
 // one source of truth instead of relying on files that happen to exist.
 export const curatedGuideImageOverrides = {
   265: '/exercise-images/265.webp',
+  245: '/exercise-images/245.svg',
+  655: '/exercise-images/655.svg',
 };
+
+export const curatedGuideImageAttributionOverrides = {
+  265: { author: 'Easyfit', sourceUrl: '', licenseName: 'Easyfit original asset', licenseUrl: '' },
+  245: {
+    author: 'Everkinetic',
+    sourceUrl: 'https://commons.wikimedia.org/wiki/File:Lying_triceps_extension_with_dumbbells_1.svg',
+    licenseName: 'CC BY-SA 3.0',
+    licenseUrl: 'https://creativecommons.org/licenses/by-sa/3.0/',
+  },
+  655: {
+    author: 'Everkinetic',
+    sourceUrl: 'https://commons.wikimedia.org/wiki/File:Triceps_kickback_with_dumbbell_1.svg',
+    licenseName: 'CC BY-SA 3.0',
+    licenseUrl: 'https://creativecommons.org/licenses/by-sa/3.0/',
+  },
+};
+
+const editorOverridesUrl = new URL('./catalog-overrides.json', import.meta.url);
+
+/**
+ * Merge the reviewed base registry with developer-editor changes. The PWA never
+ * reads this file at runtime: the result is materialized into generated JSON by
+ * the curation scripts, keeping production small and completely offline.
+ */
+export async function loadCatalogRegistry() {
+  let document = { schemaVersion: 1, exercises: {} };
+  try {
+    document = JSON.parse(await readFile(editorOverridesUrl, 'utf8'));
+  } catch (error) {
+    if (error.code !== 'ENOENT') throw error;
+  }
+  const registry = { ...curatedExercises };
+  const guideDescriptions = {};
+  const guideImages = { ...curatedGuideImageOverrides };
+  const guideImageAttributions = { ...curatedGuideImageAttributionOverrides };
+  for (const [id, entry] of Object.entries(document.exercises || {})) {
+    if (entry.enabled === false) {
+      delete registry[id];
+      continue;
+    }
+    if (entry.programming) registry[id] = { ...(registry[id] || {}), ...entry.programming };
+    if (entry.guide?.descriptionEn?.trim()) guideDescriptions[id] = entry.guide.descriptionEn.trim();
+    if (entry.guide?.image?.trim()) guideImages[id] = entry.guide.image.trim();
+    if (entry.guide?.imageAttribution) guideImageAttributions[id] = entry.guide.imageAttribution;
+  }
+  return { curatedExercises: registry, guideDescriptions, guideImages, guideImageAttributions, overrides: document };
+}

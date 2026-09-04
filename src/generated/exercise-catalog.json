@@ -1,13 +1,13 @@
 {
   "source": "wger",
   "sourceUrl": "https://wger.de",
-  "syncedAt": "2026-08-20T12:59:00.083Z",
-  "curatedAt": "2026-08-20T20:21:05.522Z",
+  "syncedAt": "2026-09-04T18:15:53.577Z",
+  "curatedAt": "2026-09-04T18:18:04.217Z",
   "schemaVersion": 2,
   "curation": "explicit-wger-id-registry",
-  "sourceCount": 812,
-  "count": 55,
-  "eligible": 55,
+  "sourceCount": 822,
+  "count": 60,
+  "eligible": 60,
   "exercises": [
     {
       "id": "wger-1573",
@@ -186,6 +186,45 @@
       "loadMultiplier": 1,
       "effortClass": "high-fatigue-compound",
       "intensifierEligible": false
+    },
+    {
+      "id": "wger-76",
+      "wgerId": 76,
+      "name": "Bench Press Narrow Grip",
+      "translations": {
+        "en": "Bench Press Narrow Grip",
+        "it": "Panca piana con presa srtetta"
+      },
+      "primary": "triceps",
+      "secondary": [
+        "chest",
+        "shoulders"
+      ],
+      "equipment": [
+        "barbell",
+        "bench"
+      ],
+      "muscleContributions": {
+        "triceps": 1,
+        "chest": 0.5,
+        "shoulders": 0.25
+      },
+      "pattern": "horizontal-push",
+      "compound": true,
+      "selectionPriority": 13,
+      "loadType": "external",
+      "minutes": 9,
+      "variationGroup": "f45f135e-4cd3-4023-a82a-83fca2078656",
+      "license": {
+        "name": "CC-BY-SA 3",
+        "url": "https://creativecommons.org/licenses/by-sa/3.0/deed.en",
+        "author": "wger.de"
+      },
+      "source": "wger",
+      "generationEligible": true,
+      "loadMultiplier": 1,
+      "effortClass": "stable-compound",
+      "intensifierEligible": true
     },
     {
       "id": "wger-75",
@@ -854,6 +893,44 @@
       "intensifierEligible": false
     },
     {
+      "id": "wger-194",
+      "wgerId": 194,
+      "name": "Dips",
+      "translations": {
+        "en": "Dips",
+        "it": "Dips"
+      },
+      "primary": "triceps",
+      "secondary": [
+        "chest",
+        "shoulders"
+      ],
+      "equipment": [
+        "bodyweight"
+      ],
+      "muscleContributions": {
+        "triceps": 1,
+        "chest": 0.5,
+        "shoulders": 0.25
+      },
+      "pattern": "horizontal-push",
+      "compound": true,
+      "selectionPriority": 13,
+      "loadType": "bodyweight",
+      "minutes": 9,
+      "variationGroup": "f195b345-b4d2-42fb-8edb-3d39da7c9066",
+      "license": {
+        "name": "CC0",
+        "url": "http://creativecommons.org/publicdomain/zero/1.0/",
+        "author": "BFad07"
+      },
+      "source": "wger",
+      "generationEligible": true,
+      "loadMultiplier": 1,
+      "effortClass": "stable-compound",
+      "intensifierEligible": true
+    },
+    {
       "id": "wger-203",
       "wgerId": 203,
       "name": "Dumbbell Goblet Squat",
@@ -1134,6 +1211,38 @@
       "generationEligible": true,
       "loadMultiplier": 1,
       "effortClass": "stable-compound",
+      "intensifierEligible": true
+    },
+    {
+      "id": "wger-1298",
+      "wgerId": 1298,
+      "name": "High-Cable Cross Tricep Extention - NB",
+      "translations": {
+        "en": "High-Cable Cross Tricep Extention - NB"
+      },
+      "primary": "triceps",
+      "secondary": [],
+      "equipment": [
+        "cables"
+      ],
+      "muscleContributions": {
+        "triceps": 1
+      },
+      "pattern": "elbow-extension",
+      "compound": false,
+      "selectionPriority": 12,
+      "loadType": "external",
+      "minutes": 6,
+      "variationGroup": null,
+      "license": {
+        "name": "CC-BY-SA 4",
+        "url": "https://creativecommons.org/licenses/by-sa/4.0/deed.en",
+        "author": "JackSparrow"
+      },
+      "source": "wger",
+      "generationEligible": true,
+      "loadMultiplier": 1,
+      "effortClass": "isolation",
       "intensifierEligible": true
     },
     {
@@ -1776,6 +1885,39 @@
       "intensifierEligible": true
     },
     {
+      "id": "wger-245",
+      "wgerId": 245,
+      "name": "Skullcrusher Dumbbells",
+      "translations": {
+        "en": "Skullcrusher Dumbbells"
+      },
+      "primary": "triceps",
+      "secondary": [],
+      "equipment": [
+        "dumbbells",
+        "bench"
+      ],
+      "muscleContributions": {
+        "triceps": 1
+      },
+      "pattern": "elbow-extension",
+      "compound": false,
+      "selectionPriority": 14,
+      "loadType": "per-dumbbell",
+      "minutes": 6,
+      "variationGroup": "46d83fa5-cddc-4cb5-9b16-dcd4c62ae861",
+      "license": {
+        "name": "CC-BY-SA 3",
+        "url": "https://creativecommons.org/licenses/by-sa/3.0/deed.en",
+        "author": "wger.de"
+      },
+      "source": "wger",
+      "generationEligible": true,
+      "loadMultiplier": 2,
+      "effortClass": "isolation",
+      "intensifierEligible": true
+    },
+    {
       "id": "wger-622",
       "wgerId": 622,
       "name": "Standing Calf Raises",
@@ -1839,6 +1981,39 @@
       "loadMultiplier": 1,
       "effortClass": "isolation",
       "intensifierEligible": true
+    },
+    {
+      "id": "wger-655",
+      "wgerId": 655,
+      "name": "Tricep Dumbbell Kickback",
+      "translations": {
+        "en": "Tricep Dumbbell Kickback"
+      },
+      "primary": "triceps",
+      "secondary": [],
+      "equipment": [
+        "dumbbells"
+      ],
+      "muscleContributions": {
+        "triceps": 1
+      },
+      "pattern": "elbow-extension",
+      "compound": false,
+      "selectionPriority": 12,
+      "loadType": "external",
+      "minutes": 6,
+      "variationGroup": null,
+      "license": {
+        "name": "CC-BY-SA 3",
+        "url": "https://creativecommons.org/licenses/by-sa/3.0/deed.en",
+        "author": "http://www.bodybuilding.com/"
+      },
+      "source": "wger",
+      "generationEligible": true,
+      "loadMultiplier": 1,
+      "effortClass": "isolation",
+      "intensifierEligible": true,
+      "loadUnit": "single-dumbbell"
     },
     {
       "id": "wger-659",
