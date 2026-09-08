@@ -67,6 +67,7 @@ assert(catalogExercises.every((exercise) => exercise.generationEligible && exerc
 assert(catalogExercises.every((exercise) => ['high-fatigue-compound', 'stable-compound', 'isolation'].includes(exercise.effortClass)), 'Every bundled exercise must declare its reviewed effort class');
 assert(catalogExercises.every((exercise) => typeof exercise.intensifierEligible === 'boolean'), 'Every bundled exercise must declare intensifier eligibility explicitly');
 assert(catalogExercises.filter((exercise) => exercise.effortClass === 'high-fatigue-compound').every((exercise) => !exercise.intensifierEligible), 'High-fatigue compounds must never be marked eligible for intensifiers');
+assert(catalogExercises.filter((exercise) => !['core', 'calves'].includes(exercise.primary)).every((exercise) => getMovementFamily(exercise)), 'Every non-core and non-calf exercise pattern must map explicitly to an adaptive movement family');
 const benchGuide = await getExerciseDetails(bench.wgerId, 'en');
 assert(benchGuide.description.length > 100, 'The lazy wger guide must expose the English instructions');
 assert(benchGuide.image?.startsWith('/exercise-images/'), 'The bundled wger guide must use a local exercise image');
@@ -88,12 +89,13 @@ const catalogEditorHtml = await readFile(new URL('../tools/catalog-editor/index.
 const catalogEditorSource = await readFile(new URL('../tools/catalog-editor/app.js', import.meta.url), 'utf8');
 assert(serviceWorkerSource.includes('cache.addAll(images)'), 'The service worker install must fail atomically if any bundled guide image cannot be cached');
 assert(!serviceWorkerSource.includes('Promise.allSettled(images'), 'Offline installation must not silently ignore missing guide images');
-assert(serviceWorkerSource.includes("const CACHE = 'easyfit-v30'"), 'An app-shell or catalog change must bump the offline cache version');
+assert(serviceWorkerSource.includes("const CACHE = 'easyfit-v31'"), 'An app-shell or catalog change must bump the offline cache version');
 assert(serviceWorkerSource.includes("cache.delete(request)"), 'The current PWA cache must remove assets no longer present in the build or guide index');
 assert(serviceWorkerSource.includes("requestUrl.origin !== self.location.origin"), 'The service worker must never intercept cross-origin WebDAV traffic');
 assert(serviceWorkerSource.includes("headers.has('Authorization')"), 'Authenticated responses must never enter the PWA cache');
 assert(serviceWorkerSource.includes("addEventListener('notificationclick'"), 'Recovery notifications must reopen the installed PWA when tapped');
-assert(appSource.includes('createOscillator()') && appSource.includes('showNotification(title, options)'), 'The recovery timer must provide both an audible double beep and Web Notifications');
+assert(appSource.includes('createOscillator()') && appSource.includes('showNotification(title, options)'), 'The recovery timer must provide both an audible double beep and a completion notification');
+assert(!appSource.includes('Termina alle') && !appSource.includes('Recupero in corso'), 'The PWA must not fake a persistent notification countdown using an absolute end time');
 assert(!appSource.includes('Catalogo essenziale') && !appSource.includes('Mostra tutte le varianti'), 'The removed essential-catalog mode must not remain exposed in settings or replacement UI');
 for (const filter of ['language', 'equipment', 'muscle', 'category', 'kind', 'pattern', 'image', 'guide']) {
   assert(catalogEditorHtml.includes(`filter-${filter}`) && catalogEditorSource.includes(`state.filters.${filter}`), `The developer catalog must expose and apply its ${filter} filter`);
@@ -295,7 +297,7 @@ assert.deepEqual(getExercisePrescription({ ...profile, trainingStyle: 'intense' 
 assert.equal(getExercisePrescription({ ...profile, trainingStyle: 'intense' }, bench).rest, 150, 'High-fatigue compounds must receive a practical rest interval in the intense style');
 assert.deepEqual(getExercisePrescription({ ...profile, trainingStyle: 'intense' }, stableCompound).targetRirs, [1, 0], 'Stable compounds must retain the two-set intense prescription');
 assert.equal(getExercisePrescription({ ...profile, trainingStyle: 'intense' }, stableCompound).rest, 120, 'Stable compounds may use less recovery than high-fatigue compounds');
-assert.deepEqual(getExercisePrescription({ ...profile, trainingStyle: 'intense' }, isolation).targetRirs, [1, 1, 0], 'The intense style must reserve failure for the final accessory set');
+assert.deepEqual(getExercisePrescription({ ...profile, trainingStyle: 'intense' }, isolation).targetRirs, [2, 1, 0], 'Intense accessories must approach failure progressively across their three sets');
 assert.equal(getExercisePrescription({ ...profile, trainingStyle: 'intense' }, isolation).rest, 75, 'Hard isolation work must use a compact but usable recovery interval');
 assert.deepEqual(getExercisePrescription({ ...profile, trainingStyle: 'balanced' }, bench).targetRirs, [2, 2, 1], 'The balanced style must distribute effort across three compound sets');
 assert.deepEqual(getExercisePrescription({ ...profile, trainingStyle: 'volume' }, isolation).targetRirs, [2, 2, 1, 1], 'The volume style must keep four controlled isolation sets available');
@@ -638,10 +640,7 @@ const adaptiveWorkout = generateWorkout({
   focusEnabled: false,
   duration: 25,
 }, [], { variation: 41 });
-const adaptiveFamilies = new Set(adaptiveWorkout.exercises.map((item) => {
-  const exercise = exercises.find((candidate) => candidate.id === item.exerciseId);
-  return getMovementFamily(exercise);
-}));
+const adaptiveFamilies = new Set(adaptiveWorkout.engine.movementFamilies);
 assert.deepEqual(
   [...adaptiveFamilies].filter(Boolean).sort(),
   ['knee', 'pull'],
@@ -773,7 +772,7 @@ const migratedRotationWorkout = migrateWorkoutToCurrentEngine(oldRotationWorkout
 assert.equal(migratedRotationWorkout.engine.version, ENGINE_VERSION, 'An active workout from an older engine must migrate to the current programming model');
 assert.equal(migratedRotationWorkout.startedAt, oldRotationWorkout.startedAt, 'Active-workout migration must preserve elapsed-session timing');
 assert(!migratedRotationWorkout.exercises.some((item) => item.exerciseId === oldRotationExercise.id), 'An untouched old fixed exercise must adopt the current multifrequency rotation');
-assert(migratedRotationWorkout.exercises.some((item) => exercises.find((exercise) => exercise.id === item.exerciseId)?.pattern === oldRotationExercise.pattern), 'Migration must replace an old fixed exercise with the same current movement pattern');
+assert(migratedRotationWorkout.exercises.some((item) => exercises.find((exercise) => exercise.id === item.exerciseId)?.primary === oldRotationExercise.primary), 'Migration must preserve the old workout target while allowing a complementary movement pattern');
 
 const partiallyCompletedOldWorkout = structuredClone(oldRotationWorkout);
 partiallyCompletedOldWorkout.exercises[0].sets[0] = {
@@ -884,13 +883,13 @@ const manualCurlHistory = [{
   completedAt: Date.now() - 36e5,
   exercises: [{ exerciseId: dumbbellCurl.id, sets: Array.from({ length: 3 }, (_, index) => ({
     done: true, weight: 17, targetWeight: 15, targetReps: 8, reps: 10,
-    targetRir: [1, 1, 0][index], rir: [1, 1, 0][index],
+    targetRir: [2, 1, 0][index], rir: [2, 1, 0][index],
   })) }],
 }];
 const manualCurlProgress = generateWorkout(manualCurlProfile, manualCurlHistory, { targets: ['biceps'], duration: 30 }).exercises[0];
 assert.equal(manualCurlProgress.sets[0].weight, 17, 'A manually performed and inventoried dumbbell load must override the older target weight');
 assert.equal(manualCurlProgress.sets[0].reps, 10, 'Manual reps at the overridden load must calibrate the next prescription from actual performance');
-assert.deepEqual(manualCurlProgress.targetRirs, [1, 1, 0], 'Intense accessories must use failure only on their final set');
+assert.deepEqual(manualCurlProgress.targetRirs, [2, 1, 0], 'Intense accessories must approach failure progressively and reserve failure for their final set');
 const failureStyleHistory = [{
   id: 'failure-style-history',
   completedAt: Date.now() - 36e5,
@@ -1011,6 +1010,27 @@ assert.equal(failureWorkout.targetRir, 0, 'RIR 0 must remain available even when
 assert(failureWorkout.sets.every((set) => set.targetRir === 0), 'Every prescribed set must expose the selected RIR target');
 
 const continuityNow = Date.now();
+const pullup = exercises.find((exercise) => exercise.wgerId === 475);
+const chinup = exercises.find((exercise) => exercise.wgerId === 152);
+const dumbbellRow = exercises.find((exercise) => exercise.wgerId === 81);
+assert.equal(pullup.pattern, 'vertical-pull', 'Pull-ups must be explicitly classified as a vertical pull');
+assert.equal(chinup.pattern, 'vertical-pull', 'Chin-ups must be explicitly classified as a vertical pull rather than a complementary movement');
+assert.equal(dumbbellRow.pattern, 'horizontal-pull', 'Dumbbell rows must be explicitly classified as a horizontal pull');
+const complementaryPullPreferences = Object.fromEntries(exercises.map((exercise) => [
+  exercise.id,
+  [pullup.id, chinup.id, dumbbellRow.id].includes(exercise.id) ? 'normal' : 'exclude',
+]));
+const recentVerticalPullHistory = [{
+  id: 'recent-vertical-pull', completedAt: continuityNow - 2 * 864e5,
+  exercises: [{ exerciseId: pullup.id, sets: Array.from({ length: 2 }, () => ({ targetReps: 8, reps: 8, targetRir: 1, rir: 1, done: true })) }],
+}];
+const complementaryPullWorkout = generateWorkout({
+  ...focusProfile,
+  equipment: ['bodyweight', 'pullup', 'dumbbells'],
+  loadInventory: { dumbbells: [20] },
+  preferences: complementaryPullPreferences,
+}, recentVerticalPullHistory, { targets: ['back'], duration: 30, now: continuityNow });
+assert.equal(exercises.find((exercise) => exercise.id === complementaryPullWorkout.exercises[0].exerciseId).pattern, 'horizontal-pull', 'A second weekly back exposure must prefer a row after a vertical pull instead of merely swapping pull-up grip');
 const continuitySeed = generateWorkout(focusProfile, [], { targets: ['chest'], duration: 30, now: continuityNow - 4 * 864e5 });
 const continuityExerciseId = continuitySeed.exercises[0].exerciseId;
 const continuityHistory = Array.from({ length: 3 }, (_, index) => ({
@@ -1023,7 +1043,7 @@ const continuityPattern = exercises.find((exercise) => exercise.id === continuit
 assert.equal(continuity[continuityPattern].exercises[continuityExerciseId].exposures, 3, 'Continuity must count each exercise exposure inside its movement-pattern pool');
 const continuityWorkout = generateWorkout(focusProfile, continuityHistory, { targets: ['chest'], duration: 30, now: continuityNow });
 assert(!continuityWorkout.exercises.some((item) => item.exerciseId === continuityExerciseId), 'Multifrequency must not repeat the exercise used most recently when a compatible pattern alternative exists');
-assert(continuityWorkout.exercises.some((item) => exercises.find((exercise) => exercise.id === item.exerciseId)?.pattern === continuityPattern), 'Multifrequency variation must preserve the requested movement pattern');
+assert(continuityWorkout.exercises.some((item) => getMovementFamily(exercises.find((exercise) => exercise.id === item.exerciseId)) === getMovementFamily(exercises.find((exercise) => exercise.id === continuityExerciseId))), 'Multifrequency variation must preserve the movement family while preferring a complementary pattern');
 const onlyContinuityExercise = Object.fromEntries(exercises.map((exercise) => [exercise.id, exercise.id === continuityExerciseId ? 'normal' : 'exclude']));
 const noAlternativeWorkout = generateWorkout({ ...focusProfile, preferences: onlyContinuityExercise }, continuityHistory, { targets: ['chest'], duration: 30, now: continuityNow });
 assert(noAlternativeWorkout.exercises.some((item) => item.exerciseId === continuityExerciseId), 'The same exercise may repeat when no compatible alternative is actually available');

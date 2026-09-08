@@ -143,17 +143,25 @@ function workoutSessionSeconds(workout) {
   return Number.isFinite(elapsed) && elapsed > 0 ? Math.floor(elapsed / 1000) : Math.max(60, Number(workout?.duration || 0) * 60);
 }
 
-function showRestNotification(restEndsAt, completed = false) {
+function showRestFinishedNotification() {
   if (typeof window === 'undefined' || !('Notification' in window) || Notification.permission !== 'granted') return;
-  const options = completed
-    ? { body: 'Puoi iniziare la prossima serie.', tag: 'easyfit-rest', renotify: true, icon: `${import.meta.env.BASE_URL}icon-192.png` }
-    : { body: `Termina alle ${new Intl.DateTimeFormat('it-IT', { hour: '2-digit', minute: '2-digit', second: '2-digit' }).format(restEndsAt)}.`, tag: 'easyfit-rest', silent: true, icon: `${import.meta.env.BASE_URL}icon-192.png` };
-  const title = completed ? 'Beep beep · recupero terminato' : 'Recupero in corso';
+  const options = { body: 'Timer 0:00 · puoi iniziare la prossima serie.', tag: 'easyfit-rest-finished', renotify: false, silent: true, icon: `${import.meta.env.BASE_URL}icon-192.png` };
+  const title = 'Recupero terminato';
   if ('serviceWorker' in navigator) {
     navigator.serviceWorker.ready.then((registration) => registration.showNotification(title, options)).catch(() => {});
   } else {
     try { new Notification(title, options); } catch { /* Unsupported notification surface. */ }
   }
+}
+
+function closeRestNotifications() {
+  if (typeof navigator === 'undefined' || !('serviceWorker' in navigator)) return;
+  navigator.serviceWorker.ready
+    .then((registration) => registration.getNotifications())
+    .then((notifications) => notifications
+      .filter((notification) => notification.tag?.startsWith('easyfit-rest'))
+      .forEach((notification) => notification.close()))
+    .catch(() => {});
 }
 
 function persist(key, value) {
@@ -708,6 +716,7 @@ function WorkoutView({ workout, setWorkout, profile, setProfile, history, showTo
   const elapsedSeconds = Math.max(0, Math.floor((sessionNow - startedAt - Number(workout.pausedDurationMs || 0)) / 1000));
 
   useEffect(() => {
+    closeRestNotifications();
     const timer = setInterval(() => setSessionNow(Date.now()), 1000);
     return () => {
       clearInterval(timer);
@@ -739,6 +748,7 @@ function WorkoutView({ workout, setWorkout, profile, setProfile, history, showTo
   };
 
   const clearRest = () => {
+    closeRestNotifications();
     setRest(0);
     setWorkout((current) => {
       const { restEndsAt, restDuration, ...next } = current;
@@ -746,6 +756,7 @@ function WorkoutView({ workout, setWorkout, profile, setProfile, history, showTo
     });
   };
   const beginRest = (seconds) => {
+    closeRestNotifications();
     const restEndsAt = Date.now() + seconds * 1000;
     const AudioContextClass = window.AudioContext || window.webkitAudioContext;
     if (AudioContextClass && !audioContextRef.current) {
@@ -753,11 +764,7 @@ function WorkoutView({ workout, setWorkout, profile, setProfile, history, showTo
     }
     audioContextRef.current?.resume?.().catch?.(() => {});
     if ('Notification' in window && Notification.permission === 'default') {
-      Notification.requestPermission().then((permission) => {
-        if (permission === 'granted') showRestNotification(restEndsAt);
-      }).catch(() => {});
-    } else {
-      showRestNotification(restEndsAt);
+      Notification.requestPermission().catch(() => {});
     }
     setRest(seconds);
     setWorkout((current) => ({ ...current, restEndsAt, restDuration: seconds }));
@@ -772,7 +779,7 @@ function WorkoutView({ workout, setWorkout, profile, setProfile, history, showTo
         if (notifiedRestRef.current !== restEndsAt) {
           notifiedRestRef.current = restEndsAt;
           playRestFinishedSound();
-          showRestNotification(restEndsAt, true);
+          showRestFinishedNotification();
         }
         setWorkout((current) => {
           const { restEndsAt: expired, restDuration: expiredDuration, ...next } = current;

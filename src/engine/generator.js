@@ -12,7 +12,7 @@ const CONTINUITY_BREAK_DAYS = 28;
 const RECENT_VARIATION_DAYS = 7;
 const EXERCISE_ROTATION_EXPOSURES = 4;
 export const SESSION_TIME_TOLERANCE_MINUTES = 5;
-export const ENGINE_VERSION = 29;
+export const ENGINE_VERSION = 30;
 
 const muscleBaseImportance = {
   chest: 100,
@@ -65,7 +65,7 @@ export const trainingStyles = {
     classes: {
       'high-fatigue-compound': { targetRirs: [1, 0], rest: 150 },
       'stable-compound': { targetRirs: [1, 0], rest: 120 },
-      isolation: { targetRirs: [1, 1, 0], rest: 75 },
+      isolation: { targetRirs: [2, 1, 0], rest: 75 },
     },
   },
   balanced: {
@@ -145,8 +145,8 @@ export function getExerciseMuscleContributions(exercise) {
 }
 
 export const movementFamilies = [
-  { id: 'push', patterns: ['horizontal-push', 'vertical-push'], muscles: ['chest', 'shoulders', 'triceps'] },
-  { id: 'pull', patterns: ['horizontal-pull', 'vertical-pull'], muscles: ['back', 'biceps'] },
+  { id: 'push', patterns: ['horizontal-push', 'vertical-push', 'chest-isolation', 'shoulder-isolation', 'elbow-extension'], muscles: ['chest', 'shoulders', 'triceps'] },
+  { id: 'pull', patterns: ['horizontal-pull', 'vertical-pull', 'straight-arm-pull', 'rear-delt', 'elbow-flexion'], muscles: ['back', 'biceps'] },
   { id: 'knee', patterns: ['squat', 'single-leg', 'knee-extension'], muscles: ['quads'] },
   { id: 'hip', patterns: ['hinge', 'hip-extension', 'knee-flexion'], muscles: ['hamstrings', 'glutes'] },
 ];
@@ -1576,14 +1576,28 @@ export function generateWorkout(profile, history = [], options = {}) {
       if (!repeatedRecently) return true;
       return !eligible.some((alternative) => alternative.pattern === exercise.pattern && alternative.id !== exercise.id);
     });
-    const rotationEligible = varied.filter((exercise) => {
+    // Prefer another plane of motion within the same family before swapping
+    // grips or machines inside the recently trained pattern. Matching the
+    // compound/accessory class prevents an isolation candidate from emptying
+    // the main-movement pool. If no complement is compatible, normal
+    // same-pattern rotation remains available.
+    const complementary = patterns?.length > 1 ? varied.filter((exercise) => {
+      const patternWasRecent = now - Number(continuity[exercise.pattern]?.lastPerformedAt || 0) <= RECENT_VARIATION_DAYS * DAY;
+      if (!patternWasRecent) return true;
+      return !varied.some((alternative) => alternative.compound === exercise.compound
+        && alternative.primary === exercise.primary
+        && alternative.pattern !== exercise.pattern
+        && now - Number(continuity[alternative.pattern]?.lastPerformedAt || 0) > RECENT_VARIATION_DAYS * DAY);
+    }) : varied;
+    const complementaryPool = complementary.length ? complementary : varied;
+    const rotationEligible = complementaryPool.filter((exercise) => {
       const exposures = continuity[exercise.pattern]?.exercises?.[exercise.id]?.exposures || 0;
       if (exposures < EXERCISE_ROTATION_EXPOSURES) return true;
-      return !varied.some((alternative) => alternative.pattern === exercise.pattern
+      return !complementaryPool.some((alternative) => alternative.pattern === exercise.pattern
         && alternative.id !== exercise.id
         && (continuity[alternative.pattern]?.exercises?.[alternative.id]?.exposures || 0) < EXERCISE_ROTATION_EXPOSURES);
     });
-    const pool = rotationEligible.length ? rotationEligible : varied.length ? varied : eligible;
+    const pool = rotationEligible.length ? rotationEligible : complementaryPool.length ? complementaryPool : eligible;
     return pool.map((exercise) => ({ exercise, score: scoreExercise(exercise, scoringTargets, profile, recovery, doseLoad, muscleStatus, continuity, chosen, random) }))
     .filter((item) => item.score > -100)
     .sort((a, b) => b.score - a.score);
@@ -1688,7 +1702,7 @@ export function generateWorkout(profile, history = [], options = {}) {
       maintenanceMode,
       estimatedMinutes: Math.round(usedMinutes),
       timeToleranceMinutes: SESSION_TIME_TOLERANCE_MINUTES,
-      evidenceProfile: 'V28-GLOBAL-ACCESSORY-BALANCE',
+      evidenceProfile: 'V30-COMPLEMENTARY-MOVEMENT-PATTERNS',
     },
   };
 }
