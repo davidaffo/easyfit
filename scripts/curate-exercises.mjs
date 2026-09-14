@@ -107,6 +107,7 @@ if (incompleteGuides.length) throw new Error(`Curated Wger IDs without a useful 
 const eligibleCatalog = catalog.filter((item) => item.generationEligible);
 const invalidProgrammingMetadata = eligibleCatalog.filter((item) => (
   !['high-fatigue-compound', 'stable-compound', 'isolation'].includes(item.effortClass)
+  || !['primary', 'accessory'].includes(item.sessionRole)
   || typeof item.intensifierEligible !== 'boolean'
   || (item.effortClass === 'high-fatigue-compound' && item.intensifierEligible)
 ));

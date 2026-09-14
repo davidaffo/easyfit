@@ -42,6 +42,7 @@ function item(shape, equipment, priority = 10, extra = {}) {
     loadType,
     loadMultiplier,
     effortClass,
+    sessionRole: extra.sessionRole || (compound ? 'primary' : 'accessory'),
     intensifierEligible: effortClass !== 'high-fatigue-compound',
     selectionPriority: priority,
     ...extra,
@@ -58,9 +59,9 @@ export const curatedExercises = {
   1112: item('hp', ['bodyweight', 'bench'], 10),
 
   // Isolamento petto: una variante canonica per attrezzatura, senza microvarianti.
-  238: item('cf', ['dumbbells', 'bench'], 14),
-  237: item('cf', ['cables'], 14),
-  135: item('cf', ['machines'], 13),
+  238: item('cf', ['dumbbells', 'bench'], 14, { sessionRole: 'primary' }),
+  237: item('cf', ['cables'], 14, { sessionRole: 'primary' }),
+  135: item('cf', ['machines'], 13, { sessionRole: 'primary' }),
 
   // Spinta verticale
   567: item('vp', ['dumbbells'], 15),

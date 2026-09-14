@@ -135,6 +135,11 @@ describe('critical workout lifecycle', () => {
       expect(history[0].sessionDurationSeconds).toBeGreaterThanOrEqual(0);
       expect(localStorage.getItem('easyfit-workout')).toBeNull();
     });
+    const summary = screen.getByRole('dialog', { name: 'Riepilogo workout completato' });
+    expect(within(summary).getByText('Ottimo lavoro.')).toBeTruthy();
+    expect(within(summary).getByText('RIR centrato ±1')).toBeTruthy();
+    await user.click(within(summary).getByRole('button', { name: 'Continua' }));
+    expect(screen.queryByRole('dialog', { name: 'Riepilogo workout completato' })).toBeNull();
   });
 
   test('a storage failure keeps the completed workout active and does not create a partial archive', async () => {
@@ -191,7 +196,7 @@ test('disabled core and calves never appear in today priorities or recovery deta
     exerciseFilters: { ...profile.exerciseFilters, excludeDirectCore: true, excludeCalves: true },
   } });
   render(<App/>);
-  expect(screen.getByText('PRIORITÀ DI OGGI')).toBeTruthy();
+  expect(screen.getByText('PROSSIMO WORKOUT')).toBeTruthy();
   expect(screen.queryByText('PIÙ RECUPERATI')).toBeNull();
   expect(screen.queryByText('Core')).toBeNull();
   expect(screen.queryByText('Polpacci')).toBeNull();

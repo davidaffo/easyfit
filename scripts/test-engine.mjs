@@ -19,6 +19,7 @@ import {
   estimateOneRepMax,
   generateWorkout,
   generateWorkoutAlternatives,
+  getAdaptiveTrainingOverview,
   getAvailableLoads,
   getEquipmentCoverage,
   getExerciseAnalytics,
@@ -47,6 +48,7 @@ import {
   isPreparedWorkoutStale,
   isEssentialExercise,
   isLowerBodyExercise,
+  isPrimaryMovement,
   isReturningAfterBreak,
   isWorkoutActive,
   migrateWorkoutToCurrentEngine,
@@ -66,6 +68,7 @@ assert.equal(catalogExercises.length, exercises.length, 'The runtime bundle must
 assert(catalogExercises.every((exercise) => exercise.generationEligible && exercise.pattern), 'Every bundled exercise must have explicit programming metadata');
 assert(catalogExercises.every((exercise) => ['high-fatigue-compound', 'stable-compound', 'isolation'].includes(exercise.effortClass)), 'Every bundled exercise must declare its reviewed effort class');
 assert(catalogExercises.every((exercise) => typeof exercise.intensifierEligible === 'boolean'), 'Every bundled exercise must declare intensifier eligibility explicitly');
+assert(catalogExercises.every((exercise) => ['primary', 'accessory'].includes(exercise.sessionRole)), 'Every bundled exercise must declare its session role explicitly');
 assert(catalogExercises.filter((exercise) => exercise.effortClass === 'high-fatigue-compound').every((exercise) => !exercise.intensifierEligible), 'High-fatigue compounds must never be marked eligible for intensifiers');
 assert(catalogExercises.filter((exercise) => !['core', 'calves'].includes(exercise.primary)).every((exercise) => getMovementFamily(exercise)), 'Every non-core and non-calf exercise pattern must map explicitly to an adaptive movement family');
 const benchGuide = await getExerciseDetails(bench.wgerId, 'en');
@@ -89,18 +92,21 @@ const catalogEditorHtml = await readFile(new URL('../tools/catalog-editor/index.
 const catalogEditorSource = await readFile(new URL('../tools/catalog-editor/app.js', import.meta.url), 'utf8');
 assert(serviceWorkerSource.includes('cache.addAll(images)'), 'The service worker install must fail atomically if any bundled guide image cannot be cached');
 assert(!serviceWorkerSource.includes('Promise.allSettled(images'), 'Offline installation must not silently ignore missing guide images');
-assert(serviceWorkerSource.includes("const CACHE = 'easyfit-v31'"), 'An app-shell or catalog change must bump the offline cache version');
+assert(serviceWorkerSource.includes("const CACHE = 'easyfit-v32'"), 'An app-shell or catalog change must bump the offline cache version');
 assert(serviceWorkerSource.includes("cache.delete(request)"), 'The current PWA cache must remove assets no longer present in the build or guide index');
 assert(serviceWorkerSource.includes("requestUrl.origin !== self.location.origin"), 'The service worker must never intercept cross-origin WebDAV traffic');
 assert(serviceWorkerSource.includes("headers.has('Authorization')"), 'Authenticated responses must never enter the PWA cache');
 assert(serviceWorkerSource.includes("addEventListener('notificationclick'"), 'Recovery notifications must reopen the installed PWA when tapped');
 assert(appSource.includes('createOscillator()') && appSource.includes('showNotification(title, options)'), 'The recovery timer must provide both an audible double beep and a completion notification');
+assert(appSource.includes("exponentialRampToValueAtTime(.68") && appSource.includes('navigator.vibrate?.'), 'The recovery alert must be clearly audible and add haptic feedback where supported');
+assert(appSource.includes('function WorkoutComplete') && appSource.includes('RIR centrato ±1'), 'Completing a workout must open a useful statistics summary');
 assert(!appSource.includes('Termina alle') && !appSource.includes('Recupero in corso'), 'The PWA must not fake a persistent notification countdown using an absolute end time');
 assert(!appSource.includes('Catalogo essenziale') && !appSource.includes('Mostra tutte le varianti'), 'The removed essential-catalog mode must not remain exposed in settings or replacement UI');
 for (const filter of ['language', 'equipment', 'muscle', 'category', 'kind', 'pattern', 'image', 'guide']) {
   assert(catalogEditorHtml.includes(`filter-${filter}`) && catalogEditorSource.includes(`state.filters.${filter}`), `The developer catalog must expose and apply its ${filter} filter`);
 }
 assert(catalogEditorSource.includes("Object.values(item.translations || {})"), 'Catalog search must include translated exercise names');
+assert(catalogEditorSource.includes('name="sessionRole"') && catalogEditorSource.includes("form.get('sessionRole')"), 'The developer catalog must edit the primary/accessory session role explicitly');
 assert(!exercises.some((exercise) => exercise.wgerId === 458), 'Rep-based prescriptions must not include a time-based plank');
 assert.equal(exercises.filter((exercise) => [659, 805, 1185].includes(exercise.wgerId)).length, 1, 'Near-identical cable triceps duplicates must collapse to one canonical exercise');
 assert(!appSource.includes('Push / Pull / Legs') && !appSource.includes('Upper / Lower'), 'The app must expose only adaptive scheduling, without selectable split modes');
@@ -648,8 +654,10 @@ assert.deepEqual(
 );
 assert(adaptiveWorkout.exercises.every((item) => item.sets.length === 2), 'Short sessions must spread volume instead of overloading one exercise');
 assert(adaptiveWorkout.exercises.length <= 3, 'A 25–30 minute workout must contain at most three exercises');
-assert.deepEqual(adaptiveWorkout.engine.composition, { compounds: 2, accessories: 1, lowerBody: 1, ...getWorkoutCompositionLimits(25) }, 'A short workout must balance two compounds with one accessory and only one leg exercise');
+assert.deepEqual(adaptiveWorkout.engine.composition, { compounds: 2, primaryMovements: 2, accessories: 1, lowerBody: 1, ...getWorkoutCompositionLimits(25) }, 'A short workout must balance two primary movements with one accessory and only one leg exercise');
 assert.equal(adaptiveWorkout.engine.version, ENGINE_VERSION, 'The workout must preserve the programming model version');
+const adaptiveOverview = getAdaptiveTrainingOverview({ ...focusProfile, duration: 25 }, [], 25, adaptiveWorkout.createdAt);
+assert.deepEqual(adaptiveOverview.families.map((family) => family.id), adaptiveWorkout.engine.movementFamilies, 'The status UI and workout generator must expose the exact same adaptive family decision');
 assert.deepEqual(adaptiveWorkout.engine.movementFamilies, ['knee', 'pull'], 'The workout must expose the selected adaptive families');
 const armAccessoryPreferences = Object.fromEntries(exercises
   .filter((exercise) => !exercise.compound && !['biceps', 'triceps'].includes(exercise.primary))
@@ -772,7 +780,7 @@ const migratedRotationWorkout = migrateWorkoutToCurrentEngine(oldRotationWorkout
 assert.equal(migratedRotationWorkout.engine.version, ENGINE_VERSION, 'An active workout from an older engine must migrate to the current programming model');
 assert.equal(migratedRotationWorkout.startedAt, oldRotationWorkout.startedAt, 'Active-workout migration must preserve elapsed-session timing');
 assert(!migratedRotationWorkout.exercises.some((item) => item.exerciseId === oldRotationExercise.id), 'An untouched old fixed exercise must adopt the current multifrequency rotation');
-assert(migratedRotationWorkout.exercises.some((item) => exercises.find((exercise) => exercise.id === item.exerciseId)?.primary === oldRotationExercise.primary), 'Migration must preserve the old workout target while allowing a complementary movement pattern');
+assert(migratedRotationWorkout.exercises.some((item) => oldRotationWorkout.targetMuscles.includes(exercises.find((exercise) => exercise.id === item.exerciseId)?.primary)), 'Migration must preserve at least one old workout target while allowing a complementary movement pattern');
 
 const partiallyCompletedOldWorkout = structuredClone(oldRotationWorkout);
 partiallyCompletedOldWorkout.exercises[0].sets[0] = {
@@ -1089,15 +1097,27 @@ assert(removableId, 'The generated workout must contain an exercise for edit che
 const withoutExercise = removeExercise(editingWorkout, removableId);
 assert.equal(withoutExercise.exercises.length, editingWorkout.exercises.length - 1, 'Removing an exercise must only change the current workout');
 assert(!withoutExercise.exercises.some((item) => item.exerciseId === removableId), 'The removed exercise must leave the current workout');
-assert.equal(withoutExercise.engine.composition.compounds + withoutExercise.engine.composition.accessories, withoutExercise.exercises.length, 'Removing an exercise must rebuild composition metadata');
+assert.equal(withoutExercise.engine.composition.primaryMovements + withoutExercise.engine.composition.accessories, withoutExercise.exercises.length, 'Removing an exercise must rebuild composition metadata');
 assert.deepEqual(withoutExercise.engine.movementFamilies, [...new Set(withoutExercise.exercises.map((item) => getMovementFamily(exercises.find((exercise) => exercise.id === item.exerciseId))).filter(Boolean))], 'Removing an exercise must rebuild movement-family metadata');
 const editableSetItem = editingWorkout.exercises[0];
-const withManualSet = addWorkoutSet(editableSetItem);
+const editableExercise = exercises.find((exercise) => exercise.id === editableSetItem.exerciseId);
+const withManualSet = addWorkoutSet(editableSetItem, focusProfile, editableExercise);
 assert.equal(withManualSet.sets.length, editableSetItem.sets.length + 1, 'A manual set must be appended to the selected exercise');
 assert.equal(withManualSet.sets.at(-1).done, false, 'A manually appended set must start unfinished');
 assert.equal(withManualSet.sets.at(-1).rir, null, 'A manually appended set must not copy recorded effort');
-assert.equal(removeWorkoutSet(withManualSet).sets.length, editableSetItem.sets.length, 'The final unfinished set must be removable');
+const intenseIsolationItem = {
+  ...editingWorkout.exercises.find((item) => exercises.find((exercise) => exercise.id === item.exerciseId)?.effortClass === 'isolation'),
+  sets: Array.from({ length: 3 }, (_, index) => ({ targetRir: [2, 1, 0][index], targetReps: 10, reps: 10, done: false })),
+  targetRirs: [2, 1, 0],
+};
+const intenseIsolationExercise = exercises.find((exercise) => exercise.id === intenseIsolationItem.exerciseId) || isolation;
+const redistributedRirs = addWorkoutSet(intenseIsolationItem, { ...focusProfile, trainingStyle: 'intense' }, intenseIsolationExercise);
+assert.deepEqual(redistributedRirs.sets.map((set) => set.targetRir), [2, 1, 1, 0], 'Adding a set must redistribute the complete RIR curve');
+assert.deepEqual(removeWorkoutSet(redistributedRirs, { ...focusProfile, trainingStyle: 'intense' }, intenseIsolationExercise).sets.map((set) => set.targetRir), [2, 1, 0], 'Removing a set must restore the prescribed RIR curve');
 assert.equal(removeWorkoutSet({ ...withManualSet, sets: withManualSet.sets.map((set, index) => index === withManualSet.sets.length - 1 ? { ...set, done: true } : set) }).sets.length, withManualSet.sets.length, 'Completed-set evidence must never be removed by the manual set control');
+const fly = exercises.find((exercise) => exercise.wgerId === 238);
+assert(fly && !fly.compound && fly.effortClass === 'isolation', 'A fly must remain biomechanically classified as a chest isolation');
+assert.equal(isPrimaryMovement(fly), true, 'A fly must occupy a primary chest slot rather than an accessory slot');
 
 const currentExercise = exercises.find((exercise) => exercise.id === editingWorkout.exercises[0].exerciseId);
 const similarChoices = getSimilarExercises(editingWorkout, currentExercise.id, focusProfile);
@@ -1136,6 +1156,8 @@ assert(!refreshedWorkout.exercises.some((item) => oldExercises.has(item.exercise
 const completeAlternatives = generateWorkoutAlternatives({ ...focusProfile, equipment: allEquipment, duration: 60 }, [], generateWorkout({ ...focusProfile, equipment: allEquipment, duration: 60 }, [], { duration: 60, now: continuityNow + 20, variation: 20 }), { now: continuityNow + 20, seed: 21 });
 assert(completeAlternatives.length > 0, 'Refresh must provide at least one genuinely different adaptive alternative when the catalog permits it');
 assert(completeAlternatives.every((candidate) => candidate.engine.estimatedMinutes >= candidate.duration * .75), 'Refresh must never label a severely under-filled workout as a complete alternative');
+assert(completeAlternatives.every((candidate) => candidate.engine.unavailableMovementFamilies.length === 0), 'Refresh alternatives must not bypass required adaptive movement families');
+assert(completeAlternatives.every((candidate) => [...candidate.engine.movementFamilies].sort().join('|') === [...completeAlternatives[0].engine.movementFamilies].sort().join('|')), 'Every refresh alternative must preserve the same adaptive family decision');
 const fitnessThirtyProfile = { ...focusProfile, goal: 'fitness', equipment: allEquipment, duration: 30, exerciseFilters: { essentialCatalog: true, preferLoadedVariants: false, excludeDirectCore: false, excludeCalves: false } };
 const fitnessThirtyWorkout = generateWorkout(fitnessThirtyProfile, [], { duration: 30, now: continuityNow + 30, variation: 30 });
 const fitnessThirtyAlternatives = generateWorkoutAlternatives(fitnessThirtyProfile, [], fitnessThirtyWorkout, { now: continuityNow + 30, seed: 31 });
@@ -1217,6 +1239,7 @@ for (const goal of ['muscle', 'strength', 'fitness']) {
       const families = new Set(generatedExercises.map(getMovementFamily));
       assert(generated.exercises.length > 0 && generated.exercises.length <= limits.maxExercises, 'Stress generation must always return a bounded non-empty workout');
       assert(generated.engine.composition.compounds <= limits.maxCompounds, 'Stress generation must respect compound caps');
+      assert(generated.engine.composition.primaryMovements <= limits.maxCompounds, 'Stress generation must respect primary-movement caps including fly variations');
       assert(generated.engine.estimatedMinutes <= duration + 5, 'Stress generation must respect the five-minute scheduling tolerance');
       assert(generated.exercises.every((item) => item.sets.length > 0), 'Stress generation must never emit an exercise without sets');
       assert(!(families.has('knee') && families.has('hip')), 'Stress generation must not combine both lower-body families');

@@ -14,6 +14,7 @@ const overridesPath = resolve(root, 'scripts/catalog-overrides.json');
 const port = Number(process.env.EASYFIT_CATALOG_PORT) || 4178;
 const muscles = ['chest', 'back', 'quads', 'hamstrings', 'glutes', 'shoulders', 'biceps', 'triceps', 'calves', 'core'];
 const effortClasses = ['high-fatigue-compound', 'stable-compound', 'isolation'];
+const sessionRoles = ['primary', 'accessory'];
 const loadTypes = ['external', 'per-dumbbell', 'bodyweight', 'reps-only'];
 let runningAction = null;
 
@@ -48,6 +49,7 @@ function validateDocument(document, sourceIds) {
     const effective = { ...(curatedExercises[id] || {}), ...(entry.programming || {}) };
     if (!effective.pattern?.trim() || !muscles.includes(effective.primary)) throw new Error(`${id}: pattern o muscolo primario non valido`);
     if (typeof effective.compound !== 'boolean' || !effortClasses.includes(effective.effortClass)) throw new Error(`${id}: classe di esercizio non valida`);
+    if (!sessionRoles.includes(effective.sessionRole)) throw new Error(`${id}: ruolo nella scheda non valido`);
     if (!Array.isArray(effective.equipment) || !effective.equipment.length) throw new Error(`${id}: seleziona almeno un'attrezzatura`);
     if (!loadTypes.includes(effective.loadType)) throw new Error(`${id}: tipo di carico non valido`);
     if (!Number.isFinite(Number(effective.loadMultiplier)) || Number(effective.loadMultiplier) <= 0) throw new Error(`${id}: moltiplicatore carico non valido`);
@@ -77,7 +79,7 @@ async function catalogPayload() {
     base: curatedExercises,
     effective: registry.curatedExercises,
     overrides: registry.overrides,
-    options: { muscles, effortClasses, loadTypes },
+    options: { muscles, effortClasses, sessionRoles, loadTypes },
   };
 }
 

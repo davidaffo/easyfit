@@ -62,8 +62,8 @@ function renderList() {
     const category = state.filters.category === 'all' || item.category === state.filters.category;
     const kind = state.filters.kind === 'all'
       || (state.filters.kind === 'unclassified' && !effective)
-      || (state.filters.kind === 'compound' && effective?.compound === true)
-      || (state.filters.kind === 'accessory' && effective?.compound === false);
+      || (state.filters.kind === 'primary' && effective?.sessionRole === 'primary')
+      || (state.filters.kind === 'accessory' && effective?.sessionRole === 'accessory');
     const pattern = state.filters.pattern === 'all' || effective?.pattern === state.filters.pattern;
     const image = state.filters.image === 'all'
       || (state.filters.image === 'with' && Boolean(details.image))
@@ -87,7 +87,7 @@ function inferred(item) {
   const primary = muscleIds[item.muscles[0]] || ({ Abs: 'core', Arms: 'biceps', Back: 'back', Calves: 'calves', Chest: 'chest', Legs: 'quads', Shoulders: 'shoulders' })[item.category] || 'chest';
   const equipment = [...new Set(item.equipment.map((name) => equipmentIds[name]).filter(Boolean))];
   const loadType = equipment.includes('dumbbells') ? 'per-dumbbell' : equipment.some((value) => ['barbell', 'ezbar', 'kettlebell', 'cables', 'machines'].includes(value)) ? 'external' : equipment.includes('bodyweight') ? 'bodyweight' : 'reps-only';
-  return { pattern: '', primary, compound: false, muscleContributions: { [primary]: 1 }, equipment, loadType, loadMultiplier: loadType === 'per-dumbbell' ? 2 : 1, effortClass: 'isolation', intensifierEligible: true, selectionPriority: 10 };
+  return { pattern: '', primary, compound: false, sessionRole: 'accessory', muscleContributions: { [primary]: 1 }, equipment, loadType, loadMultiplier: loadType === 'per-dumbbell' ? 2 : 1, effortClass: 'isolation', intensifierEligible: true, selectionPriority: 10 };
 }
 
 function select(id) {
@@ -107,6 +107,7 @@ function select(id) {
       <label><span>Pattern di movimento</span><input name="pattern" required value="${escapeHtml(effective.pattern)}" placeholder="es. elbow-extension"></label>
       <label><span>Muscolo primario</span><select name="primary">${state.data.options.muscles.map((value) => `<option ${value === effective.primary ? 'selected' : ''}>${value}</option>`).join('')}</select></label>
       <label><span>Classe di fatica</span><select name="effortClass">${state.data.options.effortClasses.map((value) => `<option ${value === effective.effortClass ? 'selected' : ''}>${value}</option>`).join('')}</select></label>
+      <label><span>Ruolo nella scheda</span><select name="sessionRole">${state.data.options.sessionRoles.map((value) => `<option ${value === effective.sessionRole ? 'selected' : ''}>${value}</option>`).join('')}</select></label>
       <label><span>Tipo di carico</span><select name="loadType">${state.data.options.loadTypes.map((value) => `<option ${value === effective.loadType ? 'selected' : ''}>${value}</option>`).join('')}</select></label>
       <label><span>Moltiplicatore carico</span><input name="loadMultiplier" type="number" min="0.1" step="0.1" value="${effective.loadMultiplier ?? 1}"></label>
       <label><span>Priorità selezione</span><input name="selectionPriority" type="number" min="0" max="30" value="${effective.selectionPriority ?? 10}"></label>
@@ -137,7 +138,7 @@ async function saveCurrent(event) {
   const contributions = Object.fromEntries(state.data.options.muscles.map((muscle) => [muscle, Number(form.get(`muscle-${muscle}`))]).filter(([, value]) => value > 0));
   const entry = { enabled };
   if (enabled) entry.programming = {
-    pattern: String(form.get('pattern')).trim(), primary: form.get('primary'), compound: form.has('compound'), muscleContributions: contributions,
+    pattern: String(form.get('pattern')).trim(), primary: form.get('primary'), compound: form.has('compound'), sessionRole: form.get('sessionRole'), muscleContributions: contributions,
     equipment: form.getAll('equipment'), loadType: form.get('loadType'), loadMultiplier: Number(form.get('loadMultiplier')),
     effortClass: form.get('effortClass'), intensifierEligible: form.has('intensifierEligible'), selectionPriority: Number(form.get('selectionPriority')),
   };
