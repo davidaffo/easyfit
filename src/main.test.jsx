@@ -330,6 +330,30 @@ test('work sets can be appended and the final unfinished set removed manually', 
   expect(within(firstCard).getAllByRole('textbox', { name: /Ripetizioni set/ })).toHaveLength(originalInputs);
 });
 
+test('an exercise can be added explicitly after workout generation', async () => {
+  const user = userEvent.setup();
+  const workout = readyWorkout();
+  saveState({ workout });
+  render(<App/>);
+  await user.click(screen.getByRole('button', { name: 'Riprendi allenamento' }));
+  await user.click(screen.getByRole('button', { name: "Scegli un'alternativa adattiva" }));
+  const refreshDialog = screen.getByRole('dialog', { name: "Scegli un'alternativa adattiva" });
+  const refreshedChoice = refreshDialog.querySelector('.refresh-type-list button');
+  expect(refreshedChoice).toBeTruthy();
+  await user.click(refreshedChoice);
+  const refreshedCount = JSON.parse(localStorage.getItem('easyfit-workout')).exercises.length;
+  await user.click(screen.getAllByRole('button', { name: /Opzioni per/ })[0]);
+  expect(screen.getByRole('button', { name: /Rimuovi da questo workout/ })).toBeTruthy();
+  await user.click(screen.getByRole('button', { name: 'Chiudi' }));
+  await user.click(screen.getByRole('button', { name: 'Aggiungi esercizio' }));
+  const dialog = screen.getByRole('dialog', { name: 'Aggiungi esercizio' });
+  const choice = dialog.querySelector('.similar-list button');
+  expect(choice).toBeTruthy();
+  await user.click(choice);
+  await waitFor(() => expect(JSON.parse(localStorage.getItem('easyfit-workout')).exercises.length).toBe(refreshedCount + 1));
+  expect(screen.getByText('Esercizio aggiunto alla scheda')).toBeTruthy();
+});
+
 test('excluding an exercise requires choosing and installs a similar replacement', async () => {
   const user = userEvent.setup();
   const workout = activeWorkout();

@@ -14,6 +14,7 @@ import {
 import { getExerciseDetails } from './data/exerciseDetails.js';
 import {
   ENGINE_VERSION,
+  addExerciseToWorkout,
   addWorkoutSet,
   calibrateBodyweightPrescription,
   generateWorkout,
@@ -23,6 +24,7 @@ import {
   getExerciseHistory,
   getExercisePrescription,
   getAdaptiveTrainingOverview,
+  getAddableExercises,
   getTrackedExerciseIds,
   getRecovery,
   getSimilarExercises,
@@ -648,7 +650,7 @@ function RefreshWorkoutSheet({ profile, history, workout, seed, onChoose, onClos
   );
   return <div className="sheet-backdrop" onMouseDown={(event) => event.target === event.currentTarget && onClose()}>
     <section className="refresh-workout-sheet" role="dialog" aria-modal="true" aria-label="Scegli un'alternativa adattiva">
-      <button className="sheet-close" onClick={onClose}><Icon name="close" size={19}/></button>
+      <button className="sheet-close" onClick={onClose} aria-label="Chiudi"><Icon name="close" size={19}/></button>
       <span className="eyebrow">REFRESH WORKOUT</span>
       <h2>Scegli una proposta adattiva</h2>
       <p>Cambiano gli esercizi, ma restano identici target adattivi, recupero, stimolo, composizione e limiti della scheda corrente.</p>
@@ -705,6 +707,7 @@ function WorkoutView({ workout, setWorkout, profile, setProfile, history, showTo
   const [replacementExerciseId, setReplacementExerciseId] = useState(null);
   const [excludeReplacementId, setExcludeReplacementId] = useState(null);
   const [prescriptionExerciseId, setPrescriptionExerciseId] = useState(null);
+  const [addExerciseOpen, setAddExerciseOpen] = useState(false);
   const [refreshSeed, setRefreshSeed] = useState(null);
   const [startedAt] = useState(() => Number(workout.startedAt) || Date.now());
   const [sessionNow, setSessionNow] = useState(Date.now());
@@ -946,6 +949,11 @@ function WorkoutView({ workout, setWorkout, profile, setProfile, history, showTo
     setOptionsExerciseId(null);
     showToast('Esercizio rimosso dal workout');
   };
+  const addCurrentExercise = (exerciseId) => {
+    setWorkout((current) => addExerciseToWorkout(current, exerciseId, profile, history));
+    setAddExerciseOpen(false);
+    showToast('Esercizio aggiunto alla scheda');
+  };
   const excludeExercise = (exerciseId) => {
     if (!canDiscardExercise(exerciseId)) return;
     setOptionsExerciseId(null);
@@ -981,6 +989,7 @@ function WorkoutView({ workout, setWorkout, profile, setProfile, history, showTo
     <div className="exercise-list">
       {workout.exercises.map((item, exerciseIndex) => <ExerciseCard key={item.exerciseId} item={item} exerciseIndex={exerciseIndex} language={profile.exerciseLanguage} updateSet={updateSet} recordAvailableLoad={recordAvailableLoad} setInitialLoad={setInitialLoad} setInitialReps={setInitialReps} changeSetCount={changeSetCount} toggleSet={toggleSet} onRir={(setIndex) => setPendingSet({ exerciseIndex, setIndex, item, wasDone: item.sets[setIndex].done })} onGuide={() => setGuideExerciseId(item.exerciseId)} onHistory={() => setHistoryExerciseId(item.exerciseId)} onOptions={() => setOptionsExerciseId(item.exerciseId)}/>)}
     </div>
+    <div className="workout-edit-actions"><button onClick={() => setAddExerciseOpen(true)}><Icon name="plus" size={17}/> Aggiungi esercizio</button><span>Per sostituire o rimuovere usa <Icon name="more" size={16}/> sulla scheda.</span></div>
     <div className="finish-panel"><div><span>{totalSets ? Math.round(doneSets / totalSets * 100) : 0}%</span><small>completato</small></div><button className="button acid" disabled={!doneSets || !totalSets} onClick={complete}><Icon name="trophy"/>Termina workout</button></div>
     {rest > 0 && <div className="rest-timer"><div><span>RECUPERO</span><strong>{formatClock(rest)}</strong></div><span className="rest-timer-track"><i style={{ width: `${Math.max(0, Math.min(100, rest / Math.max(1, Number(workout.restDuration) || rest) * 100))}%` }}/></span><button className="skip-rest" onClick={clearRest}>Salta</button></div>}
     {pendingSet && <RirSheet item={pendingSet.item} language={profile.exerciseLanguage} onChoose={chooseRir} onClose={() => setPendingSet(null)}/>}
@@ -1010,6 +1019,7 @@ function WorkoutView({ workout, setWorkout, profile, setProfile, history, showTo
       onChoose={refreshWorkout}
       onClose={() => setRefreshSeed(null)}
     />}
+    {addExerciseOpen && <AddExerciseSheet workout={workout} profile={profile} language={profile.exerciseLanguage} onChoose={addCurrentExercise} onClose={() => setAddExerciseOpen(false)}/>}
   </main>;
 }
 
@@ -1108,7 +1118,7 @@ function RirSheet({ item, language, onChoose, onClose }) {
   const exercise = getWorkoutExercise(item);
   return <div className="sheet-backdrop" onMouseDown={(event) => event.target === event.currentTarget && onClose()}>
     <section className="rir-sheet" role="dialog" aria-modal="true" aria-label="Registra RIR">
-      <button className="sheet-close" onClick={onClose}><Icon name="close" size={19}/></button>
+      <button className="sheet-close" onClick={onClose} aria-label="Chiudi"><Icon name="close" size={19}/></button>
       <span className="eyebrow">FINE ESERCIZIO · {getExerciseName(exercise, language).toUpperCase()}</span>
       <h2>Quante ripetizioni avevi<br/>ancora nell’ultima serie?</h2>
       <p>Lo chiediamo una sola volta per ricalibrare il prossimo carico insieme alle ripetizioni realmente completate. Puoi sempre correggere il RIR di una singola serie.</p>
@@ -1144,7 +1154,7 @@ function ExerciseActionsSheet({ exerciseId, profile, language, onPrescription, o
   const limits = getExercisePrescription(profile, exercise);
   return <div className="sheet-backdrop" onMouseDown={(event) => event.target === event.currentTarget && onClose()}>
     <section className="exercise-actions-sheet" role="dialog" aria-modal="true" aria-label={`Opzioni ${getExerciseName(exercise, language)}`}>
-      <button className="sheet-close" onClick={onClose}><Icon name="close" size={19}/></button>
+      <button className="sheet-close" onClick={onClose} aria-label="Chiudi"><Icon name="close" size={19}/></button>
       <span className="eyebrow">OPZIONI ESERCIZIO</span>
       <h2>{getExerciseName(exercise, language)}</h2>
       <p>La sostituzione mantiene lo stesso movimento quando possibile.</p>
@@ -1225,6 +1235,22 @@ function SimilarExerciseSheet({ workout, exerciseId, profile, language, onChoose
       <p>Al posto di <strong>{getExerciseName(current, language)}</strong></p>
       <label className="similar-search"><span>CERCA</span><input type="search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Nome o attrezzatura"/></label>
       {filtered.length ? <div className="similar-results">{renderGroup('Stesso movimento', exact)}{renderGroup('Stesso gruppo muscolare', related)}</div> : <div className="similar-empty"><Icon name="swap" size={27}/><strong>Nessuna alternativa trovata</strong><span>Prova un’altra ricerca o modifica l’attrezzatura.</span></div>}
+    </section>
+  </div>;
+}
+
+function AddExerciseSheet({ workout, profile, language, onChoose, onClose }) {
+  const [query, setQuery] = useState('');
+  const available = useMemo(() => getAddableExercises(workout, profile), [workout, profile]);
+  const filtered = available.filter((exercise) => getExerciseName(exercise, language).toLocaleLowerCase().includes(query.trim().toLocaleLowerCase()));
+  return <div className="sheet-backdrop" onMouseDown={(event) => event.target === event.currentTarget && onClose()}>
+    <section className="similar-sheet add-exercise-sheet" role="dialog" aria-modal="true" aria-label="Aggiungi esercizio">
+      <button className="sheet-close" onClick={onClose} aria-label="Chiudi"><Icon name="close" size={19}/></button>
+      <span className="eyebrow">MODIFICA SCHEDA</span><h2>Aggiungi un esercizio</h2>
+      <p>La scelta rispetta attrezzatura, esclusioni, varianti già presenti e il limite di un solo esercizio per le gambe.</p>
+      <input className="exercise-search" type="search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Cerca esercizio" aria-label="Cerca esercizio da aggiungere"/>
+      <div className="similar-list">{filtered.map((exercise) => <button key={exercise.id} onClick={() => onChoose(exercise.id)}><span className="similar-glyph"><Icon name="plus" size={15}/></span><div><strong>{getExerciseName(exercise, language)}</strong><small>{muscles[exercise.primary]} · {exercise.compound ? 'Multiarticolare' : 'Isolamento'} · {exercise.equipment.map((item) => equipmentLabels[item] || item).join(', ')}</small></div><Icon name="chevron" size={18}/></button>)}</div>
+      {!filtered.length && <p className="refresh-empty">Nessun altro esercizio compatibile.</p>}
     </section>
   </div>;
 }
@@ -1644,7 +1670,7 @@ function Profile({ profile, setProfile, history, workout, onRestoreBackup, insta
     <SettingsGroup title="Stile di allenamento"><div className="training-style-list settings-style-list">{Object.entries(trainingStyles).map(([id, style]) => <button key={id} className={profile.trainingStyle === id ? 'selected' : ''} onClick={() => update({ trainingStyle: id })}>
       <span><strong>{style.label}{style.recommended ? ' · Consigliato' : ''}</strong><small>{trainingStyleSummaries[id]}<br/>{style.description}</small></span><span className="radio"><i/></span>
     </button>)}</div><p className="setting-help">Lo stile controlla automaticamente serie, prossimità al cedimento e recuperi. I multiarticolari ad alta fatica restano più prudenti degli esercizi stabili e degli isolamenti.</p></SettingsGroup>
-    <SettingsGroup title="Durata"><div className="range-label"><span>Durata indicativa del workout</span><strong>{profile.duration} min</strong></div><input type="range" min="25" max="75" step="5" value={profile.duration} onChange={(event) => setProfile({ ...profile, duration: Number(event.target.value) })} onPointerUp={() => showToast('Durata aggiornata')}/><p className="setting-help">È un obiettivo indicativo: l’engine può superarlo fino a 5 minuti per non tagliare serie o esercizi sensati. La scheda mostra sempre la stima reale.</p></SettingsGroup>
+    <SettingsGroup title="Durata"><div className="range-label"><span>Durata indicativa del workout</span><strong>{profile.duration} min</strong></div><input type="range" min="25" max="75" step="5" value={profile.duration} onChange={(event) => setProfile({ ...profile, duration: Number(event.target.value) })} onPointerUp={() => showToast('Durata aggiornata')}/><p className="setting-help">È un obiettivo indicativo: l’engine può superarlo fino a 7 minuti per non tagliare serie o esercizi sensati. La scheda mostra sempre la stima reale.</p></SettingsGroup>
     <SettingsGroup title="Nomi degli esercizi"><div className="settings-options language-options">
       <button className={profile.exerciseLanguage === 'en' ? 'selected' : ''} onClick={() => update({ exerciseLanguage: 'en' })}>English <span><Icon name="check" size={14}/></span></button>
       <button className={profile.exerciseLanguage === 'it' ? 'selected' : ''} onClick={() => update({ exerciseLanguage: 'it' })}>Italiano, con fallback inglese <span><Icon name="check" size={14}/></span></button>

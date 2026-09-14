@@ -225,6 +225,9 @@ input[type="range"] { width: 100%; height: 4px; margin: 22px 0 10px; accent-colo
 .exercise-card footer { border-top: 1px solid #e4e2da; min-height: 45px; padding: 5px 13px; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 2px 8px; }
 .exercise-card footer span, .exercise-card footer button { color: var(--muted); font-size: 9px; display: flex; align-items: center; gap: 5px; }
 .exercise-card footer button { border: 0; background: transparent; cursor: pointer; color: var(--ink); font-weight: 700; }
+.workout-edit-actions { margin: 4px 13px 105px; padding: 12px; border: 1px dashed #c8c8c0; border-radius: 8px; display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.workout-edit-actions > button { flex: 0 0 auto; min-height: 37px; padding: 0 13px; border: 0; border-radius: 19px; background: var(--ink); color: white; display: inline-flex; align-items: center; gap: 6px; font-size: 9px; font-weight: 800; cursor: pointer; }
+.workout-edit-actions > span { color: var(--muted); font-size: 8px; line-height: 1.35; display: flex; align-items: center; justify-content: flex-end; text-align: right; }
 .exercise-actions { flex: 0 0 auto; display: flex; align-items: center; gap: 7px; }
 .exercise-actions button { min-height: 30px; }
 .initial-load { padding: 18px 14px 15px; display: grid; gap: 13px; background: linear-gradient(135deg, #f1f6df, #f9f8f2); }
@@ -337,6 +340,7 @@ input[type="range"] { width: 100%; height: 4px; margin: 22px 0 10px; accent-colo
 .similar-sheet > h2 { font: 700 27px/1.08 Inter; letter-spacing: -1.1px; margin: 11px 0 5px; }
 .similar-sheet > p { color: var(--muted); font-size: 10px; margin: 0; }
 .similar-sheet > p strong { color: var(--ink); }
+.add-exercise-sheet .exercise-search { width: 100%; min-height: 44px; margin: 17px 0 10px; padding: 0 13px; border: 1px solid var(--line); border-radius: 7px; background: var(--white); color: var(--ink); }
 .similar-search { min-height: 54px; margin-top: 18px; padding: 7px 12px; border: 1px solid var(--line); border-radius: 7px; background: var(--white); display: flex; flex-direction: column; justify-content: center; gap: 2px; }
 .similar-search span { color: #969990; font-size: 7px; font-weight: 800; letter-spacing: .9px; }
 .similar-search input { width: 100%; padding: 0; border: 0; outline: 0; background: transparent; color: var(--ink); font: 700 12px Inter; }

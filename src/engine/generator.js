@@ -11,8 +11,8 @@ const CONTINUITY_HISTORY_DAYS = 90;
 const CONTINUITY_BREAK_DAYS = 28;
 const RECENT_VARIATION_DAYS = 7;
 const EXERCISE_ROTATION_EXPOSURES = 4;
-export const SESSION_TIME_TOLERANCE_MINUTES = 5;
-export const ENGINE_VERSION = 31;
+export const SESSION_TIME_TOLERANCE_MINUTES = 7;
+export const ENGINE_VERSION = 32;
 
 const muscleBaseImportance = {
   chest: 100,
@@ -374,11 +374,21 @@ export function getExerciseProgress(history = [], exerciseId, now = Date.now()) 
       const supportedReps = comparableSets.map((set, index) => repCapacities[index] - targetRirs[index]);
       const prescribedSets = Math.max(completed.length, item.sets?.length || 0);
       const completionRate = prescribedSets ? completed.length / prescribedSets : 0;
+      const performedRepVolume = completed.reduce((sum, set) => sum + Math.max(0, Number(set.reps) || 0), 0);
+      const prescribedRepVolume = (item.sets || []).reduce((sum, set) => sum + Math.max(0, Number(set.targetReps) || 0), 0);
+      const performedLoadVolume = completed.reduce((sum, set) => (
+        sum + Math.max(0, Number(set.weight) || 0) * Math.max(0, Number(set.reps) || 0)
+      ), 0);
+      const prescribedLoadVolume = (item.sets || []).reduce((sum, set) => {
+        const targetWeight = Number(set.targetWeight ?? set.weight) || 0;
+        return sum + Math.max(0, targetWeight) * Math.max(0, Number(set.targetReps) || 0);
+      }, 0);
       return {
         completedAt,
         e1rm: estimates.length ? median(estimates) : null,
         bestE1rm: estimates.length ? Math.max(...estimates) : null,
         lastWeight: workingWeight,
+        targetWeight: median(comparableSets.map((set) => Number(set.targetWeight)).filter((value) => value > 0)),
         targetReps: median(comparableSets.map((set) => Number(set.targetReps)).filter((value) => value > 0)),
         supportedReps: median(supportedReps),
         minimumSupportedReps: supportedReps.length ? Math.min(...supportedReps) : null,
@@ -389,6 +399,8 @@ export function getExerciseProgress(history = [], exerciseId, now = Date.now()) 
         targetRir: median(targetRirs),
         completionRate,
         completedSets: completed.length,
+        repVolumeRatio: prescribedRepVolume > 0 ? performedRepVolume / prescribedRepVolume : null,
+        loadVolumeRatio: prescribedLoadVolume > 0 ? performedLoadVolume / prescribedLoadVolume : null,
       };
     })
     .filter((session) => session.completedSets)
@@ -401,6 +413,7 @@ export function getExerciseProgress(history = [], exerciseId, now = Date.now()) 
     latestE1rm: latest?.e1rm ?? null,
     bestE1rm: Math.max(0, ...sessions.map((session) => session.bestE1rm || 0)) || null,
     lastWeight: latest?.lastWeight ?? null,
+    latestTargetWeight: latest?.targetWeight ?? null,
     latestTargetReps: latest?.targetReps ?? null,
     latestSupportedReps: latest?.supportedReps ?? null,
     minimumSupportedReps: latest?.minimumSupportedReps ?? null,
@@ -410,6 +423,8 @@ export function getExerciseProgress(history = [], exerciseId, now = Date.now()) 
     latestTargetRirs: latest?.targetRirs || [],
     latestTargetRir: latest?.targetRir ?? null,
     latestCompletionRate: latest?.completionRate ?? null,
+    latestRepVolumeRatio: latest?.repVolumeRatio ?? null,
+    latestLoadVolumeRatio: latest?.loadVolumeRatio ?? null,
     trend: latest?.e1rm && previous?.e1rm ? (latest.e1rm - previous.e1rm) / previous.e1rm : null,
   };
 }
@@ -876,32 +891,58 @@ function doubleProgression(exercise, profile, progress, limits, intensity, setCo
     && Number(progress.latestTargetReps) > 0
     && Number(progress.latestTargetReps) < limits.minReps;
   const progressionMinimum = demonstratedBelowRange ? 1 : limits.minReps;
+  const performedLoadRatio = usesWeight && Number(progress.lastWeight) > 0 && Number(progress.latestTargetWeight) > 0
+    ? Number(progress.lastWeight) / Number(progress.latestTargetWeight)
+    : 1;
+  const loadWasManuallyChanged = Math.abs(performedLoadRatio - 1) >= .03;
+  // When the user changed load, that new load and the repetitions actually
+  // sustained together become the baseline. Do not stack an automatic +1 rep
+  // on top of a load increase in the same recalibration.
+  const baselineReps = loadWasManuallyChanged
+    ? Number(progress.latestPerformedReps) || Number(progress.latestSupportedReps)
+    : Number(progress.latestTargetReps);
   const previousTarget = clamp(
-    Math.round(Number(progress.latestTargetReps) || limits.minReps),
+    Math.round(baselineReps || limits.minReps),
     progressionMinimum,
     limits.maxReps,
   );
   const minimumSupportedReps = progress.minimumSupportedReps;
   const completedPrescription = progress.latestCompletionRate == null || progress.latestCompletionRate >= .8;
-  const reachedTop = completedPrescription && minimumSupportedReps != null && minimumSupportedReps >= limits.maxReps;
-  const demonstratedReps = minimumSupportedReps == null
+  const volumeSupportedReps = progress.latestSupportedReps == null
+    ? null
+    : clamp(Math.floor(Number(progress.latestSupportedReps)), 1, limits.maxReps);
+  // For loaded movements, actual tonnage is the primary whole-exercise signal:
+  // a manual weight override must count even when repetitions differ. Older
+  // records without target loads safely fall back to the repetitions ratio.
+  const effectiveVolumeRatio = usesWeight && progress.latestLoadVolumeRatio != null
+    ? Number(progress.latestLoadVolumeRatio)
+    : Number(progress.latestRepVolumeRatio);
+  const volumeSurplus = completedPrescription && !loadWasManuallyChanged && effectiveVolumeRatio >= 1.025;
+  const sessionVolumeDeficit = Number.isFinite(effectiveVolumeRatio) && effectiveVolumeRatio < .975;
+  const reachedTop = completedPrescription
+    && (minimumSupportedReps >= limits.maxReps || (volumeSurplus && volumeSupportedReps >= limits.maxReps));
+  const conservativeDemonstratedReps = minimumSupportedReps == null
     ? null
     : clamp(Math.floor(Number(minimumSupportedReps)), 1, limits.maxReps);
-  const canAddRep = completedPrescription && demonstratedReps != null && demonstratedReps >= previousTarget;
-  const underPerformed = demonstratedReps != null && demonstratedReps < previousTarget;
-  const exceededPrescription = completedPrescription && demonstratedReps != null && demonstratedReps > previousTarget;
+  const demonstratedReps = volumeSurplus && volumeSupportedReps != null
+    ? Math.max(conservativeDemonstratedReps || 1, volumeSupportedReps)
+    : conservativeDemonstratedReps;
+  const canAddRep = completedPrescription && !loadWasManuallyChanged
+    && demonstratedReps != null && demonstratedReps >= previousTarget;
+  const underPerformed = sessionVolumeDeficit && demonstratedReps != null && demonstratedReps < previousTarget;
+  const exceededPrescription = volumeSurplus && demonstratedReps != null && demonstratedReps > previousTarget;
   const nextRepTarget = underPerformed
     ? demonstratedReps
     : exceededPrescription
       ? demonstratedReps
-      : canAddRep
+      : volumeSurplus || canAddRep
         ? Math.min(limits.maxReps, previousTarget + 1)
         : previousTarget;
   const repetitionStep = underPerformed
     ? 'regress-reps'
     : exceededPrescription
       ? 'performance-reps'
-      : canAddRep ? 'reps' : progress.sessions ? 'hold' : 'start';
+      : volumeSurplus ? 'volume-reps' : canAddRep ? 'reps' : progress.sessions ? 'hold' : 'start';
   const desiredRirs = targetRirsForSetCount(limits.targetRirs, Math.max(1, progress.latestRepCapacities.length || setCount));
   const previousRir = Number(progress.latestTargetRir);
   const nextRir = median(desiredRirs);
@@ -1052,6 +1093,7 @@ function prescription(exercise, profile, history, context = {}) {
       loadUnit: exercise.loadUnit,
       loadMultiplier: exercise.loadMultiplier,
       effortClass: exercise.effortClass,
+      sessionRole: exercise.sessionRole,
       intensifierEligible: exercise.intensifierEligible,
       muscleContributions: exercise.muscleContributions,
       license: exercise.license,
@@ -1061,6 +1103,11 @@ function prescription(exercise, profile, history, context = {}) {
     targetRirs,
     repRange: { min: limits.minReps, max: limits.maxReps },
     progressionStep: progression.step,
+    performanceEvidence: progress.sessions ? {
+      repVolumeRatio: progress.latestRepVolumeRatio,
+      loadVolumeRatio: progress.latestLoadVolumeRatio,
+      completionRate: progress.latestCompletionRate,
+    } : null,
     minimumTimeFitSets: profile.trainingStyle === 'intense'
       ? Math.min(sets, exercise.compound ? 2 : 3)
       : exercise.compound ? Math.min(sets, 2) : 1,
@@ -1689,6 +1736,21 @@ export function generateWorkout(profile, history = [], options = {}) {
     if (!addExercise(next, false, accessoryTargets)) break;
   }
 
+  // Two movements do not make a useful normal session. If the adaptive dose
+  // is already covered, add one compatible maintenance accessory rather than
+  // returning an accidentally truncated workout. Recovery, equipment, lower-
+  // body and time guards are still enforced.
+  const minimumExerciseCount = Math.min(3, maxExercises);
+  while (chosen.length < minimumExerciseCount) {
+    const ranked = rankCandidates(null, accessoryTargets).filter(({ exercise }) => !isPrimaryMovement(exercise));
+    if (!ranked.length) break;
+    const next = ranked[0].exercise;
+    if (!addExercise(next, true, accessoryTargets)) {
+      avoidIds.add(next.id);
+      continue;
+    }
+  }
+
   let maintenanceMode = false;
   if (!chosen.length) {
     const fallbackPool = exercises
@@ -1743,7 +1805,7 @@ export function generateWorkout(profile, history = [], options = {}) {
       maintenanceMode,
       estimatedMinutes: Math.round(usedMinutes),
       timeToleranceMinutes: SESSION_TIME_TOLERANCE_MINUTES,
-      evidenceProfile: 'V31-UNIFIED-ADAPTIVE-PRIORITIES',
+      evidenceProfile: 'V32-VOLUME-PROGRESSION-COMPLETE-SESSIONS',
     },
   };
 }
@@ -1966,6 +2028,58 @@ export function removeExercise(workout, exerciseId) {
   return rebuildWorkoutMetadata({
     ...workout,
     exercises: remaining,
+  });
+}
+
+export function getAddableExercises(workout, profile) {
+  if (!workout?.exercises || workout.exercises.length >= 8) return [];
+  const used = workout.exercises.map(resolveRecordedExercise).filter(Boolean);
+  const hasLower = used.some(isLowerBodyExercise);
+  return exercises
+    .filter((exercise) => profile.preferences?.[exercise.id] !== 'exclude')
+    .filter((exercise) => isExerciseAllowed(exercise, profile) && isEssentialExercise(exercise, profile))
+    .filter((exercise) => !used.some((item) => item.id === exercise.id || getExerciseVariantKey(item) === getExerciseVariantKey(exercise)))
+    .filter((exercise) => !hasLower || !isLowerBodyExercise(exercise))
+    .sort((a, b) => Number(workout.targetMuscles?.includes(b.primary)) - Number(workout.targetMuscles?.includes(a.primary))
+      || Number(isPrimaryMovement(b)) - Number(isPrimaryMovement(a))
+      || b.selectionPriority - a.selectionPriority
+      || a.name.localeCompare(b.name));
+}
+
+export function addExerciseToWorkout(workout, exerciseId, profile, history = [], now = Date.now()) {
+  const exercise = getAddableExercises(workout, profile).find((candidate) => candidate.id === exerciseId);
+  if (!exercise) return workout;
+  const measured = getWeeklyMuscleLoad(history, now);
+  const plannedVolume = {
+    ...(workout.engine?.doseStimulusBeforeWorkout || workout.engine?.cycleStimulusBeforeWorkout || measured.volume),
+  };
+  const plannedFrequency = {
+    ...(workout.engine?.doseFrequencyBeforeWorkout || workout.engine?.cycleFrequencyBeforeWorkout || measured.frequency),
+  };
+  workout.exercises.forEach((item) => {
+    const currentExercise = resolveRecordedExercise(item);
+    if (!currentExercise) return;
+    Object.entries(getExerciseMuscleContributions(currentExercise)).forEach(([muscle, contribution]) => {
+      plannedVolume[muscle] = (plannedVolume[muscle] || 0) + item.sets.length * contribution;
+      if (item.sets.length * contribution >= .75) plannedFrequency[muscle] = (plannedFrequency[muscle] || 0) + 1;
+    });
+  });
+  const item = prescription(exercise, profile, history, {
+    targetMinutes: workout.duration || profile.duration || 45,
+    weeklyLoad: { volume: plannedVolume, frequency: plannedFrequency },
+    recovery: workout.engine?.recoveryAtGeneration || getRecovery(history, now, profile),
+    muscleStatus: workout.engine?.muscleStatusAtGeneration || getMuscleTrainingStatus(profile, history, now),
+    returningFromBreak: workout.engine?.returningFromBreak || isReturningAfterBreak(history, now),
+    expectedUpcomingExposures: expectedUpcomingExposures(history, now),
+    targetMuscles: [exercise.primary],
+    allowMaintenance: true,
+    now,
+  });
+  if (!item.sets.length) return workout;
+  return rebuildWorkoutMetadata({
+    ...workout,
+    exercises: [...workout.exercises, item],
+    engine: { ...(workout.engine || {}), manuallyEdited: true },
   });
 }
 

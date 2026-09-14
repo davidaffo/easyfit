@@ -2,7 +2,7 @@
   "source": "wger",
   "sourceUrl": "https://wger.de",
   "syncedAt": "2026-09-04T18:15:53.577Z",
-  "curatedAt": "2026-09-14T14:42:26.008Z",
+  "curatedAt": "2026-09-14T20:37:20.534Z",
   "schemaVersion": 2,
   "curation": "explicit-wger-id-registry",
   "sourceCount": 822,
@@ -588,7 +588,7 @@
       "generationEligible": true,
       "loadMultiplier": 1,
       "effortClass": "isolation",
-      "sessionRole": "primary",
+      "sessionRole": "accessory",
       "intensifierEligible": true
     },
     {
@@ -1135,7 +1135,7 @@
       "generationEligible": true,
       "loadMultiplier": 1,
       "effortClass": "isolation",
-      "sessionRole": "primary",
+      "sessionRole": "accessory",
       "intensifierEligible": true
     },
     {
@@ -1170,7 +1170,7 @@
       "generationEligible": true,
       "loadMultiplier": 2,
       "effortClass": "isolation",
-      "sessionRole": "primary",
+      "sessionRole": "accessory",
       "intensifierEligible": true
     },
     {
