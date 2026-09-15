@@ -14,7 +14,6 @@ const profile = {
   loadInventory: {
     dumbbells: [10, 12], kettlebell: [], barbell: [20, 40, 60], ezbar: [], machines: [20, 30], cables: [10, 15],
   },
-  recoveryFeedback: {},
   trainingAdaptation: {},
   duration: 45,
   trainingStyle: 'balanced',
@@ -189,7 +188,7 @@ test('training style replaces global RIR and set-cap controls and persists as on
   await waitFor(() => expect(JSON.parse(localStorage.getItem('easyfit-profile')).trainingStyle).toBe('intense'));
 });
 
-test('disabled core and calves never appear in today priorities or recovery details', async () => {
+test('disabled core and calves never appear in today priorities or stimulus details', async () => {
   const user = userEvent.setup();
   saveState({ savedProfile: {
     ...profile,
@@ -200,7 +199,7 @@ test('disabled core and calves never appear in today priorities or recovery deta
   expect(screen.queryByText('PIÙ RECUPERATI')).toBeNull();
   expect(screen.queryByText('Core')).toBeNull();
   expect(screen.queryByText('Polpacci')).toBeNull();
-  await user.click(screen.getByRole('button', { name: 'Vedi recupero' }));
+  await user.click(screen.getByRole('button', { name: 'Vedi stimolo' }));
   expect(screen.queryByText('Core')).toBeNull();
   expect(screen.queryByText('Polpacci')).toBeNull();
 });

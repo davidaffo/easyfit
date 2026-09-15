@@ -128,8 +128,8 @@ input[type="range"] { width: 100%; height: 4px; margin: 22px 0 10px; accent-colo
 .welcome { padding: 38px 2px 25px; }
 .welcome h1 { font: 700 34px/1.08 Inter; letter-spacing: -1.5px; margin: 8px 0 7px; }
 .welcome p { margin: 0; color: var(--muted); font-size: 13px; }
-.recovery-strip { background: #e8e6df; border-radius: 7px; min-height: 96px; padding: 14px 12px 12px 15px; display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; }
-.recovery-strip > div { flex: 1; }
+.stimulus-strip { background: #e8e6df; border-radius: 7px; min-height: 96px; padding: 14px 12px 12px 15px; display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; }
+.stimulus-strip > div { flex: 1; }
 .fresh-list { display: flex; align-items: center; gap: 19px; margin-top: 10px; }
 .fresh-list > span { display: grid; grid-template-columns: 20px auto; grid-template-rows: auto auto; column-gap: 7px; }
 .fresh-list i { width: 20px; height: 20px; border-radius: 50%; grid-row: 1/3; align-self: center; background: conic-gradient(var(--ink) var(--value), #cac9c1 0); position: relative; }
@@ -418,13 +418,9 @@ input[type="range"] { width: 100%; height: 4px; margin: 22px 0 10px; accent-colo
 .standard-page { padding: max(21px, env(safe-area-inset-top)) 18px 30px; }
 .page-header .brand { margin-bottom: 45px; }
 .page-header h1 { margin-bottom: 6px; }
-.recovery-summary { margin-top: 28px; padding: 18px; min-height: 132px; background: var(--ink); color: white; border-radius: 8px; display: grid; grid-template-columns: 100px 1fr; align-items: center; gap: 15px; }
-.recovery-score { width: 90px; height: 90px; border-radius: 50%; display: flex; flex-direction: column; justify-content: center; align-items: center; background: radial-gradient(circle at center, var(--ink) 59%, transparent 61%), conic-gradient(var(--acid) 0 84%, #33372f 84%); }
-.recovery-score span { font: 800 28px/1 Inter; }
-.recovery-score span small { font-size: 13px; }
-.recovery-score p { font-size: 8px; color: #989d91; margin: 3px 0 0; }
-.recovery-summary > div:last-child strong { font: 700 15px Inter; }
-.recovery-summary > div:last-child p { color: #989d91; font-size: 10px; line-height: 1.5; margin: 7px 0 0; }
+.stimulus-summary { margin-top: 28px; padding: 18px; min-height: 132px; background: var(--ink); color: white; border-radius: 8px; display: grid; grid-template-columns: 100px 1fr; align-items: center; gap: 15px; }
+.stimulus-summary > div:last-child strong { font: 700 15px Inter; }
+.stimulus-summary > div:last-child p { color: #989d91; font-size: 10px; line-height: 1.5; margin: 7px 0 0; }
 .muscle-list { margin-top: 27px; }
 .list-caption { display: flex; justify-content: space-between; color: #92958d; font-size: 8px; font-weight: 800; letter-spacing: 1px; padding: 0 5px 8px; }
 .muscle-row { min-height: 59px; display: grid; grid-template-columns: 13px 1fr 40px; gap: 10px; align-items: center; border-top: 1px solid var(--line); }
@@ -432,8 +428,6 @@ input[type="range"] { width: 100%; height: 4px; margin: 22px 0 10px; accent-colo
 .muscle-row > div { display: grid; grid-template-columns: 100px 1fr; align-items: center; gap: 8px; }
 .muscle-row strong { font-size: 12px; }
 .muscle-row > b { text-align: right; font: 700 12px Inter; }
-.recovery-bar { height: 3px; background: #dedcd5; }
-.recovery-bar i { display: block; height: 100%; background: var(--ink); }
 .training-status-list .muscle-row { min-height: 82px; grid-template-columns: 13px 1fr 38px; }
 .training-status-list .muscle-row > div { display: flex; flex-direction: column; gap: 7px; }
 .muscle-status-title { display: flex; align-items: center; justify-content: space-between; gap: 9px; }
@@ -441,12 +435,8 @@ input[type="range"] { width: 100%; height: 4px; margin: 22px 0 10px; accent-colo
 .status-bars { display: grid; grid-template-columns: 1fr 1fr; gap: 5px; }
 .status-bars > span { height: 4px; border-radius: 3px; overflow: hidden; background: #dedcd5; }
 .status-bars > span i { display: block; height: 100%; }
-.status-bars .recovery-bar i { background: var(--ink); }
 .status-bars .stimulus-bar i { background: #94ad45; }
 .muscle-status-meta { color: var(--muted); font-size: 7px; line-height: 1.35; }
-.recovery-feedback { display: flex; align-items: center; flex-wrap: wrap; gap: 5px; }
-.recovery-feedback span { color: var(--muted); font-size: 7px; }
-.recovery-feedback button { min-height: 25px; padding: 0 8px; border: 1px solid var(--line); border-radius: 13px; background: var(--white); color: var(--ink); font-size: 7px; font-weight: 700; }
 .training-status-list .muscle-row { padding: 7px 0; }
 .training-status-list .muscle-row > b { width: 31px; height: 31px; justify-self: end; border-radius: 50%; background: var(--ink); color: var(--acid); display: grid; place-items: center; text-align: center; font-size: 10px; }
 .status-legend { display: flex; flex-wrap: wrap; gap: 11px; margin-top: 11px; color: var(--muted); font-size: 7px; }
@@ -454,9 +444,9 @@ input[type="range"] { width: 100%; height: 4px; margin: 22px 0 10px; accent-colo
 .status-legend i { width: 13px; height: 4px; border-radius: 3px; background: var(--ink); }
 .status-legend span:nth-child(2) i { background: #94ad45; }
 .info-note { padding: 13px 15px; background: #e8e6df; border-radius: 6px; font-size: 9px; line-height: 1.5; color: #73776d; margin: 22px 0; }
-.simple-recovery-summary { grid-template-columns: 54px 1fr; min-height: 116px; }
+.simple-stimulus-summary { grid-template-columns: 54px 1fr; min-height: 116px; }
 .next-workout-icon { width: 48px; height: 48px; display: grid; place-items: center; border-radius: 50%; background: var(--acid); color: var(--ink); }
-.simple-recovery-summary > div > small { color: var(--acid); font-size: 7px; font-weight: 900; letter-spacing: 1px; }
+.simple-stimulus-summary > div > small { color: var(--acid); font-size: 7px; font-weight: 900; letter-spacing: 1px; }
 .training-status-list .muscle-row { grid-template-columns: 10px minmax(0, 1fr) 78px; padding: 10px 0; }
 .training-status-list .muscle-row > div { gap: 8px; }
 .clear-status-line { display: grid; grid-template-columns: 112px 1fr; align-items: center; gap: 8px; }

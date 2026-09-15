@@ -36,7 +36,6 @@ import {
   getExerciseProgress,
   getExercisePrescription,
   getExerciseEffortClass,
-  getRecovery,
   getSimilarExercises,
   getTrackedExerciseIds,
   getWeeklyMuscleLoad,
@@ -91,11 +90,12 @@ for (const exercise of exercises) {
 assert(!String(await readFile(new URL('./curate-exercises.mjs', import.meta.url), 'utf8')).includes('!guide?.image'), 'A missing image must never exclude an otherwise reviewed exercise from the runtime catalog');
 const serviceWorkerSource = await readFile(new URL('../public/sw.js', import.meta.url), 'utf8');
 const appSource = await readFile(new URL('../src/main.jsx', import.meta.url), 'utf8');
+const generatorSource = await readFile(new URL('../src/engine/generator.js', import.meta.url), 'utf8');
 const catalogEditorHtml = await readFile(new URL('../tools/catalog-editor/index.html', import.meta.url), 'utf8');
 const catalogEditorSource = await readFile(new URL('../tools/catalog-editor/app.js', import.meta.url), 'utf8');
 assert(serviceWorkerSource.includes('cache.addAll(images)'), 'The service worker install must fail atomically if any bundled guide image cannot be cached');
 assert(!serviceWorkerSource.includes('Promise.allSettled(images'), 'Offline installation must not silently ignore missing guide images');
-assert(serviceWorkerSource.includes("const CACHE = 'easyfit-v33'"), 'An app-shell or catalog change must bump the offline cache version');
+assert(serviceWorkerSource.includes("const CACHE = 'easyfit-v34'"), 'An app-shell or catalog change must bump the offline cache version');
 assert(serviceWorkerSource.includes("cache.delete(request)"), 'The current PWA cache must remove assets no longer present in the build or guide index');
 assert(serviceWorkerSource.includes("requestUrl.origin !== self.location.origin"), 'The service worker must never intercept cross-origin WebDAV traffic');
 assert(serviceWorkerSource.includes("headers.has('Authorization')"), 'Authenticated responses must never enter the PWA cache');
@@ -105,6 +105,8 @@ assert(appSource.includes("exponentialRampToValueAtTime(.68") && appSource.inclu
 assert(appSource.includes('function WorkoutComplete') && appSource.includes('RIR centrato ±1'), 'Completing a workout must open a useful statistics summary');
 assert(!appSource.includes('Termina alle') && !appSource.includes('Recupero in corso'), 'The PWA must not fake a persistent notification countdown using an absolute end time');
 assert(!appSource.includes('Catalogo essenziale') && !appSource.includes('Mostra tutte le varianti'), 'The removed essential-catalog mode must not remain exposed in settings or replacement UI');
+assert(!generatorSource.includes('getRecovery') && !generatorSource.includes('MIN_TRAINING_READINESS') && !generatorSource.includes('recoveryAtGeneration'), 'Muscle recovery estimation must not return as a generator input or gate');
+assert(!appSource.includes('Più affaticato') && !appSource.includes('Più fresco') && !appSource.includes('Prontezza'), 'The UI must expose stimulus priorities instead of obsolete recovery controls');
 for (const filter of ['language', 'equipment', 'muscle', 'category', 'kind', 'pattern', 'image', 'guide']) {
   assert(catalogEditorHtml.includes(`filter-${filter}`) && catalogEditorSource.includes(`state.filters.${filter}`), `The developer catalog must expose and apply its ${filter} filter`);
 }
@@ -188,9 +190,7 @@ const futureHistory = [{
 }];
 assert.equal(getWeeklyMuscleLoad(futureHistory).volume.chest, 0, 'Future-dated workouts must never count toward current stimulus');
 assert.equal(getWeeklyMovementFrequency(futureHistory).push, 0, 'Future-dated workouts must never count toward current frequency');
-assert.equal(getRecovery(futureHistory).chest, 100, 'Future-dated workouts must never create current fatigue');
 const zeroRepHistory = [{ completedAt: Date.now() - 1000, exercises: [{ exerciseId: bench.id, sets: [{ ...baseSet, reps: 0, done: true }] }] }];
-assert.equal(getRecovery(zeroRepHistory).chest, 100, 'A completed marker with zero repetitions must not create fatigue');
 const zeroRepStatus = getMuscleTrainingStatus({ goal: 'muscle', split: 'adaptive' }, zeroRepHistory);
 assert.equal(zeroRepStatus.chest.lastStimulatedAt, null, 'Zero repetitions must not update muscle recency');
 assert.equal(zeroRepStatus.chest.doseStimulus, 0, 'Zero repetitions must not create training-dose memory');
@@ -202,21 +202,6 @@ assert(
 assert(
   getMuscleSelectionPriority('glutes', { priority: 90 }) > getMuscleSelectionPriority('quads', { priority: 10 }),
   'A genuinely undertrained smaller-priority muscle must outrank a large muscle that is already covered',
-);
-
-const easyHistory = structuredClone(hardHistory);
-easyHistory[0].exercises[0].sets[1].rir = 4;
-easyHistory[0].exercises[0].sets[1].reps = 8;
-assert(getRecovery(hardHistory).chest < getRecovery(easyHistory).chest, 'Failure and extra reps must create more estimated fatigue');
-const feedbackNow = Date.now();
-assert(
-  getRecovery([], feedbackNow, { recoveryFeedback: { chest: { adjustment: -20, updatedAt: feedbackNow } } }).chest
-    < getRecovery([], feedbackNow).chest,
-  'Subjective fatigue feedback must lower current readiness instead of being ignored',
-);
-assert(
-  getRecovery([], feedbackNow + 48 * 36e5, { recoveryFeedback: { chest: { adjustment: -20, updatedAt: feedbackNow } } }).chest >= 95,
-  'Subjective feedback must decay automatically rather than becoming permanent profile bias',
 );
 
 const statusNow = Date.now();
@@ -235,16 +220,13 @@ const stimulusHistory = [
   },
 ];
 const muscleStatus = getMuscleTrainingStatus({ goal: 'muscle', level: 'intermediate', split: 'adaptive' }, stimulusHistory, statusNow);
-assert.equal(muscleStatus.back.cycleStimulus, 0, 'A fully recovered muscle must close its previous stimulus cycle');
-assert.equal(muscleStatus.chest.cycleStimulus, 3, 'A recent primary stimulus must be visible in the current cycle');
-assert.equal(muscleStatus.shoulders.cycleStimulus, 1.5, 'A new stimulus after a recovered gap must not revive secondary work from the previous cycle');
-assert.equal(muscleStatus.back.cycleStartedAt, statusNow, 'A recovered muscle must expose the beginning of its new cycle');
-assert.equal(muscleStatus.back.cycleComplete, true, 'The status must report that recovery closed the previous cycle');
-assert(muscleStatus.back.doseStimulus > 0, 'Closing a fatigue cycle must retain decaying dose memory');
-assert(muscleStatus.back.priority > muscleStatus.chest.priority, 'An older recovered and under-target muscle must outrank a recently trained muscle');
+assert.equal(muscleStatus.back.cycleStimulus, muscleStatus.back.doseStimulus, 'Legacy cycle metadata must mirror the single stimulus window');
+assert(muscleStatus.chest.doseStimulus > muscleStatus.shoulders.doseStimulus, 'Direct work must retain more stimulus than fractional secondary work');
+assert(muscleStatus.back.doseStimulus > 0, 'Older work must remain in the decaying stimulus memory');
+assert(muscleStatus.back.priority > muscleStatus.chest.priority, 'An older under-target muscle must outrank a recently trained muscle');
 const expiredStatus = getMuscleTrainingStatus({ goal: 'muscle', level: 'intermediate', split: 'adaptive' }, [{ ...stimulusHistory[0], completedAt: statusNow - 8 * 864e5 }], statusNow);
-assert.equal(expiredStatus.back.cycleStimulus, 0, 'Old work must leave the active cycle once the muscle is fully recovered');
-assert.equal(expiredStatus.back.cycleStartedAt, statusNow, 'A completed recovery cycle must restart at the evaluation time');
+assert(expiredStatus.back.doseStimulus > 0, 'Eight-day-old work must decay instead of disappearing at a recovery boundary');
+assert.equal(expiredStatus.back.cycleStartedAt, statusNow - 8 * 864e5, 'The stimulus window must retain the real oldest contributing event');
 const fadedHistory = [{ ...stimulusHistory[0], completedAt: statusNow - 8 * 864e5 }];
 assert(getWeeklyMuscleLoad(fadedHistory, statusNow).volume.back > 0, 'Historical analytics may retain smoothly decayed work after the active recovery cycle closes');
 assert(getWeeklyMovementFrequency(fadedHistory, statusNow).pull > 0, 'Movement recency must decay smoothly instead of crossing a seven-day cliff');
@@ -508,9 +490,9 @@ const decayedDoseHistory = [{
   exercises: [{ exerciseId: bench.id, sets: Array.from({ length: 12 }, () => ({ ...baseSet, reps: 8, rir: 2 })) }],
 }];
 const decayedDoseWorkout = generateWorkout(profile, decayedDoseHistory, { targets: ['chest'], duration: 25, now: decayedDoseNow });
-assert.equal(decayedDoseWorkout.engine.cycleStimulusBeforeWorkout.chest, 0, 'Complete recovery may close the short fatigue cycle');
-assert(decayedDoseWorkout.engine.doseStimulusBeforeWorkout.chest > 0, 'Closing fatigue must not erase the decaying training dose');
-assert.equal(decayedDoseWorkout.exercises[0].sets.length, 2, 'Set prescription must fill the decayed dose gap instead of treating a recovered muscle as completely untrained');
+assert.equal(decayedDoseWorkout.engine.cycleStimulusBeforeWorkout.chest, decayedDoseWorkout.engine.doseStimulusBeforeWorkout.chest, 'Legacy cycle metadata must mirror the unified stimulus window');
+assert(decayedDoseWorkout.engine.doseStimulusBeforeWorkout.chest > 0, 'The decaying training dose must retain seven-day-old work');
+assert.equal(decayedDoseWorkout.exercises[0].sets.length, 2, 'Set prescription must fill the decayed dose gap instead of treating an older stimulus as absent');
 const recalibrated = generateWorkout(profile, hardHistory, { targets: ['chest'], duration: 25 });
 assert.equal(recalibrated.exercises[0].exerciseId, bench.id);
 assert.equal(recalibrated.exercises[0].sets[0].weight, 60, 'One exceptional set must not raise load when every work set has not reached the top');
@@ -632,7 +614,7 @@ const canonicalAdaptiveValue = generateWorkout({ ...focusProfile, split: 'adapti
 assert.deepEqual(legacySplitValue.exercises, canonicalAdaptiveValue.exercises, 'Legacy split values must not alter the exclusively adaptive engine');
 
 const hinge = exercises.find((exercise) => getMovementFamily(exercise) === 'hip' && exercise.compound);
-assert(hinge, 'A compound hip movement must exist for recovery gating checks');
+assert(hinge, 'A compound hip movement must exist for stimulus-priority checks');
 const exhaustedLowerHistory = [{
   id: 'exhausted-lower', completedAt: Date.now() - 36e5,
   exercises: [squat, hinge].map((exercise) => ({
@@ -640,8 +622,12 @@ const exhaustedLowerHistory = [{
     sets: Array.from({ length: 12 }, () => ({ targetReps: 8, reps: 8, targetRir: 2, rir: 0, weight: 50, done: true })),
   })),
 }];
-const recoveryGatedWorkout = generateWorkout({ ...focusProfile, split: 'adaptive', equipment: allEquipment, duration: 45 }, exhaustedLowerHistory, { duration: 45, variation: 818 });
-assert(!recoveryGatedWorkout.exercises.some((item) => isLowerBodyExercise(exercises.find((exercise) => exercise.id === item.exerciseId))), 'Adaptive generation must not force a lower-body family below the readiness threshold');
+const stimulusOnlyNow = Date.now();
+const stimulusOnlyWorkout = generateWorkout({ ...focusProfile, split: 'adaptive', equipment: allEquipment, duration: 45 }, exhaustedLowerHistory, { duration: 45, variation: 818, now: stimulusOnlyNow });
+assert(stimulusOnlyWorkout.exercises.some((item) => isLowerBodyExercise(exercises.find((exercise) => exercise.id === item.exerciseId))), 'Recent hard work must affect stimulus priority without excluding the lower-body family');
+assert(stimulusOnlyWorkout.exercises.length >= 3, 'A compatible adaptive workout must never collapse to two exercises');
+const ignoredRecoveryFeedbackWorkout = generateWorkout({ ...focusProfile, split: 'adaptive', equipment: allEquipment, duration: 45, recoveryFeedback: { chest: { adjustment: -20, updatedAt: stimulusOnlyNow } } }, exhaustedLowerHistory, { duration: 45, variation: 818, now: stimulusOnlyNow });
+assert.deepEqual(ignoredRecoveryFeedbackWorkout.exercises, stimulusOnlyWorkout.exercises, 'Legacy recovery feedback must have no effect on stimulus-only generation');
 
 const adaptiveWorkout = generateWorkout({
   ...focusProfile,
@@ -807,9 +793,11 @@ const highFatigueHistory = [{
     sets: Array.from({ length: 6 }, () => ({ ...baseSet, reps: 10, rir: 0 })),
   }],
 }];
-const fatigueAdjusted = generateWorkout(profile, highFatigueHistory, { targets: ['chest'], duration: 25 });
-assert.equal(fatigueAdjusted.exercises[0].targetRir, 2, 'Readiness must not silently change the RIR explicitly chosen by the user');
-assert.equal(fatigueAdjusted.exercises[0].sets.length, 2, 'Low readiness must cap per-exercise sets');
+const stimulusPrescriptionNow = Date.now();
+const fatigueAdjusted = generateWorkout(profile, highFatigueHistory, { targets: ['chest'], duration: 25, now: stimulusPrescriptionNow });
+assert.equal(fatigueAdjusted.exercises[0].targetRir, 2, 'Recent stimulus must not silently change the RIR explicitly chosen by the user');
+const feedbackAdjusted = generateWorkout({ ...profile, recoveryFeedback: { chest: { adjustment: -20, updatedAt: stimulusPrescriptionNow } } }, highFatigueHistory, { targets: ['chest'], duration: 25, now: stimulusPrescriptionNow });
+assert.deepEqual(feedbackAdjusted.exercises, fatigueAdjusted.exercises, 'Removed recovery feedback must not change set count or prescription');
 
 const staleHistory = structuredClone(hardHistory);
 staleHistory[0].completedAt = Date.now() - 11 * 864e5;
@@ -1045,7 +1033,7 @@ assert.equal(customWorkout.targetRir, 1, 'The exercise-specific RIR must overrid
 
 const failureProfile = { ...profile, targetRir: 0 };
 const failureWorkout = generateWorkout(failureProfile, highFatigueHistory, { targets: ['chest'], duration: 25 }).exercises[0];
-assert.equal(failureWorkout.targetRir, 0, 'RIR 0 must remain available even when readiness is low');
+assert.equal(failureWorkout.targetRir, 0, 'RIR 0 must remain available regardless of recent stimulus');
 assert(failureWorkout.sets.every((set) => set.targetRir === 0), 'Every prescribed set must expose the selected RIR target');
 
 const continuityNow = Date.now();

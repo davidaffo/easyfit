@@ -26,7 +26,6 @@ import {
   getAdaptiveTrainingOverview,
   getAddableExercises,
   getTrackedExerciseIds,
-  getRecovery,
   getSimilarExercises,
   getWorkoutExercise,
   isExerciseAllowed,
@@ -52,7 +51,6 @@ const defaultProfile = {
   equipment: ['bodyweight', 'dumbbells', 'bench'],
   loadInventory: { dumbbells: [], kettlebell: [], barbell: [], ezbar: [], machines: [], cables: [] },
   exerciseLoadInventory: {},
-  recoveryFeedback: {},
   trainingAdaptation: {},
   duration: 45,
   trainingStyle: 'balanced',
@@ -87,7 +85,7 @@ function normalizeProfile(profile = {}) {
       : Number(profile.targetRir) >= 3 || Number(savedSetCaps.compound) >= 4
         ? 'volume'
         : 'balanced';
-  const { focusEnabled, focusExerciseIds, focusCycleLength, focusCycleStartedAt, ...cleanProfile } = profile;
+  const { focusEnabled, focusExerciseIds, focusCycleLength, focusCycleStartedAt, recoveryFeedback, ...cleanProfile } = profile;
   const loadInventory = Object.fromEntries(Object.keys(defaultProfile.loadInventory).map((equipment) => [
     equipment,
     [...new Set((Array.isArray(profile.loadInventory?.[equipment]) ? profile.loadInventory[equipment] : [])
@@ -105,7 +103,6 @@ function normalizeProfile(profile = {}) {
     equipment: Array.isArray(profile.equipment) && profile.equipment.length ? profile.equipment : defaultProfile.equipment,
     loadInventory,
     exerciseLoadInventory,
-    recoveryFeedback: isObject(profile.recoveryFeedback) ? profile.recoveryFeedback : {},
     trainingAdaptation: isObject(profile.trainingAdaptation) ? profile.trainingAdaptation : {},
     preferences: isObject(profile.preferences) ? profile.preferences : {},
     exerciseFilters: { ...defaultProfile.exerciseFilters, ...supportedExerciseFilters },
@@ -281,7 +278,7 @@ function Onboarding({ onDone }) {
       </div>
       <div className="hero-copy">
         <h1>Meno scelte.<br/><em>Più risultati.</em></h1>
-        <p>Ogni volta che ti alleni, Easyfit decide cosa fare in base al tuo recupero e ai tuoi progressi.</p>
+        <p>Ogni volta che ti alleni, Easyfit decide cosa fare in base allo stimolo già accumulato e ai tuoi progressi.</p>
         <button className="button primary wide" onClick={() => setStep(1)}>Configura in 60 secondi <Icon name="chevron"/></button>
       </div>
     </main>;
@@ -477,9 +474,7 @@ function App() {
   const createWorkout = (duration = profile.duration) => {
     const generated = generateWorkout(profile, history, { duration, variation: Date.now() });
     if (!generated.exercises.length || !generated.exercises.some((item) => item.sets.length)) {
-      setToast(generated.engine?.recoveryBlocked
-        ? 'Recupero insufficiente: oggi non viene forzato alcun gruppo muscolare'
-        : 'Nessun esercizio compatibile: controlla attrezzatura ed esclusioni');
+      setToast('Nessun esercizio compatibile: controlla attrezzatura ed esclusioni');
       return;
     }
     const activeWorkout = startWorkout(generated);
@@ -566,8 +561,8 @@ function App() {
         }}/>
       : <>
         <div className="page-wrap">
-          {view === 'home' && <Home profile={profile} history={history} workout={workout} onOpenWorkout={openWorkout} onDiscardWorkout={discardWorkout} onGenerate={createWorkout} onShowRecovery={() => setView('recovery')} installPrompt={installPrompt} onInstalled={() => setInstallPrompt(null)}/>}
-          {view === 'recovery' && <Recovery history={history} profile={profile} setProfile={setProfile}/>}
+          {view === 'home' && <Home profile={profile} history={history} workout={workout} onOpenWorkout={openWorkout} onDiscardWorkout={discardWorkout} onGenerate={createWorkout} onShowStimulus={() => setView('stimulus')} installPrompt={installPrompt} onInstalled={() => setInstallPrompt(null)}/>}
+          {view === 'stimulus' && <Stimulus history={history} profile={profile}/>}
           {view === 'history' && <History history={history} profile={profile}/>}
           {view === 'profile' && <Profile profile={profile} setProfile={setProfile} history={history} workout={workout} onRestoreBackup={restoreBackup} installPrompt={installPrompt} onInstalled={() => setInstallPrompt(null)} showToast={showToast} onReset={resetAppData}/>}
         </div>
@@ -578,7 +573,7 @@ function App() {
   </div>;
 }
 
-function Home({ profile, history, workout, onOpenWorkout, onDiscardWorkout, onGenerate, onShowRecovery, installPrompt, onInstalled }) {
+function Home({ profile, history, workout, onOpenWorkout, onDiscardWorkout, onGenerate, onShowStimulus, installPrompt, onInstalled }) {
   const adaptiveOverview = useMemo(() => getAdaptiveTrainingOverview(profile, history, profile.duration), [history, profile]);
   const today = new Intl.DateTimeFormat('it-IT', { weekday: 'long', day: 'numeric', month: 'long' }).format(new Date());
   const completedWeek = history.filter((item) => item.completedAt <= Date.now() && Date.now() - item.completedAt < 7 * 864e5).length;
@@ -593,9 +588,9 @@ function Home({ profile, history, workout, onOpenWorkout, onDiscardWorkout, onGe
     <header className="topbar"><Brand/><div className="top-actions">{installPrompt && <button className="icon-button install-button" onClick={install} aria-label="Installa Easyfit"><Icon name="download"/></button>}<button className="avatar">DA</button></div></header>
     <section className="welcome"><span className="eyebrow">{today.toUpperCase()}</span><h1>Ciao, sei pronto?</h1><p>{history.length ? `${completedWeek} allenament${completedWeek === 1 ? 'o' : 'i'} questa settimana. Continua così.` : 'Il tuo primo allenamento è già pronto.'}</p></section>
 
-    <section className="recovery-strip">
+    <section className="stimulus-strip">
       <div><span className="section-kicker">PROSSIMO WORKOUT</span><div className="fresh-list">{adaptiveOverview.families.map((family) => <span key={family.id}><i style={{ '--value': `${Math.round(family.need.score * 360)}deg` }}/><b>{adaptiveFamilyLabels[family.id]}</b><small>selezionato</small></span>)}</div></div>
-      <button className="round-arrow" aria-label="Vedi recupero" onClick={onShowRecovery}><Icon name="chevron"/></button>
+      <button className="round-arrow" aria-label="Vedi stimolo" onClick={onShowStimulus}><Icon name="chevron"/></button>
     </section>
 
     {workout ? <WorkoutHero workout={workout} onOpen={onOpenWorkout} onDiscard={onDiscardWorkout}/> : <EmptyWorkout onGenerate={() => onGenerate(profile.duration)}/>}
@@ -622,22 +617,21 @@ function WorkoutHero({ workout, onOpen, onDiscard }) {
 }
 
 function EmptyWorkout({ onGenerate }) {
-  return <section className="empty-workout"><span className="empty-icon"><Icon name="spark" size={30}/></span><h2>Pronto quando vuoi</h2><p>Genera un workout adatto al tuo recupero di oggi.</p><button className="button dark" onClick={onGenerate}>Genera workout</button></section>;
+  return <section className="empty-workout"><span className="empty-icon"><Icon name="spark" size={30}/></span><h2>Pronto quando vuoi</h2><p>Genera un workout in base allo stimolo che hai già accumulato.</p><button className="button dark" onClick={onGenerate}>Genera workout</button></section>;
 }
 
 function buildRefreshWorkoutOptions(profile, history, workout, seed) {
   const now = Date.now();
-  const recovery = getRecovery(history, now, profile);
   const adaptiveProfile = { ...profile, split: 'adaptive' };
   return generateWorkoutAlternatives(adaptiveProfile, history, workout, { seed, now }).map((candidate, index) => {
-    const readiness = candidate.targetMuscles.length
-      ? Math.round(candidate.targetMuscles.reduce((sum, muscle) => sum + (recovery[muscle] || 0), 0) / candidate.targetMuscles.length)
+    const priority = candidate.targetMuscles.length
+      ? Math.round(candidate.targetMuscles.reduce((sum, muscle) => sum + Number(candidate.engine?.muscleStatusAtGeneration?.[muscle]?.priority || 0), 0) / candidate.targetMuscles.length)
       : 0;
     return {
       id: candidate.exercises.map((item) => item.exerciseId).sort().join('|'),
       title: `Proposta adattiva ${index + 1}`,
       text: candidate.targetMuscles.slice(0, 4).map((muscle) => muscles[muscle]).join(' · '),
-      readiness,
+      priority,
       workout: candidate,
     };
   });
@@ -653,13 +647,13 @@ function RefreshWorkoutSheet({ profile, history, workout, seed, onChoose, onClos
       <button className="sheet-close" onClick={onClose} aria-label="Chiudi"><Icon name="close" size={19}/></button>
       <span className="eyebrow">REFRESH WORKOUT</span>
       <h2>Scegli una proposta adattiva</h2>
-      <p>Cambiano gli esercizi, ma restano identici target adattivi, recupero, stimolo, composizione e limiti della scheda corrente.</p>
+      <p>Cambiano gli esercizi, ma restano identici target di stimolo, composizione e limiti della scheda corrente.</p>
       <div className="refresh-type-list">{options.map((option) => <button key={option.id} onClick={() => onChoose(option)}>
         <div><strong>{option.title}</strong><small>{option.text}</small></div>
-        <span><b>{option.readiness}%</b><small>recupero</small></span>
+        <span><b>{option.priority}%</b><small>priorità</small></span>
         <i>{option.workout.exercises.length} esercizi · ~{option.workout.engine.estimatedMinutes} min</i><Icon name="chevron" size={18}/>
       </button>)}</div>
-      {!options.length && <p className="refresh-empty">Nessuna alternativa adattiva completa disponibile con il recupero attuale.</p>}
+      {!options.length && <p className="refresh-empty">Nessuna alternativa completa disponibile con attrezzatura ed esclusioni attuali.</p>}
     </section>
   </div>;
 }
@@ -1377,30 +1371,23 @@ function WorkoutComplete({ workout, history, onClose }) {
   </div>;
 }
 
-function Recovery({ history, profile, setProfile }) {
+function Stimulus({ history, profile }) {
   const overview = useMemo(() => getAdaptiveTrainingOverview(profile, history, profile.duration), [profile, history]);
   const status = overview.muscleStatus;
   const isPlanned = (muscle) => overview.families.some((family) => (family.primaryMuscles || family.muscles).includes(muscle));
   const sorted = Object.entries(status)
     .filter(([, item]) => !item.excluded)
-    .sort((a, b) => Number(isPlanned(b[0])) - Number(isPlanned(a[0])) || b[1].priority - a[1].priority || b[1].recovery - a[1].recovery);
+    .sort((a, b) => Number(isPlanned(b[0])) - Number(isPlanned(a[0])) || b[1].priority - a[1].priority);
   const lastStimulusLabel = (hours) => hours == null ? 'mai' : hours < 24 ? 'oggi' : hours < 48 ? 'ieri' : `${Math.floor(hours / 24)} giorni fa`;
-  const statusLabel = (muscle, item) => item.recovery < 55 ? 'Recupero' : isPlanned(muscle) ? 'Famiglia scelta' : item.doseStimulus >= item.targetStimulus ? 'Dose coperta' : 'Disponibile';
-  const adjustRecovery = (muscle, amount) => setProfile((current) => ({
-    ...current,
-    recoveryFeedback: {
-      ...current.recoveryFeedback,
-      [muscle]: { adjustment: Math.max(-20, Math.min(20, Number(current.recoveryFeedback?.[muscle]?.adjustment || 0) + amount)), updatedAt: Date.now() },
-    },
-  }));
+  const statusLabel = (muscle, item) => isPlanned(muscle) ? 'Famiglia scelta' : item.doseStimulus >= item.targetStimulus ? 'Dose coperta' : 'In attesa';
   const nextFamilies = overview.families.map((family) => adaptiveFamilyLabels[family.id]).join(' + ');
-  return <main className="standard-page"><PageHeader kicker="STATO ALLENAMENTO" title="Cosa allenare adesso" subtitle="Una lettura semplice di recupero e lavoro recente."/>
-    <section className="recovery-summary simple-recovery-summary"><span className="next-workout-icon"><Icon name="spark" size={30}/></span><div><small>SCELTA DELL’ENGINE</small><strong>{nextFamilies || 'Recupero prima del prossimo workout'}</strong><p>Questi sono gli stessi target che verranno usati generando o aggiornando la scheda.</p></div></section>
+  return <main className="standard-page"><PageHeader kicker="STIMOLO ALLENANTE" title="Cosa allenare adesso" subtitle="Priorità calcolate esclusivamente dal lavoro che hai registrato."/>
+    <section className="stimulus-summary simple-stimulus-summary"><span className="next-workout-icon"><Icon name="spark" size={30}/></span><div><small>SCELTA DELL’ENGINE</small><strong>{nextFamilies || 'Configura almeno un esercizio compatibile'}</strong><p>Queste sono le stesse famiglie che verranno usate generando o aggiornando la scheda.</p></div></section>
     <section className="muscle-list training-status-list"><div className="list-caption"><span>GRUPPO MUSCOLARE</span><span>STATO</span></div>{sorted.map(([muscle, item]) => {
       const dosePercent = Math.min(100, item.targetStimulus ? item.doseStimulus / item.targetStimulus * 100 : 0);
-      return <div className="muscle-row" key={muscle}><span className="muscle-dot" style={{ opacity: Math.max(.35, item.recovery / 100) }}/><div><div className="muscle-status-title"><strong>{muscles[muscle]}</strong><small>Ultimo stimolo: {lastStimulusLabel(item.hoursSinceStimulus)}</small></div><div className="clear-status-line"><span>Prontezza <b>{item.recovery}%</b></span><i><b style={{ width: `${item.recovery}%` }}/></i></div><div className="clear-status-line stimulus"><span>Stimolo coperto <b>{Math.round(dosePercent)}%</b></span><i><b style={{ width: `${dosePercent}%` }}/></i></div><div className="recovery-feedback"><span>Come ti senti?</span><button onClick={() => adjustRecovery(muscle, -10)}>Più affaticato</button><button onClick={() => adjustRecovery(muscle, 10)}>Più fresco</button></div></div><b className={`status-pill ${isPlanned(muscle) ? 'planned' : ''}`}>{statusLabel(muscle, item)}</b></div>;
+      return <div className="muscle-row" key={muscle}><span className="muscle-dot" style={{ opacity: Math.max(.35, item.priority / 100) }}/><div><div className="muscle-status-title"><strong>{muscles[muscle]}</strong><small>Ultimo stimolo: {lastStimulusLabel(item.hoursSinceStimulus)}</small></div><div className="clear-status-line"><span>Priorità <b>{item.priority}%</b></span><i><b style={{ width: `${item.priority}%` }}/></i></div><div className="clear-status-line stimulus"><span>Stimolo coperto <b>{Math.round(dosePercent)}%</b></span><i><b style={{ width: `${dosePercent}%` }}/></i></div></div><b className={`status-pill ${isPlanned(muscle) ? 'planned' : ''}`}>{statusLabel(muscle, item)}</b></div>;
     })}</section>
-    <p className="info-note simple-note">L’engine sceglie una sola famiglia per le gambe e le migliori famiglie della parte alta tra quelle abbastanza recuperate. Poi considera quanto stimolo recente manca e da quanto tempo il muscolo non viene allenato. “Famiglia scelta” indica una decisione reale del generatore, non un punteggio astratto.</p>
+    <p className="info-note simple-note">L’engine considera solo stimolo mancante, frequenza recente e tempo dall’ultimo allenamento. Non stima il recupero e non esclude muscoli in base a una presunta prontezza. Resta il limite di un solo esercizio per le gambe nella stessa seduta.</p>
   </main>;
 }
 
@@ -1692,7 +1679,7 @@ function PageHeader({ kicker, title, subtitle }) { return <header className="pag
 
 function BottomNav({ view, setView }) {
   return <nav className="bottom-nav">{[
-    ['home', 'home', 'Oggi'], ['recovery', 'body', 'Recupero'], ['history', 'history', 'Progressi'], ['profile', 'settings', 'Impostazioni'],
+    ['home', 'home', 'Oggi'], ['stimulus', 'body', 'Stimolo'], ['history', 'history', 'Progressi'], ['profile', 'settings', 'Impostazioni'],
   ].map(([id, icon, label]) => <button key={id} className={view === id ? 'active' : ''} onClick={() => setView(id)}><span><Icon name={icon}/></span><small>{label}</small></button>)}</nav>;
 }
 
