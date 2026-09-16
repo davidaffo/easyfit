@@ -9,7 +9,7 @@ const CONTINUITY_BREAK_DAYS = 28;
 const RECENT_VARIATION_DAYS = 7;
 const EXERCISE_ROTATION_EXPOSURES = 4;
 export const SESSION_TIME_TOLERANCE_MINUTES = 7;
-export const ENGINE_VERSION = 33;
+export const ENGINE_VERSION = 34;
 
 const muscleBaseImportance = {
   chest: 100,
@@ -252,6 +252,17 @@ export function estimateOneRepMax(weight, reps, rir = 0) {
     : Number(weight) * (1 + effectiveReps / 30);
 }
 
+function estimateEffectiveReps(oneRepMax, weight) {
+  const maximum = Number(oneRepMax);
+  const load = Number(weight);
+  if (!Number.isFinite(maximum) || !Number.isFinite(load) || maximum <= 0 || load <= 0 || maximum < load) return null;
+  const ratio = maximum / load;
+  const effectiveReps = ratio <= 4 / 3
+    ? 37 - 36 / ratio
+    : 30 * (ratio - 1);
+  return clamp(effectiveReps, 1, 30);
+}
+
 function validCompletedWorkout(workout, now = Date.now()) {
   const completedAt = Number(workout?.completedAt);
   return Number.isFinite(completedAt) && completedAt > 0 && completedAt <= now;
@@ -379,10 +390,55 @@ export function getExerciseProgress(history = [], exerciseId, now = Date.now()) 
         const targetWeight = Number(set.targetWeight ?? set.weight) || 0;
         return sum + Math.max(0, targetWeight) * Math.max(0, Number(set.targetReps) || 0);
       }, 0);
+      const repVolumeRatio = prescribedRepVolume > 0 ? performedRepVolume / prescribedRepVolume : null;
+      const loadVolumeRatio = prescribedLoadVolume > 0 ? performedLoadVolume / prescribedLoadVolume : null;
+      const finalSet = completed.at(-1);
+      const finalCapacity = finalSet ? Number(finalSet.reps || 0) + recordedRir(finalSet) : null;
+      const finalTargetCapacity = finalSet
+        ? Number(finalSet.targetReps || finalSet.reps || 0) + Number(finalSet.targetRir ?? 2)
+        : null;
+      const finalEstimate = finalSet
+        ? estimateOneRepMax(finalSet.weight, finalSet.reps, recordedRir(finalSet))
+        : null;
+      const finalTargetEstimate = finalSet
+        ? estimateOneRepMax(
+          Number(finalSet.targetWeight ?? finalSet.weight),
+          Number(finalSet.targetReps ?? finalSet.reps),
+          Number(finalSet.targetRir ?? 2),
+        )
+        : null;
+      const effectiveVolumeRatio = weighted.length && loadVolumeRatio != null ? loadVolumeRatio : repVolumeRatio;
+      const finalPerformanceSurplus = (
+        finalCapacity != null && finalTargetCapacity != null && finalCapacity > finalTargetCapacity + .25
+      ) || (
+        finalEstimate != null && finalTargetEstimate != null && finalEstimate > finalTargetEstimate * 1.01
+      );
+      const positiveEvidence = completionRate >= .8 && (
+        Number(effectiveVolumeRatio) >= 1.025
+        || finalPerformanceSurplus
+      );
+      const negativeEvidence = Number.isFinite(Number(effectiveVolumeRatio))
+        && Number(effectiveVolumeRatio) < .975
+        && finalCapacity != null && finalTargetCapacity != null
+        && finalCapacity < finalTargetCapacity - .25;
+      const repCapacityEstimate = finalPerformanceSurplus
+        ? finalCapacity
+        : median(repCapacities);
+      const sessionE1rm = estimates.length
+        ? finalPerformanceSurplus ? finalEstimate : median(estimates)
+        : null;
       return {
         completedAt,
-        e1rm: estimates.length ? median(estimates) : null,
+        storedPerformance: item.performanceCalibration,
+        e1rm: sessionE1rm,
         bestE1rm: estimates.length ? Math.max(...estimates) : null,
+        finalE1rm: finalEstimate,
+        finalTargetE1rm: finalTargetEstimate,
+        repCapacityEstimate,
+        positiveEvidence,
+        negativeEvidence,
+        finalCapacity,
+        finalTargetCapacity,
         lastWeight: workingWeight,
         targetWeight: median(comparableSets.map((set) => Number(set.targetWeight)).filter((value) => value > 0)),
         targetReps: median(comparableSets.map((set) => Number(set.targetReps)).filter((value) => value > 0)),
@@ -395,18 +451,60 @@ export function getExerciseProgress(history = [], exerciseId, now = Date.now()) 
         targetRir: median(targetRirs),
         completionRate,
         completedSets: completed.length,
-        repVolumeRatio: prescribedRepVolume > 0 ? performedRepVolume / prescribedRepVolume : null,
-        loadVolumeRatio: prescribedLoadVolume > 0 ? performedLoadVolume / prescribedLoadVolume : null,
+        repVolumeRatio,
+        loadVolumeRatio,
       };
     })
     .filter((session) => session.completedSets)
     .sort((a, b) => a.completedAt - b.completedAt);
 
+  let rollingE1rm = null;
+  let rollingRepCapacity = null;
+  sessions.forEach((session) => {
+    const storedMaximum = Number(session.storedPerformance?.estimatedMaximum);
+    const storedKind = session.storedPerformance?.kind;
+    if (Number.isFinite(storedMaximum) && storedMaximum > 0 && ['e1rm', 'rep-capacity'].includes(storedKind)) {
+      session.previousPerformanceMax = Number(session.storedPerformance.previousMaximum) || rollingE1rm || rollingRepCapacity || null;
+      session.performanceMax = storedMaximum;
+      session.performanceMaxChange = Number.isFinite(Number(session.storedPerformance.change))
+        ? Number(session.storedPerformance.change)
+        : session.previousPerformanceMax
+          ? (storedMaximum - session.previousPerformanceMax) / session.previousPerformanceMax
+          : null;
+      if (storedKind === 'e1rm') rollingE1rm = storedMaximum;
+      else rollingRepCapacity = storedMaximum;
+      return;
+    }
+    session.previousPerformanceMax = rollingE1rm ?? rollingRepCapacity;
+    if (session.e1rm != null) {
+      if (rollingE1rm == null) rollingE1rm = session.e1rm;
+      else if (session.positiveEvidence) rollingE1rm = Math.max(rollingE1rm, session.e1rm);
+      else if (session.negativeEvidence) rollingE1rm = Math.max(session.e1rm, rollingE1rm * .95);
+      session.performanceMax = rollingE1rm;
+    } else if (session.repCapacityEstimate != null) {
+      if (rollingRepCapacity == null) rollingRepCapacity = session.repCapacityEstimate;
+      else if (session.positiveEvidence) rollingRepCapacity = Math.max(rollingRepCapacity, session.repCapacityEstimate);
+      else if (session.negativeEvidence) rollingRepCapacity = Math.max(session.repCapacityEstimate, rollingRepCapacity - 1);
+      session.performanceMax = rollingRepCapacity;
+    }
+    session.performanceMaxChange = session.previousPerformanceMax && session.performanceMax
+      ? (session.performanceMax - session.previousPerformanceMax) / session.previousPerformanceMax
+      : null;
+  });
+
   const latest = sessions.at(-1);
   const previous = sessions.at(-2);
   return {
     sessions: sessions.length,
-    latestE1rm: latest?.e1rm ?? null,
+    latestE1rm: latest?.e1rm != null ? latest?.performanceMax ?? latest.e1rm : null,
+    latestSessionE1rm: latest?.e1rm ?? null,
+    latestRepCapacity: latest?.e1rm == null ? latest?.performanceMax ?? null : null,
+    previousPerformanceMax: latest?.previousPerformanceMax ?? null,
+    latestPerformanceMaxChange: latest?.performanceMaxChange ?? null,
+    latestPositiveEvidence: latest?.positiveEvidence ?? false,
+    latestNegativeEvidence: latest?.negativeEvidence ?? false,
+    latestFinalCapacity: latest?.finalCapacity ?? null,
+    latestFinalTargetCapacity: latest?.finalTargetCapacity ?? null,
     bestE1rm: Math.max(0, ...sessions.map((session) => session.bestE1rm || 0)) || null,
     lastWeight: latest?.lastWeight ?? null,
     latestTargetWeight: latest?.targetWeight ?? null,
@@ -421,7 +519,38 @@ export function getExerciseProgress(history = [], exerciseId, now = Date.now()) 
     latestCompletionRate: latest?.completionRate ?? null,
     latestRepVolumeRatio: latest?.repVolumeRatio ?? null,
     latestLoadVolumeRatio: latest?.loadVolumeRatio ?? null,
-    trend: latest?.e1rm && previous?.e1rm ? (latest.e1rm - previous.e1rm) / previous.e1rm : null,
+    trend: latest?.performanceMaxChange ?? (latest?.e1rm && previous?.e1rm ? (latest.e1rm - previous.e1rm) / previous.e1rm : null),
+  };
+}
+
+export function finalizeWorkoutPerformance(workout, history = []) {
+  if (!validCompletedWorkout(workout, Number(workout?.completedAt) || Date.now())) return workout;
+  const combinedHistory = [...history.filter((entry) => entry !== workout && entry.id !== workout.id), workout];
+  return {
+    ...workout,
+    exercises: workout.exercises.map((item) => {
+      if (!(item.sets || []).some((set) => set.done)) return item;
+      const exercise = resolveRecordedExercise(item);
+      const progress = getExerciseProgress(combinedHistory, item.exerciseId, workout.completedAt);
+      const kind = ['external', 'per-dumbbell'].includes(exercise?.loadType) ? 'e1rm' : 'rep-capacity';
+      const estimatedMaximum = kind === 'e1rm' ? progress.latestE1rm : progress.latestRepCapacity;
+      if (!Number.isFinite(Number(estimatedMaximum)) || Number(estimatedMaximum) <= 0) return item;
+      return {
+        ...item,
+        performanceCalibration: {
+          version: 1,
+          kind,
+          estimatedMaximum,
+          previousMaximum: progress.previousPerformanceMax,
+          change: progress.latestPerformanceMaxChange,
+          positiveEvidence: progress.latestPositiveEvidence,
+          negativeEvidence: progress.latestNegativeEvidence,
+          repVolumeRatio: progress.latestRepVolumeRatio,
+          loadVolumeRatio: progress.latestLoadVolumeRatio,
+          updatedAt: workout.completedAt,
+        },
+      };
+    }),
   };
 }
 
@@ -815,145 +944,87 @@ export function getExercisePrescription(profile, exercise) {
 
 function doubleProgression(exercise, profile, progress, limits, intensity, setCount) {
   const usesWeight = ['external', 'per-dumbbell'].includes(exercise.loadType);
+  const desiredRirs = targetRirsForSetCount(limits.targetRirs, Math.max(1, setCount));
+  const desiredFinalRir = Number(desiredRirs.at(-1) ?? limits.targetRir ?? 2);
+  const previousFinalRir = Number(progress.latestTargetRirs?.at(-1) ?? progress.latestTargetRir);
+  const effortChanged = progress.sessions > 0 && Number.isFinite(previousFinalRir)
+    && Math.abs(previousFinalRir - desiredFinalRir) >= .5;
+  const performanceChange = Number(progress.latestPerformanceMaxChange);
+  const performanceStep = effortChanged
+    ? 'effort-adjustment'
+    : performanceChange > .005
+      ? 'max-increase'
+      : performanceChange < -.005
+        ? 'max-decrease'
+        : progress.sessions ? 'hold' : 'start';
+
+  if (!usesWeight) {
+    if (!progress.sessions || progress.latestRepCapacity == null) {
+      return { weight: 0, reps: limits.minReps, step: 'start' };
+    }
+    const supportedReps = Math.floor(Number(progress.latestRepCapacity) - desiredFinalRir + .001);
+    return {
+      weight: 0,
+      reps: clamp(supportedReps, 1, limits.maxReps),
+      step: supportedReps >= limits.maxReps ? 'top' : performanceStep,
+    };
+  }
+
   const reconciledLoad = progress.lastWeight
     ? reconcilePerformedLoad(progress.lastWeight, exercise, profile)
     : { weight: null, adjusted: false, unsafeIncrease: false };
   const lastAvailableWeight = reconciledLoad.weight;
-  const demonstratedBelowRange = !usesWeight && progress.sessions > 0
-    && Number(progress.latestTargetReps) > 0
-    && Number(progress.latestTargetReps) < limits.minReps;
-  const progressionMinimum = demonstratedBelowRange ? 1 : limits.minReps;
-  const performedLoadRatio = usesWeight && Number(progress.lastWeight) > 0 && Number(progress.latestTargetWeight) > 0
-    ? Number(progress.lastWeight) / Number(progress.latestTargetWeight)
-    : 1;
-  const loadWasManuallyChanged = Math.abs(performedLoadRatio - 1) >= .03;
-  // When the user changed load, that new load and the repetitions actually
-  // sustained together become the baseline. Do not stack an automatic +1 rep
-  // on top of a load increase in the same recalibration.
-  const baselineReps = loadWasManuallyChanged
-    ? Number(progress.latestPerformedReps) || Number(progress.latestSupportedReps)
-    : Number(progress.latestTargetReps);
-  const previousTarget = clamp(
-    Math.round(baselineReps || limits.minReps),
-    progressionMinimum,
-    limits.maxReps,
-  );
-  const minimumSupportedReps = progress.minimumSupportedReps;
-  const completedPrescription = progress.latestCompletionRate == null || progress.latestCompletionRate >= .8;
-  const volumeSupportedReps = progress.latestSupportedReps == null
-    ? null
-    : clamp(Math.floor(Number(progress.latestSupportedReps)), 1, limits.maxReps);
-  // For loaded movements, actual tonnage is the primary whole-exercise signal:
-  // a manual weight override must count even when repetitions differ. Older
-  // records without target loads safely fall back to the repetitions ratio.
-  const effectiveVolumeRatio = usesWeight && progress.latestLoadVolumeRatio != null
-    ? Number(progress.latestLoadVolumeRatio)
-    : Number(progress.latestRepVolumeRatio);
-  const volumeSurplus = completedPrescription && !loadWasManuallyChanged && effectiveVolumeRatio >= 1.025;
-  const sessionVolumeDeficit = Number.isFinite(effectiveVolumeRatio) && effectiveVolumeRatio < .975;
-  const reachedTop = completedPrescription
-    && (minimumSupportedReps >= limits.maxReps || (volumeSurplus && volumeSupportedReps >= limits.maxReps));
-  const conservativeDemonstratedReps = minimumSupportedReps == null
-    ? null
-    : clamp(Math.floor(Number(minimumSupportedReps)), 1, limits.maxReps);
-  const demonstratedReps = volumeSurplus && volumeSupportedReps != null
-    ? Math.max(conservativeDemonstratedReps || 1, volumeSupportedReps)
-    : conservativeDemonstratedReps;
-  const canAddRep = completedPrescription && !loadWasManuallyChanged
-    && demonstratedReps != null && demonstratedReps >= previousTarget;
-  const underPerformed = sessionVolumeDeficit && demonstratedReps != null && demonstratedReps < previousTarget;
-  const exceededPrescription = volumeSurplus && demonstratedReps != null && demonstratedReps > previousTarget;
-  const nextRepTarget = underPerformed
-    ? demonstratedReps
-    : exceededPrescription
-      ? demonstratedReps
-      : volumeSurplus || canAddRep
-        ? Math.min(limits.maxReps, previousTarget + 1)
-        : previousTarget;
-  const repetitionStep = underPerformed
-    ? 'regress-reps'
-    : exceededPrescription
-      ? 'performance-reps'
-      : volumeSurplus ? 'volume-reps' : canAddRep ? 'reps' : progress.sessions ? 'hold' : 'start';
-  const desiredRirs = targetRirsForSetCount(limits.targetRirs, Math.max(1, progress.latestRepCapacities.length || setCount));
-  const previousRir = Number(progress.latestTargetRir);
-  const nextRir = median(desiredRirs);
-  const effortChanged = progress.sessions > 0 && Number.isFinite(previousRir) && Number.isFinite(nextRir)
-    && Math.abs(previousRir - nextRir) >= .5;
-  const supportedAtNewEffort = progress.latestRepCapacities.map((capacity, index) => (
-    Number(capacity) - Number(desiredRirs[index] ?? desiredRirs.at(-1))
-  ));
-  const demonstratedAtNewEffort = supportedAtNewEffort.length
-    ? Math.floor(Math.min(...supportedAtNewEffort))
-    : null;
-
-  if (!usesWeight) {
-    if (effortChanged && demonstratedAtNewEffort != null) {
-      return {
-        weight: 0,
-        reps: clamp(demonstratedAtNewEffort, 1, limits.maxReps),
-        step: 'effort-adjustment',
-      };
-    }
-    return {
-      weight: 0,
-      reps: reachedTop ? limits.maxReps : nextRepTarget,
-      step: reachedTop ? 'top' : repetitionStep,
-    };
-  }
-
-
   if (reconciledLoad.unsafeIncrease) {
     return { weight: null, reps: limits.minReps, step: 'recalibrate-load' };
   }
+  if (!progress.sessions || !progress.latestE1rm) return { weight: null, reps: limits.minReps, step: 'start' };
   if (lastAvailableWeight && reconciledLoad.adjusted) {
-    return { weight: lastAvailableWeight, reps: previousTarget, step: 'load-adjustment' };
-  }
-
-  if (effortChanged && lastAvailableWeight && demonstratedAtNewEffort != null) {
-    if (demonstratedAtNewEffort < limits.minReps) {
-      const lowerLoad = getAvailableLoads(exercise, profile).filter((load) => load < lastAvailableWeight - .001).at(-1);
-      return lowerLoad
-        ? { weight: lowerLoad, reps: limits.minReps, step: 'effort-adjustment' }
-        : { weight: null, reps: limits.minReps, step: 'recalibrate-load' };
-    }
     return {
       weight: lastAvailableWeight,
-      reps: clamp(demonstratedAtNewEffort, limits.minReps, limits.maxReps),
-      step: 'effort-adjustment',
+      reps: clamp(Math.round(Number(progress.latestPerformedReps) || Number(progress.latestTargetReps) || limits.minReps), limits.minReps, limits.maxReps),
+      step: 'load-adjustment',
     };
   }
 
-  if (lastAvailableWeight && reachedTop) {
-    const nextLoad = nextAvailableLoad(exercise, profile, lastAvailableWeight);
-    const relativeIncrease = nextLoad ? (nextLoad - lastAvailableWeight) / lastAvailableWeight : null;
-    if (!nextLoad || relativeIncrease > 0.1) {
-      return { weight: lastAvailableWeight, reps: limits.maxReps, step: 'top' };
-    }
+  let weight = lastAvailableWeight || roundLoad(progress.latestE1rm * intensity, exercise, profile);
+  if (!weight) return { weight: null, reps: limits.minReps, step: 'recalibrate-load' };
+
+  const repsAt = (load) => {
+    const capacity = estimateEffectiveReps(progress.latestE1rm, load);
+    return capacity == null ? 0 : Math.floor(capacity - desiredFinalRir + .001);
+  };
+  let supportedReps = repsAt(weight);
+
+  if (supportedReps < limits.minReps) {
+    const lowerLoads = getAvailableLoads(exercise, profile).filter((load) => load < weight - .001);
+    const executableLoad = [...lowerLoads].reverse().find((load) => repsAt(load) >= limits.minReps);
+    if (!executableLoad) return { weight: null, reps: limits.minReps, step: 'recalibrate-load' };
+    weight = executableLoad;
+    supportedReps = repsAt(weight);
     return {
-      weight: nextLoad,
-      reps: limits.minReps,
-      step: 'load',
+      weight,
+      reps: clamp(supportedReps, limits.minReps, limits.maxReps),
+      step: effortChanged ? 'effort-adjustment' : 'performance-adjustment',
     };
   }
 
-  let weight = lastAvailableWeight;
-  if (!weight && progress.latestE1rm) weight = roundLoad(progress.latestE1rm * intensity, exercise, profile);
-  const substantiallyUnderPerformed = demonstratedReps != null && demonstratedReps < previousTarget - 1;
-  if (lastAvailableWeight && substantiallyUnderPerformed) {
-    const lowerLoad = getAvailableLoads(exercise, profile).filter((load) => load < lastAvailableWeight - .001).at(-1);
-    if (lowerLoad) {
+  if (supportedReps >= limits.maxReps) {
+    const nextLoad = nextAvailableLoad(exercise, profile, weight);
+    const relativeIncrease = nextLoad ? (nextLoad - weight) / weight : null;
+    if (nextLoad && relativeIncrease <= .1 && repsAt(nextLoad) >= limits.minReps) {
       return {
-        weight: lowerLoad,
-        reps: limits.minReps,
-        step: 'performance-adjustment',
+        weight: nextLoad,
+        reps: clamp(repsAt(nextLoad), limits.minReps, limits.maxReps),
+        step: 'load',
       };
     }
+    return { weight, reps: limits.maxReps, step: performanceChange > .005 ? 'max-increase' : 'top' };
   }
+
   return {
-    weight: weight ?? null,
-    reps: nextRepTarget,
-    step: repetitionStep,
+    weight,
+    reps: clamp(supportedReps, limits.minReps, limits.maxReps),
+    step: reconciledLoad.adjusted ? 'load-adjustment' : performanceStep,
   };
 }
 
@@ -1037,6 +1108,11 @@ function prescription(exercise, profile, history, context = {}) {
       repVolumeRatio: progress.latestRepVolumeRatio,
       loadVolumeRatio: progress.latestLoadVolumeRatio,
       completionRate: progress.latestCompletionRate,
+      estimatedMaximum: progress.latestE1rm ?? progress.latestRepCapacity,
+      previousMaximum: progress.previousPerformanceMax,
+      maximumChange: progress.latestPerformanceMaxChange,
+      positiveEvidence: progress.latestPositiveEvidence,
+      negativeEvidence: progress.latestNegativeEvidence,
     } : null,
     minimumTimeFitSets: profile.trainingStyle === 'intense'
       ? Math.min(sets, exercise.compound ? 2 : 3)

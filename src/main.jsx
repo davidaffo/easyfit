@@ -17,6 +17,7 @@ import {
   addExerciseToWorkout,
   addWorkoutSet,
   calibrateBodyweightPrescription,
+  finalizeWorkoutPerformance,
   generateWorkout,
   generateWorkoutAlternatives,
   getExerciseAnalytics,
@@ -969,7 +970,11 @@ function WorkoutView({ workout, setWorkout, profile, setProfile, history, showTo
     const completedAt = Date.now();
     const { restEndsAt, restDuration, pausedAt, ...completedWorkout } = workout;
     const sessionDurationSeconds = Math.max(0, Math.floor((completedAt - startedAt - Number(workout.pausedDurationMs || 0)) / 1000));
-    onFinish({ ...completedWorkout, startedAt, completedAt, sessionDurationSeconds, completionRate: doneSets / totalSets });
+    const finishedWorkout = finalizeWorkoutPerformance(
+      { ...completedWorkout, startedAt, completedAt, sessionDurationSeconds, completionRate: doneSets / totalSets },
+      history,
+    );
+    onFinish(finishedWorkout);
   };
   const pauseWorkout = () => {
     setWorkout((current) => ({ ...current, pausedAt: Date.now() }));
@@ -1072,7 +1077,7 @@ function ExerciseCard({ item, exerciseIndex, language, updateSet, recordAvailabl
   };
 
   return <article className="exercise-card">
-    <header><span className="exercise-index">{String(exerciseIndex + 1).padStart(2, '0')}</span><div><div className="exercise-name-row"><h2>{getExerciseName(exercise, language)}</h2>{item.progressionStep === 'reps' && <span className="progression-badge">+1 REP</span>}{item.progressionStep === 'performance-reps' && <span className="progression-badge">REPS RICALIBRATE</span>}{item.progressionStep === 'load' && <span className="progression-badge load">+ CARICO</span>}</div><p>{muscles[exercise.primary] || 'Esercizio salvato'} · {item.sets.length} × {item.sets[0].targetReps || item.sets[0].reps}{item.calibrationBelowRange ? ' · range adattato alla capacità' : item.repRange ? ` · range ${item.repRange.min}–${item.repRange.max}` : ''} · RIR {item.targetRir}</p></div>{currentCatalogExercise && <button className="icon-button" onClick={onOptions} aria-label={`Opzioni per ${getExerciseName(exercise, language)}`}><Icon name="more" size={20}/></button>}</header>
+    <header><span className="exercise-index">{String(exerciseIndex + 1).padStart(2, '0')}</span><div><div className="exercise-name-row"><h2>{getExerciseName(exercise, language)}</h2>{item.progressionStep === 'max-increase' && <span className="progression-badge">MASSIMALE +{Math.max(.1, Number(item.performanceEvidence?.maximumChange || 0) * 100).toFixed(1)}%</span>}{item.progressionStep === 'max-decrease' && <span className="progression-badge">RICALIBRATO</span>}{item.progressionStep === 'load' && <span className="progression-badge load">+ CARICO</span>}</div><p>{muscles[exercise.primary] || 'Esercizio salvato'} · {item.sets.length} × {item.sets[0].targetReps || item.sets[0].reps}{item.calibrationBelowRange ? ' · range adattato alla capacità' : item.repRange ? ` · range ${item.repRange.min}–${item.repRange.max}` : ''} · RIR {item.targetRir}</p></div>{currentCatalogExercise && <button className="icon-button" onClick={onOptions} aria-label={`Opzioni per ${getExerciseName(exercise, language)}`}><Icon name="more" size={20}/></button>}</header>
     {currentCatalogExercise && <ExercisePreview source={details?.image} name={getExerciseName(exercise, language)} onOpen={onGuide}/>}
     {needsInitialLoad ? <form className="initial-load" onSubmit={submitInitialLoad}>
       <div><span>PRIMA VOLTA</span><strong>Che carico vuoi usare?</strong><small>Scegli un peso con cui pensi di chiudere le serie a RIR {item.targetRir}.</small></div>
@@ -1188,10 +1193,10 @@ function ExercisePrescriptionSheet({ exerciseId, profile, language, onSave, onCl
       <button className="sheet-close" onClick={onClose}><Icon name="close" size={19}/></button>
       <span className="eyebrow">LIMITI ESERCIZIO</span>
       <h2>{getExerciseName(exercise, language)}</h2>
-      <p>La doppia progressione sale prima nelle ripetizioni, poi nel carico.</p>
+      <p>La prescrizione deriva dal massimale stimato aggiornato dopo ogni esecuzione.</p>
       <div className="prescription-controls">
         <div className="limit-row"><div><strong>Serie massime</strong><small>Il motore può usarne meno</small></div><div className="stepper"><button onClick={() => setMaxSets(Math.max(1, maxSets - 1))}>−</button><b>{maxSets}</b><button onClick={() => setMaxSets(Math.min(6, maxSets + 1))}>+</button></div></div>
-        <div className="limit-row rep-limit-row"><div><strong>Intervallo ripetizioni</strong><small>Aumentano una alla volta</small></div><div className="rep-limit-inputs"><label><span>MIN</span><input type="number" inputMode="numeric" min="1" max="49" value={minReps} onChange={(event) => changeMinReps(event.target.value)}/></label><i>–</i><label><span>MAX</span><input type="number" inputMode="numeric" min={minReps} max="50" value={maxReps} onChange={(event) => changeMaxReps(event.target.value)}/></label></div></div>
+        <div className="limit-row rep-limit-row"><div><strong>Intervallo ripetizioni</strong><small>Limita la conversione del massimale in carico e reps</small></div><div className="rep-limit-inputs"><label><span>MIN</span><input type="number" inputMode="numeric" min="1" max="49" value={minReps} onChange={(event) => changeMinReps(event.target.value)}/></label><i>–</i><label><span>MAX</span><input type="number" inputMode="numeric" min={minReps} max="50" value={maxReps} onChange={(event) => changeMaxReps(event.target.value)}/></label></div></div>
         <div className="rir-limit"><div><strong>RIR target</strong><small>Può seguire lo stile o usare un valore specifico</small></div><div className="rir-choice"><button className={targetRir === 'global' ? 'selected' : ''} onClick={() => setTargetRir('global')}>Stile · {current.targetRirs.join('→')}</button>{[0, 1, 2, 3, 4].map((rir) => <button key={rir} className={targetRir === rir ? 'selected' : ''} onClick={() => setTargetRir(rir)}>{rir === 4 ? '4+' : rir}</button>)}</div></div>
       </div>
       <p className="failure-note">RIR 0 è consentito: aumenta però la fatica e non garantisce più crescita rispetto a fermarsi vicino al cedimento.</p>

@@ -19,6 +19,7 @@ import {
   calibrateBodyweightPrescription,
   estimatePrescriptionMinutes,
   estimateOneRepMax,
+  finalizeWorkoutPerformance,
   generateWorkout,
   generateWorkoutAlternatives,
   getAdaptiveTrainingOverview,
@@ -95,7 +96,7 @@ const catalogEditorHtml = await readFile(new URL('../tools/catalog-editor/index.
 const catalogEditorSource = await readFile(new URL('../tools/catalog-editor/app.js', import.meta.url), 'utf8');
 assert(serviceWorkerSource.includes('cache.addAll(images)'), 'The service worker install must fail atomically if any bundled guide image cannot be cached');
 assert(!serviceWorkerSource.includes('Promise.allSettled(images'), 'Offline installation must not silently ignore missing guide images');
-assert(serviceWorkerSource.includes("const CACHE = 'easyfit-v34'"), 'An app-shell or catalog change must bump the offline cache version');
+assert(serviceWorkerSource.includes("const CACHE = 'easyfit-v35'"), 'An app-shell or catalog change must bump the offline cache version');
 assert(serviceWorkerSource.includes("cache.delete(request)"), 'The current PWA cache must remove assets no longer present in the build or guide index');
 assert(serviceWorkerSource.includes("requestUrl.origin !== self.location.origin"), 'The service worker must never intercept cross-origin WebDAV traffic');
 assert(serviceWorkerSource.includes("headers.has('Authorization')"), 'Authenticated responses must never enter the PWA cache');
@@ -264,7 +265,7 @@ const lastSetRirHistory = [{
 assert.equal(
   Math.round(getExerciseProgress(lastSetRirHistory, bench.id).latestE1rm),
   Math.round((estimateOneRepMax(60, 20, 2) + estimateOneRepMax(60, 8, 2)) / 2),
-  'Progression must use every completed set, applying target RIR when only the final set has an explicit value',
+  'A total-volume surplus without final-set overperformance must update the exercise maximum from the complete session',
 );
 
 const preferences = Object.fromEntries(exercises.map((exercise) => [exercise.id, 'exclude']));
@@ -308,7 +309,8 @@ const rirSurplusHistory = [{
   ] }],
 }];
 const rirSurplusWorkout = generateWorkout({ ...profile, trainingStyle: 'intense' }, rirSurplusHistory, { targets: ['chest'], duration: 25, now: rirSurplusNow });
-assert.equal(rirSurplusWorkout.exercises[0].sets[0].targetReps, 9, 'Finishing at RIR 3 against a RIR 0 target must raise the next prescription instead of being ignored');
+assert.equal(rirSurplusWorkout.exercises[0].sets[0].targetReps, 11, 'Finishing at RIR 3 against a RIR 0 target must rebuild the prescription from the demonstrated maximum');
+assert(rirSurplusWorkout.exercises[0].estimatedOneRepMax > estimateOneRepMax(60, 8, 0), 'Extra final-set RIR must raise the stored exercise maximum');
 
 const timedTwoSetBench = {
   rest: 150,
@@ -496,7 +498,7 @@ assert.equal(decayedDoseWorkout.exercises[0].sets.length, 2, 'Set prescription m
 const recalibrated = generateWorkout(profile, hardHistory, { targets: ['chest'], duration: 25 });
 assert.equal(recalibrated.exercises[0].exerciseId, bench.id);
 assert.equal(recalibrated.exercises[0].sets[0].weight, 60, 'One exceptional set must not raise load when every work set has not reached the top');
-assert.equal(recalibrated.exercises[0].sets[0].reps, 10, 'A large whole-session volume surplus must advance the repetition target instead of being cancelled by the lowest set');
+assert.equal(recalibrated.exercises[0].sets[0].reps, 12, 'A large whole-session volume surplus must rebuild the prescription from the increased exercise maximum');
 
 const focusProfile = {
   ...profile,
@@ -813,8 +815,32 @@ const gradualProgressHistory = [{
 }];
 const gradualProgress = generateWorkout(profile, gradualProgressHistory, { targets: ['chest'], duration: 25 }).exercises[0];
 assert.equal(gradualProgress.sets[0].weight, 60, 'Double progression must keep load while the top of the rep range is not reached');
-assert.equal(gradualProgress.sets[0].reps, 9, 'Double progression must add exactly one target repetition');
-assert.equal(gradualProgress.progressionStep, 'reps');
+assert.equal(gradualProgress.sets[0].reps, 8, 'Exactly matching the prescription must hold the capacity-derived target instead of inventing a repetition');
+assert.equal(gradualProgress.progressionStep, 'hold');
+
+const maximumUpdateNow = Date.now();
+const exactMaximumWorkout = finalizeWorkoutPerformance({
+  id: 'maximum-baseline',
+  completedAt: maximumUpdateNow - 2 * 864e5,
+  exercises: [{ exerciseId: bench.id, sets: Array.from({ length: 2 }, () => ({
+    ...baseSet, targetWeight: 60, weight: 60, targetReps: 8, reps: 8, targetRir: 2, rir: 2,
+  })) }],
+}, []);
+const improvedMaximumWorkout = finalizeWorkoutPerformance({
+  id: 'maximum-improved',
+  completedAt: maximumUpdateNow - 864e5,
+  exercises: [{ exerciseId: bench.id, sets: [
+    { ...baseSet, targetWeight: 60, weight: 60, targetReps: 8, reps: 8, targetRir: 2, rir: 2 },
+    { ...baseSet, targetWeight: 60, weight: 60, targetReps: 8, reps: 8, targetRir: 2, rir: 3 },
+  ] }],
+}, [exactMaximumWorkout]);
+const storedMaximum = improvedMaximumWorkout.exercises[0].performanceCalibration;
+assert.equal(storedMaximum.kind, 'e1rm', 'Completing a loaded exercise must persist its updated estimated maximum');
+assert(storedMaximum.estimatedMaximum > storedMaximum.previousMaximum, 'Extra RIR on the final set must increase the persisted exercise maximum');
+const maximumDrivenPrescription = generateWorkout(profile, [exactMaximumWorkout, improvedMaximumWorkout], { targets: ['chest'], duration: 25, now: maximumUpdateNow }).exercises[0];
+assert.equal(maximumDrivenPrescription.sets[0].weight, 60, 'The next prescription must start from the persisted exercise maximum at the available load');
+assert.equal(maximumDrivenPrescription.sets[0].reps, 9, 'The next prescription must derive repetitions from the increased maximum, not increment the previous workout directly');
+assert.equal(maximumDrivenPrescription.progressionStep, 'max-increase');
 
 const overPerformedHistory = [{
   id: 'over-performed-reps',
@@ -826,7 +852,7 @@ const overPerformedHistory = [{
 const overPerformedProgress = generateWorkout(profile, overPerformedHistory, { targets: ['chest'], duration: 25 }).exercises[0];
 assert.equal(overPerformedProgress.sets[0].weight, 60, 'Exceeding prescribed reps must retain the load actually performed');
 assert.equal(overPerformedProgress.sets[0].reps, 10, 'The next prescription must anchor to demonstrated reps instead of adding one to the stale old target');
-assert.equal(overPerformedProgress.progressionStep, 'performance-reps', 'A multi-rep calibration must not display a false +1 rep badge');
+assert.equal(overPerformedProgress.progressionStep, 'hold', 'The first recorded maximum must establish a baseline without displaying a false +1 rep badge');
 
 const slightlyUnderPerformedHistory = [{
   id: 'slightly-under-performed-reps',
@@ -838,7 +864,7 @@ const slightlyUnderPerformedHistory = [{
 const slightlyUnderProgress = generateWorkout({ ...profile, loadInventory: { barbell: [50, 60] } }, slightlyUnderPerformedHistory, { targets: ['chest'], duration: 25 }).exercises[0];
 assert.equal(slightlyUnderProgress.sets[0].weight, 60, 'Missing one repetition must not cause an unnecessary load drop');
 assert.equal(slightlyUnderProgress.sets[0].reps, 9, 'A small shortfall must be reflected directly in the next repetition target');
-assert.equal(slightlyUnderProgress.progressionStep, 'regress-reps');
+assert.equal(slightlyUnderProgress.progressionStep, 'hold', 'The first observed maximum must establish the corrected baseline without a misleading regression label');
 
 const doseWorkout = (id, reps) => ({
   id,
@@ -959,7 +985,8 @@ const unevenProgressHistory = [{
   ] }],
 }];
 const unevenProgress = generateWorkout(profile, unevenProgressHistory, { targets: ['chest'], duration: 25 }).exercises[0];
-assert.equal(unevenProgress.sets[0].weight, 60, 'One good final set must never hide two failed work sets and trigger a load increase');
+assert.equal(unevenProgress.sets[0].weight, null, 'One good final set must never hide two failed work sets when no executable lower load is available');
+assert.equal(unevenProgress.needsInitialLoad, true, 'An inventory without a safe lower load must request recalibration');
 assert.notEqual(unevenProgress.progressionStep, 'load', 'Load progression must evaluate the whole prescription');
 
 const mixedLoadHistory = [{
