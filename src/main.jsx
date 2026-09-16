@@ -29,6 +29,7 @@ import {
   getTrackedExerciseIds,
   getSimilarExercises,
   getWorkoutExercise,
+  getWorkoutCompletionInsights,
   isExerciseAllowed,
   isFinalSetBelowTarget,
   isCompatibleWorkout,
@@ -571,7 +572,7 @@ function App() {
         <BottomNav view={view} setView={setView}/>
       </>}
     {toast && <div className="toast"><Icon name="check"/><span>{toast}</span></div>}
-    {completedSummary && <WorkoutComplete workout={completedSummary.workout} history={completedSummary.previousHistory} onClose={() => setCompletedSummary(null)}/>}
+    {completedSummary && <WorkoutComplete workout={completedSummary.workout} history={completedSummary.previousHistory} language={profile.exerciseLanguage} onClose={() => setCompletedSummary(null)}/>}
   </div>;
 }
 
@@ -1371,57 +1372,55 @@ function ExerciseHistorySheet({ exerciseId, history, language, onClose }) {
   </div>;
 }
 
-function WorkoutComplete({ workout, history, onClose }) {
-  const stats = useMemo(() => {
-    const completed = workout.exercises.flatMap((item) => {
-      const exercise = getWorkoutExercise(item);
-      return item.sets.filter((set) => set.done).map((set) => ({ item, exercise, set }));
-    });
-    const volume = completed.reduce((sum, { exercise, set }) => (
-      sum + (Number(set.weight) || 0) * (Number(set.reps) || 0) * (Number(exercise.loadMultiplier) || 1)
-    ), 0);
-    const rirSets = completed.filter(({ set }) => set.rir != null && set.targetRir != null);
-    const onTarget = rirSets.filter(({ set }) => Math.abs(Number(set.rir) - Number(set.targetRir)) <= 1).length;
-    const currentMarks = new Map();
-    completed.forEach(({ exercise, set }) => {
-      const mark = Number(set.weight) > 0
-        ? Number(set.weight) * (1 + (Number(set.reps) + Number(set.rir || 0)) / 30)
-        : Number(set.reps) + Number(set.rir || 0);
-      currentMarks.set(exercise.id, Math.max(currentMarks.get(exercise.id) || 0, mark));
-    });
-    const previousMarks = new Map();
-    history.forEach((entry) => entry.exercises?.forEach((item) => {
-      const exercise = getWorkoutExercise(item);
-      item.sets?.filter((set) => set.done).forEach((set) => {
-        const mark = Number(set.weight) > 0
-          ? Number(set.weight) * (1 + (Number(set.reps) + Number(set.rir ?? set.targetRir ?? 0)) / 30)
-          : Number(set.reps) + Number(set.rir ?? set.targetRir ?? 0);
-        previousMarks.set(exercise.id, Math.max(previousMarks.get(exercise.id) || 0, mark));
-      });
-    }));
-    const personalBests = [...currentMarks].filter(([exerciseId, mark]) => mark > (previousMarks.get(exerciseId) || 0) * 1.005).length;
-    return {
-      sets: completed.length,
-      reps: completed.reduce((sum, { set }) => sum + (Number(set.reps) || 0), 0),
-      exercises: new Set(completed.map(({ exercise }) => exercise.id)).size,
-      volume,
-      rirAccuracy: rirSets.length ? Math.round(onTarget / rirSets.length * 100) : null,
-      personalBests,
-    };
-  }, [workout, history]);
+function WorkoutComplete({ workout, history, language, onClose }) {
+  const insights = useMemo(() => getWorkoutCompletionInsights(workout, history), [workout, history]);
+  const { counts } = insights;
+  const headline = counts.records
+    ? counts.records === 1 ? 'Nuovo record.' : `${counts.records} nuovi record.`
+    : counts.improved
+      ? counts.improved === 1 ? 'Stai migliorando.' : `${counts.improved} esercizi in crescita.`
+      : counts.declined
+        ? 'Seduta più dura del previsto.'
+        : counts.baseline
+          ? 'Nuovi riferimenti salvati.'
+          : 'Prestazione consolidata.';
+  const signedPercent = (value) => {
+    if (!Number.isFinite(Number(value))) return '—';
+    const percent = Number(value) * 100;
+    return `${percent > 0 ? '+' : ''}${percent.toFixed(Math.abs(percent) >= 10 ? 0 : 1)}%`;
+  };
+  const insightLabel = (item) => {
+    if (item.decision === 'maintain-prescription') return 'Mantenuto: stanchezza occasionale';
+    if (item.decision === 'recalibrate-down') return `Ricalibrato ${signedPercent(item.maximumChange)}`;
+    if (item.status === 'improved') return `Forza stimata ${signedPercent(item.maximumChange)}`;
+    if (item.status === 'declined') return `Capacità stimata ${signedPercent(item.maximumChange)}`;
+    if (item.status === 'baseline') return 'Primo riferimento salvato';
+    return 'Prestazione confermata';
+  };
+  const maximumLabel = (item) => item.currentMaximum
+    ? item.weighted ? `${Math.round(item.currentMaximum * 10) / 10} kg` : `${Math.round(item.currentMaximum * 10) / 10} reps`
+    : '—';
   return <div className="workout-complete" role="dialog" aria-modal="true" aria-label="Riepilogo workout completato">
     <div className="celebration-burst" aria-hidden="true">{Array.from({ length: 12 }, (_, index) => <i key={index}/>)}</div>
     <div className="completion-check"><Icon name="check" size={34}/></div>
     <span className="eyebrow">WORKOUT COMPLETATO</span>
-    <h2>Ottimo lavoro.</h2>
-    <p>{formatClock(workout.sessionDurationSeconds)} di allenamento · {stats.exercises} esercizi completati</p>
+    <h2>{headline}</h2>
+    <p>{formatClock(workout.sessionDurationSeconds)} di allenamento · confronto con le tue prestazioni precedenti</p>
     <section className="completion-stats">
-      <div><strong>{stats.sets}</strong><span>serie</span></div>
-      <div><strong>{stats.reps}</strong><span>ripetizioni</span></div>
-      <div><strong>{formatVolume(stats.volume)}</strong><span>volume esterno</span></div>
-      <div><strong>{stats.rirAccuracy == null ? '—' : `${stats.rirAccuracy}%`}</strong><span>RIR centrato ±1</span></div>
+      <div><strong>{signedPercent(insights.averageChange)}</strong><span>capacità media</span></div>
+      <div><strong>{counts.records}</strong><span>record personali</span></div>
+      <div className="positive"><strong>↑ {counts.improved}</strong><span>in miglioramento</span></div>
+      <div className={counts.declined ? 'negative' : ''}><strong>↓ {counts.declined}</strong><span>ricalibrati</span></div>
     </section>
-    {stats.personalBests > 0 && <div className="completion-highlight"><Icon name="trophy"/><span><strong>{stats.personalBests} {stats.personalBests === 1 ? 'nuovo riferimento' : 'nuovi riferimenti'}</strong><small>Migliore prestazione registrata per esercizio</small></span></div>}
+    {insights.bestImprovement && <div className="completion-highlight"><Icon name="trophy"/><span><strong>Miglior progresso: {getExerciseName(insights.bestImprovement.exercise, language)}</strong><small>{signedPercent(insights.bestImprovement.maximumChange)} di capacità stimata rispetto alla volta precedente</small></span></div>}
+    <section className="completion-exercises">
+      <header><strong>Andamento esercizi</strong><span>rispetto all’ultima volta</span></header>
+      {insights.items.map((item) => <article className={item.status} key={item.exerciseId}>
+        <span className="completion-trend-symbol">{item.status === 'improved' ? '↑' : item.status === 'declined' ? '↓' : item.status === 'baseline' ? '◆' : '→'}</span>
+        <div><strong>{getExerciseName(item.exercise, language)}</strong><small>{insightLabel(item)}{item.volumeChange != null && Math.abs(item.volumeChange) >= .01 ? ` · volume ${signedPercent(item.volumeChange)}` : ''}</small></div>
+        <aside><strong>{maximumLabel(item)}</strong><small>{item.weighted ? 'e1RM' : 'capacità'}{item.isRecord ? ' · RECORD' : ''}</small></aside>
+      </article>)}
+    </section>
     <button className="button acid wide" onClick={onClose}>Continua</button>
   </div>;
 }

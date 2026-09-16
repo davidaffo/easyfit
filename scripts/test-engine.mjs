@@ -43,6 +43,7 @@ import {
   getWeeklyMovementFrequency,
   getWeeklyTargets,
   getWorkoutCompositionLimits,
+  getWorkoutCompletionInsights,
   getWorkoutSettingsFingerprint,
   getWorkoutExercise,
   trainingStyles,
@@ -97,14 +98,14 @@ const catalogEditorHtml = await readFile(new URL('../tools/catalog-editor/index.
 const catalogEditorSource = await readFile(new URL('../tools/catalog-editor/app.js', import.meta.url), 'utf8');
 assert(serviceWorkerSource.includes('cache.addAll(images)'), 'The service worker install must fail atomically if any bundled guide image cannot be cached');
 assert(!serviceWorkerSource.includes('Promise.allSettled(images'), 'Offline installation must not silently ignore missing guide images');
-assert(serviceWorkerSource.includes("const CACHE = 'easyfit-v37'"), 'An app-shell or catalog change must bump the offline cache version');
+assert(serviceWorkerSource.includes("const CACHE = 'easyfit-v38'"), 'An app-shell or catalog change must bump the offline cache version');
 assert(serviceWorkerSource.includes("cache.delete(request)"), 'The current PWA cache must remove assets no longer present in the build or guide index');
 assert(serviceWorkerSource.includes("requestUrl.origin !== self.location.origin"), 'The service worker must never intercept cross-origin WebDAV traffic');
 assert(serviceWorkerSource.includes("headers.has('Authorization')"), 'Authenticated responses must never enter the PWA cache');
 assert(serviceWorkerSource.includes("addEventListener('notificationclick'"), 'Recovery notifications must reopen the installed PWA when tapped');
 assert(appSource.includes('createOscillator()') && appSource.includes('showNotification(title, options)'), 'The recovery timer must provide both an audible double beep and a completion notification');
 assert(appSource.includes("exponentialRampToValueAtTime(.68") && appSource.includes('navigator.vibrate?.'), 'The recovery alert must be clearly audible and add haptic feedback where supported');
-assert(appSource.includes('function WorkoutComplete') && appSource.includes('RIR centrato ±1'), 'Completing a workout must open a useful statistics summary');
+assert(appSource.includes('function WorkoutComplete') && appSource.includes('Andamento esercizi') && appSource.includes('record personali'), 'Completing a workout must show progress and regression insights instead of operational set counts');
 assert(appSource.includes('function UnderperformanceSheet') && appSource.includes('Ero solo stanco') && appSource.includes("onChoose('recalibrate')"), 'A final-set volume shortfall must ask whether to maintain or recalibrate the next prescription');
 assert(!appSource.includes('Termina alle') && !appSource.includes('Recupero in corso'), 'The PWA must not fake a persistent notification countdown using an absolute end time');
 assert(!appSource.includes('Catalogo essenziale') && !appSource.includes('Mostra tutte le varianti'), 'The removed essential-catalog mode must not remain exposed in settings or replacement UI');
@@ -896,6 +897,16 @@ assert.equal(deliberatelyReducedWorkout.exercises[0].performanceCalibration.deci
 assert(deliberatelyReducedWorkout.exercises[0].performanceCalibration.estimatedMaximum < exactMaximumWorkout.exercises[0].performanceCalibration.estimatedMaximum, 'An explicit reduction must lower the maximum even if the recorded RIR would otherwise offset the missing repetitions');
 const reducedNextPrescription = generateWorkout(profile, [exactMaximumWorkout, deliberatelyReducedWorkout], { targets: ['chest'], duration: 25, now: maximumUpdateNow }).exercises[0];
 assert(reducedNextPrescription.sets[0].reps < 8 || reducedNextPrescription.sets[0].weight < 60, 'Choosing a reduction must actually lower the next prescription');
+const improvedCompletionInsights = getWorkoutCompletionInsights(improvedMaximumWorkout, [exactMaximumWorkout]);
+assert.equal(improvedCompletionInsights.counts.improved, 1, 'The completion summary must recognize an improved exercise');
+assert.equal(improvedCompletionInsights.counts.records, 1, 'The completion summary must recognize a new personal record');
+assert(improvedCompletionInsights.bestImprovement?.maximumChange > 0, 'The completion summary must identify the strongest improvement');
+const maintainedCompletionInsights = getWorkoutCompletionInsights(tiredButMaintainedWorkout, [exactMaximumWorkout]);
+assert.equal(maintainedCompletionInsights.counts.maintained, 1, 'A temporary-fatigue choice must be shown as maintained, not as a regression');
+assert.equal(maintainedCompletionInsights.items[0].decision, 'maintain-prescription', 'The completion insight must explain why an underperforming result was held');
+const declinedCompletionInsights = getWorkoutCompletionInsights(deliberatelyReducedWorkout, [exactMaximumWorkout]);
+assert.equal(declinedCompletionInsights.counts.declined, 1, 'An explicit downward recalibration must be visible in the completion summary');
+assert(declinedCompletionInsights.items[0].maximumChange < 0, 'The completion summary must expose the magnitude of a regression');
 
 const overPerformedHistory = [{
   id: 'over-performed-reps',

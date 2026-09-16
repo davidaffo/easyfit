@@ -475,11 +475,27 @@ input[type="range"] { width: 100%; height: 4px; margin: 22px 0 10px; accent-colo
 .completion-stats div:nth-child(2n) { border-right: 0; }
 .completion-stats div:nth-last-child(-n+2) { border-bottom: 0; }
 .completion-stats strong { color: var(--acid); font: 750 23px/1 Inter; }
+.completion-stats .negative strong { color: #ff9b8e; }
 .completion-stats span { margin-top: 6px; color: #91968a; font-size: 8px; text-transform: uppercase; letter-spacing: .5px; }
 .completion-highlight { width: 100%; padding: 13px 15px; margin-bottom: 15px; border-radius: 8px; background: #262a22; display: flex; align-items: center; gap: 12px; text-align: left; color: var(--acid); }
 .completion-highlight > span { display: flex; flex-direction: column; gap: 3px; color: white; }
 .completion-highlight strong { font-size: 11px; }
 .completion-highlight small { color: #92978b; font-size: 8px; }
+.completion-exercises { width: 100%; margin-bottom: 18px; border: 1px solid #343830; border-radius: 9px; overflow: hidden; text-align: left; }
+.completion-exercises > header { min-height: 46px; padding: 10px 13px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid #343830; }
+.completion-exercises > header strong { font-size: 10px; }
+.completion-exercises > header span { color: #858b7f; font-size: 8px; }
+.completion-exercises article { min-height: 67px; padding: 10px 12px; display: grid; grid-template-columns: 31px minmax(0, 1fr) auto; align-items: center; gap: 10px; border-bottom: 1px solid #30342d; }
+.completion-exercises article:last-child { border-bottom: 0; }
+.completion-trend-symbol { width: 29px; height: 29px; border-radius: 50%; display: grid; place-items: center; background: #30342d; color: #d8ddd0; font-size: 15px; font-weight: 900; }
+.completion-exercises article.improved .completion-trend-symbol { background: var(--acid); color: var(--ink); }
+.completion-exercises article.declined .completion-trend-symbol { background: #4a2d29; color: #ff9b8e; }
+.completion-exercises article > div { min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+.completion-exercises article > div strong { overflow: hidden; color: white; font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
+.completion-exercises article > div small { color: #92978b; font-size: 8px; line-height: 1.35; }
+.completion-exercises aside { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; }
+.completion-exercises aside strong { color: white; font-size: 11px; }
+.completion-exercises aside small { color: var(--acid); font-size: 7px; font-weight: 800; text-transform: uppercase; }
 .workout-complete > .button { margin-top: auto; flex: 0 0 56px; }
 .celebration-burst { position: absolute; top: 12%; left: 50%; width: 1px; height: 1px; pointer-events: none; }
 .celebration-burst i { position: absolute; width: 6px; height: 16px; border-radius: 2px; background: var(--acid); transform-origin: 0 145px; animation: confetti-out .9s .15s both ease-out; }

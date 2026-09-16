@@ -165,8 +165,12 @@ describe('critical workout lifecycle', () => {
       expect(localStorage.getItem('easyfit-workout')).toBeNull();
     });
     const summary = screen.getByRole('dialog', { name: 'Riepilogo workout completato' });
-    expect(within(summary).getByText('Ottimo lavoro.')).toBeTruthy();
-    expect(within(summary).getByText('RIR centrato ±1')).toBeTruthy();
+    expect(within(summary).getByText('Nuovi riferimenti salvati.')).toBeTruthy();
+    expect(within(summary).getByText('Andamento esercizi')).toBeTruthy();
+    expect(within(summary).getByText('record personali')).toBeTruthy();
+    expect(within(summary).queryByText('RIR centrato ±1')).toBeNull();
+    expect(within(summary).queryByText(/^serie$/i)).toBeNull();
+    expect(within(summary).queryByText(/^ripetizioni$/i)).toBeNull();
     await user.click(within(summary).getByRole('button', { name: 'Continua' }));
     expect(screen.queryByRole('dialog', { name: 'Riepilogo workout completato' })).toBeNull();
   });

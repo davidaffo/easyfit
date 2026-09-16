@@ -608,6 +608,93 @@ export function finalizeWorkoutPerformance(workout, history = []) {
   };
 }
 
+function completedExercisePerformance(item) {
+  const exercise = resolveRecordedExercise(item);
+  const completedSets = (item?.sets || []).filter((set) => set.done);
+  const weighted = ['external', 'per-dumbbell'].includes(exercise?.loadType);
+  const marks = completedSets.map((set) => weighted
+    ? estimateOneRepMax(set.weight, set.reps, recordedRir(set))
+    : Number(set.reps || 0) + recordedRir(set)).filter((value) => Number.isFinite(value) && value > 0);
+  const volume = completedSets.reduce((sum, set) => {
+    const repetitions = Math.max(0, Number(set.reps) || 0);
+    if (!weighted) return sum + repetitions;
+    return sum + Math.max(0, Number(set.weight) || 0) * repetitions * (Number(exercise?.loadMultiplier) || 1);
+  }, 0);
+  return {
+    exercise,
+    completedSets,
+    bestMark: marks.length ? Math.max(...marks) : null,
+    volume,
+    weighted,
+  };
+}
+
+export function getWorkoutCompletionInsights(workout, history = []) {
+  const items = (workout?.exercises || []).map((item) => {
+    const current = completedExercisePerformance(item);
+    if (!current.completedSets.length || !current.exercise) return null;
+    const previousSessions = history
+      .filter((entry) => validCompletedWorkout(entry, Number(workout?.completedAt) || Date.now()))
+      .map((entry) => ({
+        completedAt: Number(entry.completedAt),
+        item: entry.exercises?.find((candidate) => candidate.exerciseId === item.exerciseId),
+      }))
+      .filter(({ item: previousItem }) => previousItem)
+      .map(({ completedAt, item: previousItem }) => ({ completedAt, ...completedExercisePerformance(previousItem) }))
+      .filter((session) => session.completedSets.length)
+      .sort((a, b) => a.completedAt - b.completedAt);
+    const previous = previousSessions.at(-1);
+    const previousBest = Math.max(0, ...previousSessions.map((session) => session.bestMark || 0)) || null;
+    const calibration = item.performanceCalibration || {};
+    const currentMaximum = Number(calibration.estimatedMaximum) || current.bestMark;
+    const previousMaximum = Number(calibration.previousMaximum) || null;
+    const maximumChange = Number.isFinite(Number(calibration.change))
+      ? Number(calibration.change)
+      : currentMaximum && previousMaximum ? (currentMaximum - previousMaximum) / previousMaximum : null;
+    const status = !previousSessions.length || !previousMaximum
+      ? 'baseline'
+      : maximumChange > .005
+        ? 'improved'
+        : maximumChange < -.005
+          ? 'declined'
+          : 'maintained';
+    const volumeChange = previous?.volume > 0 ? (current.volume - previous.volume) / previous.volume : null;
+    return {
+      exerciseId: item.exerciseId,
+      exercise: current.exercise,
+      status,
+      currentMaximum,
+      previousMaximum,
+      maximumChange,
+      currentVolume: current.volume,
+      previousVolume: previous?.volume ?? null,
+      volumeChange,
+      weighted: current.weighted,
+      isRecord: previousBest != null && current.bestMark > previousBest * 1.005,
+      decision: calibration.decision || null,
+    };
+  }).filter(Boolean);
+  const comparableChanges = items
+    .filter((item) => item.status !== 'baseline' && Number.isFinite(item.maximumChange))
+    .map((item) => item.maximumChange);
+  const counts = {
+    improved: items.filter((item) => item.status === 'improved').length,
+    declined: items.filter((item) => item.status === 'declined').length,
+    maintained: items.filter((item) => item.status === 'maintained').length,
+    baseline: items.filter((item) => item.status === 'baseline').length,
+    records: items.filter((item) => item.isRecord).length,
+  };
+  return {
+    items,
+    counts,
+    averageChange: comparableChanges.length
+      ? comparableChanges.reduce((sum, value) => sum + value, 0) / comparableChanges.length
+      : null,
+    bestImprovement: items.filter((item) => item.status === 'improved')
+      .sort((a, b) => b.maximumChange - a.maximumChange)[0] || null,
+  };
+}
+
 export function getExerciseHistory(history = [], exerciseId, now = Date.now()) {
   const exercise = exercises.find((candidate) => candidate.id === exerciseId);
   const sessions = history
