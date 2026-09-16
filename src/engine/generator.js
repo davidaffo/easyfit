@@ -9,7 +9,7 @@ const CONTINUITY_BREAK_DAYS = 28;
 const RECENT_VARIATION_DAYS = 7;
 const EXERCISE_ROTATION_EXPOSURES = 4;
 export const SESSION_TIME_TOLERANCE_MINUTES = 7;
-export const ENGINE_VERSION = 34;
+export const ENGINE_VERSION = 35;
 
 const muscleBaseImportance = {
   chest: 100,
@@ -1396,27 +1396,6 @@ function seededRandom(seed) {
   };
 }
 
-function adaptiveFamilyCount(targetMinutes) {
-  return Number(targetMinutes) >= 60 ? 3 : 2;
-}
-
-function selectAdaptiveFamilies(rankedFamilies, requestedCount) {
-  const selected = [];
-  // A normal adaptive session balances one available lower-body family with
-  // upper-body work. Exhausted or unsupported lower patterns are absent from
-  // rankedFamilies and are therefore never forced.
-  const bestLower = rankedFamilies.find((family) => ['knee', 'hip'].includes(family.id));
-  if (requestedCount >= 2 && bestLower) selected.push(bestLower);
-  for (const family of rankedFamilies) {
-    if (selected.includes(family)) continue;
-    const alreadyHasLower = selected.some((item) => ['knee', 'hip'].includes(item.id));
-    if (alreadyHasLower && ['knee', 'hip'].includes(family.id)) continue;
-    selected.push(family);
-    if (selected.length >= requestedCount) break;
-  }
-  return selected;
-}
-
 export function isReturningAfterBreak(history = [], now = Date.now()) {
   const lastWorkout = [...history]
     .filter((workout) => validCompletedWorkout(workout, now))
@@ -1472,7 +1451,22 @@ function getAvailableAdaptiveFamilies(profile, weeklyLoad, movementFrequency, mu
     && family.patterns.includes(exercise.pattern)
     && isExerciseAllowed(exercise, profile)
     && isEssentialExercise(exercise, profile)));
-  return selectAdaptiveFamilies(available, adaptiveFamilyCount(targetMinutes));
+  // Keep the complete urgency queue. Session composition decides how many
+  // entries fit; truncating it here used to strand otherwise valid third
+  // exercises and made the UI falsely report only two urgent families.
+  return available;
+}
+
+function plannedFamiliesFromUrgencyQueue(families, targetMinutes) {
+  const limit = getWorkoutCompositionLimits(targetMinutes).desiredPrimaryMovements;
+  const selected = [];
+  for (const family of families) {
+    const lower = ['knee', 'hip'].includes(family.id);
+    if (lower && selected.some((item) => ['knee', 'hip'].includes(item.id))) continue;
+    selected.push(family);
+    if (selected.length >= limit) break;
+  }
+  return selected;
 }
 
 export function getAdaptiveTrainingOverview(profile, history = [], targetMinutes = profile?.duration || 45, now = Date.now()) {
@@ -1484,15 +1478,15 @@ export function getAdaptiveTrainingOverview(profile, history = [], targetMinutes
   const movementFrequency = getWeeklyMovementFrequency(history, now);
   const families = getAvailableAdaptiveFamilies(profile, doseLoad, movementFrequency, muscleStatus, targetMinutes)
     .map((family) => ({ ...family, need: movementFamilyNeed(family, profile, doseLoad, movementFrequency, muscleStatus) }));
-  return { muscleStatus, families };
+  return { muscleStatus, families, plannedFamilies: plannedFamiliesFromUrgencyQueue(families, targetMinutes) };
 }
 
 export function getWorkoutCompositionLimits(targetMinutes = 45) {
   const minutes = Number(targetMinutes) || 45;
-  if (minutes <= 30) return { maxExercises: 3, maxCompounds: 2, desiredAccessories: 1 };
-  if (minutes < 60) return { maxExercises: 6, maxCompounds: 2, desiredAccessories: 2 };
-  if (minutes <= 60) return { maxExercises: 7, maxCompounds: 3, desiredAccessories: 2 };
-  return { maxExercises: 8, maxCompounds: 3, desiredAccessories: 3 };
+  if (minutes <= 30) return { maxExercises: 3, maxCompounds: 3, desiredPrimaryMovements: 2, desiredAccessories: 1 };
+  if (minutes < 60) return { maxExercises: 6, maxCompounds: 3, desiredPrimaryMovements: 2, desiredAccessories: 2 };
+  if (minutes <= 60) return { maxExercises: 7, maxCompounds: 3, desiredPrimaryMovements: 3, desiredAccessories: 2 };
+  return { maxExercises: 8, maxCompounds: 3, desiredPrimaryMovements: 3, desiredAccessories: 3 };
 }
 
 function fitPrescriptionToMinutes(exercise, item, remainingMinutes) {
@@ -1594,7 +1588,7 @@ export function generateWorkout(profile, history = [], options = {}) {
   const plannedExposureMuscles = new Set();
   const random = seededRandom(now + (options.variation || 0));
   const compositionLimits = getWorkoutCompositionLimits(targetMinutes);
-  const { maxExercises, maxCompounds } = compositionLimits;
+  const { maxExercises, maxCompounds, desiredPrimaryMovements } = compositionLimits;
   const plannedFamilies = [];
   const unavailableMovementFamilies = [];
   let usedMinutes = 7;
@@ -1674,8 +1668,8 @@ export function generateWorkout(profile, history = [], options = {}) {
   };
 
   requiredFamilies.forEach((family) => {
-    if (plannedFamilies.length >= Math.min(maxCompounds, adaptiveFamilyCount(targetMinutes))) return;
-    if (chosen.filter(isPrimaryMovement).length >= maxCompounds) return;
+    if (plannedFamilies.length >= Math.min(maxCompounds, desiredPrimaryMovements)) return;
+    if (chosen.filter(isPrimaryMovement).length >= Math.min(maxCompounds, desiredPrimaryMovements)) return;
     if (chosen.some((exercise) => getMovementFamily(exercise) === family.id)) return;
     const compatibleCompounds = rankCandidates(family.patterns)
       .map(({ exercise }) => exercise)
@@ -1708,7 +1702,7 @@ export function generateWorkout(profile, history = [], options = {}) {
     }
   }
 
-  while (profile.trainingStyle !== 'intense' && usedMinutes < targetMinutes - 4 && chosen.length < maxExercises) {
+  while (usedMinutes < targetMinutes - 2 && chosen.length < maxExercises) {
     const ranked = rankCandidates(null, accessoryTargets).filter(({ exercise }) => !isPrimaryMovement(exercise));
     if (!ranked.length) break;
     const next = ranked[0].exercise;
@@ -1724,18 +1718,23 @@ export function generateWorkout(profile, history = [], options = {}) {
   // is already covered, add one compatible maintenance accessory rather than
   // returning an accidentally truncated workout. Equipment, lower-body and
   // time guards are still enforced.
+  let maintenanceMode = false;
   const minimumExerciseCount = Math.min(3, maxExercises);
   while (chosen.length < minimumExerciseCount) {
     const ranked = rankCandidates(null, accessoryTargets).filter(({ exercise }) => !isPrimaryMovement(exercise));
-    if (!ranked.length) break;
-    const next = ranked[0].exercise;
+    const fallbackPrimaries = requiredFamilies
+      .flatMap((family) => rankCandidates(family.patterns))
+      .filter(({ exercise }) => isPrimaryMovement(exercise));
+    const next = (ranked[0] || fallbackPrimaries[0])?.exercise;
+    if (!next) break;
+    const wasEmpty = chosen.length === 0;
     if (!addExercise(next, true, accessoryTargets, true)) {
       avoidIds.add(next.id);
       continue;
     }
+    if (wasEmpty) maintenanceMode = true;
   }
 
-  let maintenanceMode = false;
   if (!chosen.length) {
     const fallbackPool = exercises
       .filter((exercise) => isExerciseAllowed(exercise, profile) && isEssentialExercise(exercise, profile))
@@ -1786,7 +1785,7 @@ export function generateWorkout(profile, history = [], options = {}) {
       maintenanceMode,
       estimatedMinutes: Math.round(usedMinutes),
       timeToleranceMinutes: SESSION_TIME_TOLERANCE_MINUTES,
-      evidenceProfile: 'V33-STIMULUS-ONLY-ADAPTIVE-SELECTION',
+      evidenceProfile: 'V35-COMPLETE-STIMULUS-URGENCY-QUEUE',
     },
   };
 }

@@ -96,7 +96,7 @@ const catalogEditorHtml = await readFile(new URL('../tools/catalog-editor/index.
 const catalogEditorSource = await readFile(new URL('../tools/catalog-editor/app.js', import.meta.url), 'utf8');
 assert(serviceWorkerSource.includes('cache.addAll(images)'), 'The service worker install must fail atomically if any bundled guide image cannot be cached');
 assert(!serviceWorkerSource.includes('Promise.allSettled(images'), 'Offline installation must not silently ignore missing guide images');
-assert(serviceWorkerSource.includes("const CACHE = 'easyfit-v35'"), 'An app-shell or catalog change must bump the offline cache version');
+assert(serviceWorkerSource.includes("const CACHE = 'easyfit-v36'"), 'An app-shell or catalog change must bump the offline cache version');
 assert(serviceWorkerSource.includes("cache.delete(request)"), 'The current PWA cache must remove assets no longer present in the build or guide index');
 assert(serviceWorkerSource.includes("requestUrl.origin !== self.location.origin"), 'The service worker must never intercept cross-origin WebDAV traffic');
 assert(serviceWorkerSource.includes("headers.has('Authorization')"), 'Authenticated responses must never enter the PWA cache');
@@ -626,7 +626,7 @@ const exhaustedLowerHistory = [{
 }];
 const stimulusOnlyNow = Date.now();
 const stimulusOnlyWorkout = generateWorkout({ ...focusProfile, split: 'adaptive', equipment: allEquipment, duration: 45 }, exhaustedLowerHistory, { duration: 45, variation: 818, now: stimulusOnlyNow });
-assert(stimulusOnlyWorkout.exercises.some((item) => isLowerBodyExercise(exercises.find((exercise) => exercise.id === item.exerciseId))), 'Recent hard work must affect stimulus priority without excluding the lower-body family');
+assert(!stimulusOnlyWorkout.exercises.some((item) => isLowerBodyExercise(exercises.find((exercise) => exercise.id === item.exerciseId))), 'A heavily stimulated lower body must yield to more urgent compatible groups instead of being forced into every workout');
 assert(stimulusOnlyWorkout.exercises.length >= 3, 'A compatible adaptive workout must never collapse to two exercises');
 const ignoredRecoveryFeedbackWorkout = generateWorkout({ ...focusProfile, split: 'adaptive', equipment: allEquipment, duration: 45, recoveryFeedback: { chest: { adjustment: -20, updatedAt: stimulusOnlyNow } } }, exhaustedLowerHistory, { duration: 45, variation: 818, now: stimulusOnlyNow });
 assert.deepEqual(ignoredRecoveryFeedbackWorkout.exercises, stimulusOnlyWorkout.exercises, 'Legacy recovery feedback must have no effect on stimulus-only generation');
@@ -648,7 +648,8 @@ assert(adaptiveWorkout.exercises.length <= 3, 'A 25–30 minute workout must con
 assert.deepEqual(adaptiveWorkout.engine.composition, { compounds: 2, primaryMovements: 2, accessories: 1, lowerBody: 1, ...getWorkoutCompositionLimits(25) }, 'A short workout must balance two primary movements with one accessory and only one leg exercise');
 assert.equal(adaptiveWorkout.engine.version, ENGINE_VERSION, 'The workout must preserve the programming model version');
 const adaptiveOverview = getAdaptiveTrainingOverview({ ...focusProfile, duration: 25 }, [], 25, adaptiveWorkout.createdAt);
-assert.deepEqual(adaptiveOverview.families.map((family) => family.id), adaptiveWorkout.engine.movementFamilies, 'The status UI and workout generator must expose the exact same adaptive family decision');
+assert.deepEqual(adaptiveOverview.families.slice(0, adaptiveWorkout.engine.movementFamilies.length).map((family) => family.id), adaptiveWorkout.engine.movementFamilies, 'The workout must consume the leading entries of the complete urgency queue');
+assert(adaptiveOverview.families.length > adaptiveWorkout.engine.movementFamilies.length, 'The status UI must retain lower-priority compatible families instead of truncating urgency to the current workout');
 assert.deepEqual(adaptiveWorkout.engine.movementFamilies, ['knee', 'pull'], 'The workout must expose the selected adaptive families');
 const armAccessoryPreferences = Object.fromEntries(exercises
   .filter((exercise) => !exercise.compound && !['biceps', 'triceps'].includes(exercise.primary))
@@ -739,8 +740,13 @@ const gluteOpportunityWorkout = generateWorkout({
   focusEnabled: false,
   duration: 25,
 }, saturatedQuadsHistory, { variation: 48 });
-assert(gluteOpportunityWorkout.engine.movementFamilies.includes('hip'), 'Fresh glutes and hamstrings must be eligible when quadriceps are already saturated');
-assert(!gluteOpportunityWorkout.engine.movementFamilies.includes('knee'), 'Large-muscle preference must not keep selecting quadriceps after their need has been covered');
+const gluteOpportunityOverview = getAdaptiveTrainingOverview({
+  ...focusProfile,
+  equipment: [...new Set([...focusProfile.equipment, 'machines'])],
+  duration: 25,
+}, saturatedQuadsHistory, 25, gluteOpportunityWorkout.createdAt);
+const lowerUrgencyOrder = gluteOpportunityOverview.families.map((family) => family.id);
+assert(lowerUrgencyOrder.indexOf('hip') < lowerUrgencyOrder.indexOf('knee'), 'Fresh glutes and hamstrings must outrank quadriceps after quadriceps stimulus is covered');
 
 const settingsFingerprint = getWorkoutSettingsFingerprint(focusProfile);
 assert.equal(getWorkoutSettingsFingerprint({ ...focusProfile, exerciseLanguage: 'it', cloud: { webDavUrl: 'https://example.test' } }), settingsFingerprint, 'Language and cloud settings must not invalidate an existing workout');
@@ -785,7 +791,7 @@ assert.deepEqual(protectedExercise.sets[0], partiallyCompletedOldWorkout.exercis
 adaptiveWithTwoLegacyDays.completedAt = Date.now() - 36e5;
 adaptiveWithTwoLegacyDays.exercises.forEach((item) => item.sets.forEach((set) => { set.done = true; set.rir = 2; }));
 const nextAdaptive = generateWorkout({ ...focusProfile, split: 'adaptive', focusEnabled: false, duration: 45 }, [adaptiveWithTwoLegacyDays], { variation: 43 });
-assert(new Set([...adaptiveWithTwoLegacyDays.engine.movementFamilies, ...nextAdaptive.engine.movementFamilies]).size === 4, 'The next workout must rotate in the movement family omitted from the previous one');
+assert(nextAdaptive.engine.movementFamilies.some((family) => !adaptiveWithTwoLegacyDays.engine.movementFamilies.includes(family)), 'Updated stimulus urgency must rotate at least one movement family from the previous workout');
 
 const highFatigueHistory = [{
   id: 'high-fatigue',
@@ -1268,6 +1274,33 @@ const gobletStats = getExerciseHistory([{
   exercises: [{ exerciseId: goblet.id, sets: [{ weight: 20, reps: 10, targetReps: 10, targetRir: 2, rir: 2, done: true }] }],
 }], goblet.id);
 assert.equal(gobletStats.totalVolume, 200, 'A single-dumbbell movement must not double its tonnage');
+
+const realisticEquipmentProfiles = [
+  ['bodyweight'],
+  ['dumbbells', 'bench'],
+  ['barbell', 'bench', 'rack'],
+  ['cables'],
+  ['machines'],
+  ['bodyweight', 'dumbbells', 'bench'],
+];
+for (const equipment of realisticEquipmentProfiles) {
+  for (const trainingStyle of Object.keys(trainingStyles)) {
+    for (const duration of [30, 45, 60]) {
+      const equipmentProfile = {
+        ...focusProfile,
+        equipment,
+        duration,
+        trainingStyle,
+        preferences: {},
+        exerciseFilters: { preferLoadedVariants: false, excludeDirectCore: true, excludeCalves: true },
+      };
+      const generated = generateWorkout(equipmentProfile, [], { now: 1700000000000, variation: 3 });
+      assert(generated.exercises.length >= 3, `${equipment.join('+')} ${trainingStyle} ${duration} must fill at least three compatible exercises`);
+      const overview = getAdaptiveTrainingOverview(equipmentProfile, [], duration, 1700000000000);
+      assert(overview.families.length >= generated.engine.movementFamilies.length, 'The urgency view must retain the complete compatible queue used by generation');
+    }
+  }
+}
 
 for (const goal of ['muscle', 'strength', 'fitness']) {
   for (const duration of [25, 30, 45, 60, 75]) {

@@ -590,7 +590,7 @@ function Home({ profile, history, workout, onOpenWorkout, onDiscardWorkout, onGe
     <section className="welcome"><span className="eyebrow">{today.toUpperCase()}</span><h1>Ciao, sei pronto?</h1><p>{history.length ? `${completedWeek} allenament${completedWeek === 1 ? 'o' : 'i'} questa settimana. Continua così.` : 'Il tuo primo allenamento è già pronto.'}</p></section>
 
     <section className="stimulus-strip">
-      <div><span className="section-kicker">PROSSIMO WORKOUT</span><div className="fresh-list">{adaptiveOverview.families.map((family) => <span key={family.id}><i style={{ '--value': `${Math.round(family.need.score * 360)}deg` }}/><b>{adaptiveFamilyLabels[family.id]}</b><small>selezionato</small></span>)}</div></div>
+      <div><span className="section-kicker">ORDINE DI URGENZA</span><div className="fresh-list">{adaptiveOverview.families.map((family, index) => <span key={family.id}><i style={{ '--value': `${Math.round(family.need.score * 360)}deg` }}/><b>{adaptiveFamilyLabels[family.id]}</b><small>priorità {index + 1}</small></span>)}</div></div>
       <button className="round-arrow" aria-label="Vedi stimolo" onClick={onShowStimulus}><Icon name="chevron"/></button>
     </section>
 
@@ -1379,7 +1379,7 @@ function WorkoutComplete({ workout, history, onClose }) {
 function Stimulus({ history, profile }) {
   const overview = useMemo(() => getAdaptiveTrainingOverview(profile, history, profile.duration), [profile, history]);
   const status = overview.muscleStatus;
-  const isPlanned = (muscle) => overview.families.some((family) => (family.primaryMuscles || family.muscles).includes(muscle));
+  const isPlanned = (muscle) => overview.plannedFamilies.some((family) => (family.primaryMuscles || family.muscles).includes(muscle));
   const sorted = Object.entries(status)
     .filter(([, item]) => !item.excluded)
     .sort((a, b) => Number(isPlanned(b[0])) - Number(isPlanned(a[0])) || b[1].priority - a[1].priority);
@@ -1387,7 +1387,7 @@ function Stimulus({ history, profile }) {
   const statusLabel = (muscle, item) => isPlanned(muscle) ? 'Famiglia scelta' : item.doseStimulus >= item.targetStimulus ? 'Dose coperta' : 'In attesa';
   const nextFamilies = overview.families.map((family) => adaptiveFamilyLabels[family.id]).join(' + ');
   return <main className="standard-page"><PageHeader kicker="STIMOLO ALLENANTE" title="Cosa allenare adesso" subtitle="Priorità calcolate esclusivamente dal lavoro che hai registrato."/>
-    <section className="stimulus-summary simple-stimulus-summary"><span className="next-workout-icon"><Icon name="spark" size={30}/></span><div><small>SCELTA DELL’ENGINE</small><strong>{nextFamilies || 'Configura almeno un esercizio compatibile'}</strong><p>Queste sono le stesse famiglie che verranno usate generando o aggiornando la scheda.</p></div></section>
+    <section className="stimulus-summary simple-stimulus-summary"><span className="next-workout-icon"><Icon name="spark" size={30}/></span><div><small>CODA DI PRIORITÀ</small><strong>{nextFamilies || 'Configura almeno un esercizio compatibile'}</strong><p>L’engine percorre questa coda dall’inizio e inserisce esercizi finché trova spazio, saltando soltanto quelli incompatibili con i vincoli.</p></div></section>
     <section className="muscle-list training-status-list"><div className="list-caption"><span>GRUPPO MUSCOLARE</span><span>STATO</span></div>{sorted.map(([muscle, item]) => {
       const dosePercent = Math.min(100, item.targetStimulus ? item.doseStimulus / item.targetStimulus * 100 : 0);
       return <div className="muscle-row" key={muscle}><span className="muscle-dot" style={{ opacity: Math.max(.35, item.priority / 100) }}/><div><div className="muscle-status-title"><strong>{muscles[muscle]}</strong><small>Ultimo stimolo: {lastStimulusLabel(item.hoursSinceStimulus)}</small></div><div className="clear-status-line"><span>Priorità <b>{item.priority}%</b></span><i><b style={{ width: `${item.priority}%` }}/></i></div><div className="clear-status-line stimulus"><span>Stimolo coperto <b>{Math.round(dosePercent)}%</b></span><i><b style={{ width: `${dosePercent}%` }}/></i></div></div><b className={`status-pill ${isPlanned(muscle) ? 'planned' : ''}`}>{statusLabel(muscle, item)}</b></div>;
