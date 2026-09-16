@@ -56,6 +56,7 @@ export function isWorkoutRecord(workout) {
     && workout.exercises.every((item) => item
       && typeof item === 'object'
       && typeof item.exerciseId === 'string'
+      && (item.underperformanceDecision == null || ['pending', 'maintain', 'recalibrate'].includes(item.underperformanceDecision))
       && Array.isArray(item.sets)
       && item.sets.length > 0
       && item.sets.every((set) => set

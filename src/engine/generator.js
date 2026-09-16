@@ -9,7 +9,7 @@ const CONTINUITY_BREAK_DAYS = 28;
 const RECENT_VARIATION_DAYS = 7;
 const EXERCISE_ROTATION_EXPOSURES = 4;
 export const SESSION_TIME_TOLERANCE_MINUTES = 7;
-export const ENGINE_VERSION = 35;
+export const ENGINE_VERSION = 36;
 
 const muscleBaseImportance = {
   chest: 100,
@@ -172,6 +172,20 @@ export function isLowerBodyExercise(exercise) {
 
 export function willCompleteExercise(sets = [], setIndex) {
   return sets.length > 0 && sets.every((set, index) => index === setIndex || set.done);
+}
+
+export function isFinalSetBelowTarget(item, setIndex, setOverride = {}) {
+  const sets = item?.sets || [];
+  if (!sets.length || setIndex !== sets.length - 1 || !willCompleteExercise(sets, setIndex)) return false;
+  const set = { ...sets[setIndex], ...setOverride };
+  const performedReps = Math.max(0, Number(set.reps) || 0);
+  const targetReps = Math.max(0, Number(set.targetReps) || 0);
+  const performedWeight = Math.max(0, Number(set.weight) || 0);
+  const targetWeight = Math.max(0, Number(set.targetWeight ?? set.weight) || 0);
+  if (!targetReps) return false;
+  return targetWeight > 0
+    ? performedWeight * performedReps < targetWeight * targetReps - .001
+    : performedReps < targetReps;
 }
 
 export function isWorkoutActive(workout) {
@@ -427,6 +441,8 @@ export function getExerciseProgress(history = [], exerciseId, now = Date.now()) 
       const sessionE1rm = estimates.length
         ? finalPerformanceSurplus ? finalEstimate : median(estimates)
         : null;
+      const storedDecision = item.performanceCalibration?.decision;
+      const maintainedPrescription = storedDecision === 'maintain-prescription';
       return {
         completedAt,
         storedPerformance: item.performanceCalibration,
@@ -439,7 +455,9 @@ export function getExerciseProgress(history = [], exerciseId, now = Date.now()) 
         negativeEvidence,
         finalCapacity,
         finalTargetCapacity,
-        lastWeight: workingWeight,
+        lastWeight: maintainedPrescription
+          ? Number(item.performanceCalibration?.prescribedWeight) || workingWeight
+          : workingWeight,
         targetWeight: median(comparableSets.map((set) => Number(set.targetWeight)).filter((value) => value > 0)),
         targetReps: median(comparableSets.map((set) => Number(set.targetReps)).filter((value) => value > 0)),
         supportedReps: median(supportedReps),
@@ -533,20 +551,56 @@ export function finalizeWorkoutPerformance(workout, history = []) {
       const exercise = resolveRecordedExercise(item);
       const progress = getExerciseProgress(combinedHistory, item.exerciseId, workout.completedAt);
       const kind = ['external', 'per-dumbbell'].includes(exercise?.loadType) ? 'e1rm' : 'rep-capacity';
-      const estimatedMaximum = kind === 'e1rm' ? progress.latestE1rm : progress.latestRepCapacity;
+      const maintainPrescription = item.underperformanceDecision === 'maintain';
+      const reducePrescription = item.underperformanceDecision === 'recalibrate';
+      const previousProgress = maintainPrescription || reducePrescription
+        ? getExerciseProgress(history, item.exerciseId, workout.completedAt)
+        : null;
+      const finalSet = (item.sets || []).filter((set) => set.done).at(-1);
+      const prescribedMaximum = kind === 'e1rm'
+        ? estimateOneRepMax(
+          Number(finalSet?.targetWeight ?? finalSet?.weight),
+          Number(finalSet?.targetReps ?? finalSet?.reps),
+          Number(finalSet?.targetRir ?? 2),
+        )
+        : Number(finalSet?.targetReps ?? finalSet?.reps) + Number(finalSet?.targetRir ?? 2);
+      const previousMaximum = kind === 'e1rm'
+        ? previousProgress?.latestE1rm
+        : previousProgress?.latestRepCapacity;
+      const conservativeFinalRir = Math.min(recordedRir(finalSet), Number(finalSet?.targetRir ?? 2));
+      const reducedMaximum = kind === 'e1rm'
+        ? estimateOneRepMax(finalSet?.weight, finalSet?.reps, conservativeFinalRir)
+        : Number(finalSet?.reps || 0) + conservativeFinalRir;
+      const measuredMaximum = kind === 'e1rm' ? progress.latestE1rm : progress.latestRepCapacity;
+      const estimatedMaximum = maintainPrescription
+        ? Number(previousMaximum) || Number(item.performanceEvidence?.estimatedMaximum) || prescribedMaximum
+        : reducePrescription
+          ? Math.min(...[measuredMaximum, reducedMaximum].map(Number).filter((value) => Number.isFinite(value) && value > 0))
+          : measuredMaximum;
       if (!Number.isFinite(Number(estimatedMaximum)) || Number(estimatedMaximum) <= 0) return item;
+      const calibrationChange = maintainPrescription
+        ? 0
+        : reducePrescription && Number(previousMaximum) > 0
+          ? (estimatedMaximum - Number(previousMaximum)) / Number(previousMaximum)
+          : progress.latestPerformanceMaxChange;
       return {
         ...item,
+        underperformanceDecision: maintainPrescription ? 'maintain' : item.underperformanceDecision,
         performanceCalibration: {
           version: 1,
           kind,
           estimatedMaximum,
-          previousMaximum: progress.previousPerformanceMax,
-          change: progress.latestPerformanceMaxChange,
-          positiveEvidence: progress.latestPositiveEvidence,
-          negativeEvidence: progress.latestNegativeEvidence,
+          previousMaximum: maintainPrescription ? estimatedMaximum : progress.previousPerformanceMax,
+          change: calibrationChange,
+          positiveEvidence: maintainPrescription || reducePrescription ? false : progress.latestPositiveEvidence,
+          negativeEvidence: maintainPrescription ? false : reducePrescription || progress.latestNegativeEvidence,
           repVolumeRatio: progress.latestRepVolumeRatio,
           loadVolumeRatio: progress.latestLoadVolumeRatio,
+          ...(maintainPrescription ? {
+            decision: 'maintain-prescription',
+            prescribedWeight: Number(finalSet?.targetWeight ?? finalSet?.weight) || null,
+            prescribedReps: Number(finalSet?.targetReps ?? finalSet?.reps) || null,
+          } : reducePrescription ? { decision: 'recalibrate-down' } : {}),
           updatedAt: workout.completedAt,
         },
       };
@@ -1785,7 +1839,7 @@ export function generateWorkout(profile, history = [], options = {}) {
       maintenanceMode,
       estimatedMinutes: Math.round(usedMinutes),
       timeToleranceMinutes: SESSION_TIME_TOLERANCE_MINUTES,
-      evidenceProfile: 'V35-COMPLETE-STIMULUS-URGENCY-QUEUE',
+      evidenceProfile: 'V36-USER-CONFIRMED-UNDERPERFORMANCE',
     },
   };
 }

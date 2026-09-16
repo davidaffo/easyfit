@@ -47,6 +47,7 @@ import {
   getWorkoutExercise,
   trainingStyles,
   isExerciseAllowed,
+  isFinalSetBelowTarget,
   isCompatibleWorkout,
   isPreparedWorkoutStale,
   isEssentialExercise,
@@ -96,7 +97,7 @@ const catalogEditorHtml = await readFile(new URL('../tools/catalog-editor/index.
 const catalogEditorSource = await readFile(new URL('../tools/catalog-editor/app.js', import.meta.url), 'utf8');
 assert(serviceWorkerSource.includes('cache.addAll(images)'), 'The service worker install must fail atomically if any bundled guide image cannot be cached');
 assert(!serviceWorkerSource.includes('Promise.allSettled(images'), 'Offline installation must not silently ignore missing guide images');
-assert(serviceWorkerSource.includes("const CACHE = 'easyfit-v36'"), 'An app-shell or catalog change must bump the offline cache version');
+assert(serviceWorkerSource.includes("const CACHE = 'easyfit-v37'"), 'An app-shell or catalog change must bump the offline cache version');
 assert(serviceWorkerSource.includes("cache.delete(request)"), 'The current PWA cache must remove assets no longer present in the build or guide index');
 assert(serviceWorkerSource.includes("requestUrl.origin !== self.location.origin"), 'The service worker must never intercept cross-origin WebDAV traffic');
 assert(serviceWorkerSource.includes("headers.has('Authorization')"), 'Authenticated responses must never enter the PWA cache');
@@ -104,6 +105,7 @@ assert(serviceWorkerSource.includes("addEventListener('notificationclick'"), 'Re
 assert(appSource.includes('createOscillator()') && appSource.includes('showNotification(title, options)'), 'The recovery timer must provide both an audible double beep and a completion notification');
 assert(appSource.includes("exponentialRampToValueAtTime(.68") && appSource.includes('navigator.vibrate?.'), 'The recovery alert must be clearly audible and add haptic feedback where supported');
 assert(appSource.includes('function WorkoutComplete') && appSource.includes('RIR centrato ±1'), 'Completing a workout must open a useful statistics summary');
+assert(appSource.includes('function UnderperformanceSheet') && appSource.includes('Ero solo stanco') && appSource.includes("onChoose('recalibrate')"), 'A final-set volume shortfall must ask whether to maintain or recalibrate the next prescription');
 assert(!appSource.includes('Termina alle') && !appSource.includes('Recupero in corso'), 'The PWA must not fake a persistent notification countdown using an absolute end time');
 assert(!appSource.includes('Catalogo essenziale') && !appSource.includes('Mostra tutte le varianti'), 'The removed essential-catalog mode must not remain exposed in settings or replacement UI');
 assert(!generatorSource.includes('getRecovery') && !generatorSource.includes('MIN_TRAINING_READINESS') && !generatorSource.includes('recoveryAtGeneration'), 'Muscle recovery estimation must not return as a generator input or gate');
@@ -140,6 +142,13 @@ assert.equal(isWorkoutActive({ ...activeWorkoutState, completedAt: 123999 }), fa
 assert.equal(startWorkout({ ...activeWorkoutState, completedAt: 123999 }), null, 'A completed workout must never be reopened into an invalid view state');
 assert.equal(willCompleteExercise([{ done: false }, { done: false }, { done: false }], 0), false, 'The first set must not trigger the RIR prompt');
 assert.equal(willCompleteExercise([{ done: true }, { done: true }, { done: false }], 2), true, 'The final completed set must trigger one RIR prompt');
+const finalSetTargetCheck = { sets: [
+  { done: true, weight: 60, targetWeight: 60, reps: 8, targetReps: 8 },
+  { done: false, weight: 60, targetWeight: 60, reps: 7, targetReps: 8 },
+] };
+assert.equal(isFinalSetBelowTarget(finalSetTargetCheck, 1, { done: true }), true, 'Closing the final set below prescribed load-volume must request a user decision');
+assert.equal(isFinalSetBelowTarget({ ...finalSetTargetCheck, sets: finalSetTargetCheck.sets.map((set, index) => index ? { ...set, weight: 55, reps: 9 } : set) }, 1, { done: true }), false, 'Extra repetitions that recover the prescribed load-volume must not trigger a false shortfall prompt');
+assert.equal(isFinalSetBelowTarget(finalSetTargetCheck, 0, { done: true }), false, 'Only the actual final set may trigger the shortfall decision');
 const hardHistory = [{
   id: 'hard-session',
   completedAt: Date.now() - 36e5,
@@ -847,6 +856,46 @@ const maximumDrivenPrescription = generateWorkout(profile, [exactMaximumWorkout,
 assert.equal(maximumDrivenPrescription.sets[0].weight, 60, 'The next prescription must start from the persisted exercise maximum at the available load');
 assert.equal(maximumDrivenPrescription.sets[0].reps, 9, 'The next prescription must derive repetitions from the increased maximum, not increment the previous workout directly');
 assert.equal(maximumDrivenPrescription.progressionStep, 'max-increase');
+
+const tiredButMaintainedWorkout = finalizeWorkoutPerformance({
+  id: 'temporary-fatigue-maintained',
+  completedAt: maximumUpdateNow - 12 * 36e5,
+  exercises: [{
+    exerciseId: bench.id,
+    underperformanceDecision: 'maintain',
+    performanceEvidence: { estimatedMaximum: exactMaximumWorkout.exercises[0].performanceCalibration.estimatedMaximum },
+    sets: [
+      { ...baseSet, targetWeight: 60, weight: 60, targetReps: 8, reps: 8, targetRir: 2, rir: 2 },
+      { ...baseSet, targetWeight: 60, weight: 60, targetReps: 8, reps: 6, targetRir: 2, rir: 0 },
+    ],
+  }],
+}, [exactMaximumWorkout]);
+assert.equal(tiredButMaintainedWorkout.exercises[0].performanceCalibration.decision, 'maintain-prescription', 'Temporary fatigue must be serialized as an explicit calibration decision');
+assert.equal(tiredButMaintainedWorkout.exercises[0].performanceCalibration.change, 0, 'Temporary fatigue must not lower the persisted exercise maximum');
+assert.equal(
+  tiredButMaintainedWorkout.exercises[0].performanceCalibration.estimatedMaximum,
+  exactMaximumWorkout.exercises[0].performanceCalibration.estimatedMaximum,
+  'Choosing to maintain must preserve the previous maximum exactly',
+);
+const maintainedNextPrescription = generateWorkout(profile, [exactMaximumWorkout, tiredButMaintainedWorkout], { targets: ['chest'], duration: 25, now: maximumUpdateNow }).exercises[0];
+assert.equal(maintainedNextPrescription.sets[0].weight, 60, 'Temporary fatigue must not reduce the next working load');
+assert.equal(maintainedNextPrescription.sets[0].reps, 8, 'Temporary fatigue must not reduce the next repetition prescription');
+const deliberatelyReducedWorkout = finalizeWorkoutPerformance({
+  id: 'underperformance-recalibrated',
+  completedAt: maximumUpdateNow - 6 * 36e5,
+  exercises: [{
+    exerciseId: bench.id,
+    underperformanceDecision: 'recalibrate',
+    sets: [
+      { ...baseSet, targetWeight: 60, weight: 60, targetReps: 8, reps: 8, targetRir: 2, rir: 2 },
+      { ...baseSet, targetWeight: 60, weight: 60, targetReps: 8, reps: 6, targetRir: 2, rir: 3 },
+    ],
+  }],
+}, [exactMaximumWorkout]);
+assert.equal(deliberatelyReducedWorkout.exercises[0].performanceCalibration.decision, 'recalibrate-down', 'Choosing a reduction must be persisted distinctly from temporary fatigue');
+assert(deliberatelyReducedWorkout.exercises[0].performanceCalibration.estimatedMaximum < exactMaximumWorkout.exercises[0].performanceCalibration.estimatedMaximum, 'An explicit reduction must lower the maximum even if the recorded RIR would otherwise offset the missing repetitions');
+const reducedNextPrescription = generateWorkout(profile, [exactMaximumWorkout, deliberatelyReducedWorkout], { targets: ['chest'], duration: 25, now: maximumUpdateNow }).exercises[0];
+assert(reducedNextPrescription.sets[0].reps < 8 || reducedNextPrescription.sets[0].weight < 60, 'Choosing a reduction must actually lower the next prescription');
 
 const overPerformedHistory = [{
   id: 'over-performed-reps',

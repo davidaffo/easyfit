@@ -30,6 +30,7 @@ import {
   getSimilarExercises,
   getWorkoutExercise,
   isExerciseAllowed,
+  isFinalSetBelowTarget,
   isCompatibleWorkout,
   isPreparedWorkoutStale,
   isWorkoutActive,
@@ -711,6 +712,7 @@ function WorkoutView({ workout, setWorkout, profile, setProfile, history, showTo
   const totalSets = workout.exercises.reduce((sum, item) => sum + item.sets.length, 0);
   const doneSets = workout.exercises.reduce((sum, item) => sum + item.sets.filter((set) => set.done).length, 0);
   const elapsedSeconds = Math.max(0, Math.floor((sessionNow - startedAt - Number(workout.pausedDurationMs || 0)) / 1000));
+  const pendingVolumeDecision = workout.exercises.find((item) => item.underperformanceDecision === 'pending');
 
   useEffect(() => {
     closeRestNotifications();
@@ -869,9 +871,21 @@ function WorkoutView({ workout, setWorkout, profile, setProfile, history, showTo
   };
   const toggleSet = (exerciseIndex, setIndex, item) => {
     const set = item.sets[setIndex];
-    if (set.done) return updateSet(exerciseIndex, setIndex, { done: false });
+    if (set.done) {
+      setWorkout((current) => ({ ...current, exercises: current.exercises.map((entry, index) => index !== exerciseIndex ? entry : {
+        ...entry,
+        underperformanceDecision: entry.underperformanceDecision === 'pending' ? null : entry.underperformanceDecision,
+        sets: entry.sets.map((currentSet, currentIndex) => currentIndex === setIndex ? { ...currentSet, done: false } : currentSet),
+      }) }));
+      return;
+    }
     if (set.rir != null) {
-      updateSet(exerciseIndex, setIndex, { done: true });
+      const belowTarget = isFinalSetBelowTarget(item, setIndex, { done: true });
+      setWorkout((current) => ({ ...current, exercises: current.exercises.map((entry, index) => index !== exerciseIndex ? entry : {
+        ...entry,
+        ...(belowTarget ? { underperformanceDecision: 'pending' } : {}),
+        sets: entry.sets.map((currentSet, currentIndex) => currentIndex === setIndex ? { ...currentSet, done: true } : currentSet),
+      }) }));
       beginRest(item.rest);
       return;
     }
@@ -885,9 +899,20 @@ function WorkoutView({ workout, setWorkout, profile, setProfile, history, showTo
   };
   const chooseRir = (rir) => {
     if (!pendingSet) return;
-    updateSet(pendingSet.exerciseIndex, pendingSet.setIndex, { done: true, rir });
+    const belowTarget = isFinalSetBelowTarget(pendingSet.item, pendingSet.setIndex, { done: true, rir });
+    setWorkout((current) => ({ ...current, exercises: current.exercises.map((item, itemIndex) => itemIndex !== pendingSet.exerciseIndex ? item : {
+      ...item,
+      ...(belowTarget && !item.underperformanceDecision ? { underperformanceDecision: 'pending' } : {}),
+      sets: item.sets.map((set, index) => index === pendingSet.setIndex ? { ...set, done: true, rir } : set),
+    }) }));
     if (!pendingSet.wasDone) beginRest(pendingSet.item.rest);
     setPendingSet(null);
+  };
+  const resolveUnderperformance = (decision) => {
+    setWorkout((current) => ({ ...current, exercises: current.exercises.map((item) => (
+      item.underperformanceDecision === 'pending' ? { ...item, underperformanceDecision: decision } : item
+    )) }));
+    showToast(decision === 'maintain' ? 'Prescrizione mantenuta per la prossima volta' : 'La prossima seduta verrà ricalibrata');
   };
   const canDiscardExercise = (exerciseId) => {
     const item = workout.exercises.find((entry) => entry.exerciseId === exerciseId);
@@ -966,6 +991,7 @@ function WorkoutView({ workout, setWorkout, profile, setProfile, history, showTo
     showToast('Alternativa adattiva caricata');
   };
   const complete = () => {
+    if (pendingVolumeDecision) return showToast('Scegli prima come gestire la serie sotto target');
     if (doneSets < totalSets && !window.confirm(`Hai completato ${doneSets} serie su ${totalSets}. Terminare e archiviare comunque il workout come parziale?`)) return;
     const completedAt = Date.now();
     const { restEndsAt, restDuration, pausedAt, ...completedWorkout } = workout;
@@ -992,6 +1018,7 @@ function WorkoutView({ workout, setWorkout, profile, setProfile, history, showTo
     <div className="finish-panel"><div><span>{totalSets ? Math.round(doneSets / totalSets * 100) : 0}%</span><small>completato</small></div><button className="button acid" disabled={!doneSets || !totalSets} onClick={complete}><Icon name="trophy"/>Termina workout</button></div>
     {rest > 0 && <div className="rest-timer"><div><span>RECUPERO</span><strong>{formatClock(rest)}</strong></div><span className="rest-timer-track"><i style={{ width: `${Math.max(0, Math.min(100, rest / Math.max(1, Number(workout.restDuration) || rest) * 100))}%` }}/></span><button className="skip-rest" onClick={clearRest}>Salta</button></div>}
     {pendingSet && <RirSheet item={pendingSet.item} language={profile.exerciseLanguage} onChoose={chooseRir} onClose={() => setPendingSet(null)}/>}
+    {pendingVolumeDecision && <UnderperformanceSheet item={pendingVolumeDecision} language={profile.exerciseLanguage} onChoose={resolveUnderperformance}/>}
     {guideExerciseId && <ExerciseGuideSheet exerciseId={guideExerciseId} language={profile.exerciseLanguage} onClose={() => setGuideExerciseId(null)}/>}
     {historyExerciseId && <ExerciseHistorySheet exerciseId={historyExerciseId} history={history} language={profile.exerciseLanguage} onClose={() => setHistoryExerciseId(null)}/>}
     {optionsExerciseId && <ExerciseActionsSheet exerciseId={optionsExerciseId} profile={profile} language={profile.exerciseLanguage} onPrescription={() => openPrescriptionEditor(optionsExerciseId)} onReplace={() => openReplacementPicker(optionsExerciseId)} onRemove={() => removeCurrentExercise(optionsExerciseId)} onExclude={() => excludeExercise(optionsExerciseId)} onClose={() => setOptionsExerciseId(null)}/>}
@@ -1144,6 +1171,29 @@ function ExerciseGuideSheet({ exerciseId, language, onClose }) {
       {details?.image && !imageFailed ? <div className="guide-image"><img src={details.image} alt={`Esecuzione di ${getExerciseName(exercise, language)}`} onError={() => setImageFailed(true)}/></div> : <div className="guide-image-placeholder"><Icon name="guide" size={31}/><span>Immagine non disponibile</span></div>}
       <section className="guide-copy"><span className="section-kicker">ESECUZIONE · {details?.descriptionSource === 'easyfit-curated' ? 'GUIDA CURATA EASYFIT' : 'FONTE INGLESE WGER'}</span>{details ? (details.description ? <p>{details.description}</p> : <p className="guide-missing">La spiegazione non è disponibile.</p>) : <p className="guide-missing">Caricamento della guida…</p>}</section>
       <footer className="guide-source"><span>Esercizio: <a href="https://wger.de" target="_blank" rel="noreferrer">wger</a>{details?.descriptionSource === 'easyfit-curated' ? ' · istruzioni revisionate da Easyfit' : ''}</span>{exercise.license && <span>Testo: {exercise.license.name}{exercise.license.author ? ` · ${exercise.license.author}` : ''}</span>}{details?.image && details.imageAttribution && <span>Immagine: {details.imageAttribution.sourceUrl ? <a href={details.imageAttribution.sourceUrl} target="_blank" rel="noreferrer">{details.imageAttribution.author || 'fonte'}</a> : details.imageAttribution.author}{details.imageAttribution.licenseName ? ' · ' : ''}{details.imageAttribution.licenseUrl ? <a href={details.imageAttribution.licenseUrl} target="_blank" rel="noreferrer">{details.imageAttribution.licenseName}</a> : details.imageAttribution.licenseName}</span>}</footer>
+    </section>
+  </div>;
+}
+
+function UnderperformanceSheet({ item, language, onChoose }) {
+  const exercise = getWorkoutExercise(item);
+  const finalSet = item.sets.at(-1);
+  const usesWeight = Number(finalSet?.targetWeight ?? finalSet?.weight) > 0;
+  const performed = usesWeight
+    ? `${finalSet.weight} kg × ${finalSet.reps}`
+    : `${finalSet.reps} ripetizioni`;
+  const target = usesWeight
+    ? `${finalSet.targetWeight ?? finalSet.weight} kg × ${finalSet.targetReps}`
+    : `${finalSet.targetReps} ripetizioni`;
+  return <div className="sheet-backdrop">
+    <section className="underperformance-sheet" role="dialog" aria-modal="true" aria-label="Gestisci volume sotto target">
+      <span className="eyebrow">ULTIMA SERIE SOTTO TARGET</span>
+      <h2>Come gestiamo la prossima volta?</h2>
+      <p>Su <strong>{getExerciseName(exercise, language)}</strong> hai completato {performed}, contro {target} previsti.</p>
+      <div className="underperformance-options">
+        <button className="button dark" onClick={() => onChoose('recalibrate')}><strong>Riduci il volume</strong><small>Usa questa prestazione per ricalibrare il massimale e la prossima prescrizione.</small></button>
+        <button className="button light" onClick={() => onChoose('maintain')}><strong>Ero solo stanco</strong><small>Mantieni invariati massimale, carico e ripetizioni per la prossima volta.</small></button>
+      </div>
     </section>
   </div>;
 }
