@@ -114,9 +114,9 @@ Da **Impostazioni → Backup e cloud** si può:
 
 - esportare un JSON versionato contenente profilo, preferenze, limiti esercizi, storico e workout in corso;
 - importare un backup locale, validato prima della conferma e della sostituzione dei dati;
-- caricare o ripristinare `easyfit-backup.json` direttamente da una cartella Nextcloud tramite WebDAV.
+- caricare o ripristinare `easyfit-backup.json` direttamente da Nextcloud.
 
-Per un account Nextcloud normale si usa l’URL mostrato in **File → Impostazioni WebDAV**, per esempio `https://cloud.example.com/remote.php/dav/files/USERNAME/Easyfit/`, insieme a username e app password. Le condivisioni pubbliche scrivibili recenti usano `/public.php/dav/files/TOKEN`; se sono protette, si usa `anonymous` come username e la password della condivisione. L’app password non viene salvata: resta in memoria soltanto finché il pannello Nextcloud è aperto e non entra mai nel JSON esportato.
+Si inserisce il normale indirizzo usato per aprire Nextcloud, per esempio `https://cloud.example.com`, insieme a username e app password. Easyfit ricava internamente l’endpoint WebDAV, crea automaticamente la cartella `Easyfit` nella root dell’account e vi salva il backup. Sono accettati anche un URL dell’app File o una vecchia configurazione contenente l’endpoint WebDAV: vengono normalizzati automaticamente all’indirizzo dell’istanza. L’app password non viene salvata: resta in memoria soltanto finché il pannello Nextcloud è aperto e non entra mai nel JSON esportato.
 
 **Carica / sovrascrivi** usa `PUT`, mentre **Ripristina dal cloud** usa `GET` e richiede conferma prima di sostituire i dati locali. Non esistono sincronizzazione, merge o upload in background: entrambe le operazioni partono esclusivamente dai pulsanti del pannello. WebDAV richiede HTTPS, salvo server locali. Essendo una PWA statica, una Nextcloud su un dominio differente deve consentire dal browser le richieste WebDAV/CORS provenienti dal dominio dell’app; in caso contrario import ed export locali continuano a funzionare senza configurazioni server.
 

@@ -7,6 +7,7 @@ import {
   backupDownloadName,
   downloadWebDavBackup,
   isWorkoutRecord,
+  normalizeNextcloudBaseUrl,
   parseBackup,
   serializeBackup,
   uploadWebDavBackup,
@@ -1598,7 +1599,11 @@ function formatBackupDate(value) {
 }
 
 function BackupSheet({ profile, history, workout, onRestore, onSaveCloud, showToast, onClose }) {
-  const [folderUrl, setFolderUrl] = useState(profile.cloud?.webDavUrl || '');
+  const [cloudUrl, setCloudUrl] = useState(() => {
+    const savedUrl = profile.cloud?.webDavUrl || '';
+    if (!savedUrl) return '';
+    try { return normalizeNextcloudBaseUrl(savedUrl); } catch { return savedUrl; }
+  });
   const [username, setUsername] = useState(profile.cloud?.webDavUsername || '');
   const [password, setPassword] = useState('');
   const [busy, setBusy] = useState('');
@@ -1606,20 +1611,22 @@ function BackupSheet({ profile, history, workout, onRestore, onSaveCloud, showTo
   const currentState = { profile, history, workout };
 
   const saveConnection = () => {
-    onSaveCloud({ webDavUrl: folderUrl.trim(), webDavUsername: username.trim() });
+    const normalizedUrl = normalizeNextcloudBaseUrl(cloudUrl);
+    onSaveCloud({ webDavUrl: normalizedUrl, webDavUsername: username.trim() });
+    return normalizedUrl;
   };
   const upload = async () => {
     if (!window.confirm(`Caricare il backup corrente su Nextcloud? L'eventuale ${BACKUP_FILENAME} esistente verrà sostituito.`)) return;
     setBusy('upload');
     setMessage('');
     try {
-      saveConnection();
+      const normalizedUrl = saveConnection();
       const backupProfile = {
         ...profile,
-        cloud: { webDavUrl: folderUrl.trim(), webDavUsername: username.trim() },
+        cloud: { webDavUrl: normalizedUrl, webDavUsername: username.trim() },
       };
       await uploadWebDavBackup({
-        folderUrl,
+        cloudUrl: normalizedUrl,
         username,
         password,
         serialized: serializeBackup({ ...currentState, profile: backupProfile }),
@@ -1636,10 +1643,10 @@ function BackupSheet({ profile, history, workout, onRestore, onSaveCloud, showTo
     setBusy('download');
     setMessage('');
     try {
-      saveConnection();
-      const serialized = await downloadWebDavBackup({ folderUrl, username, password });
+      const normalizedUrl = saveConnection();
+      const serialized = await downloadWebDavBackup({ cloudUrl: normalizedUrl, username, password });
       const backup = parseBackup(serialized);
-      backup.profile.cloud = { webDavUrl: folderUrl.trim(), webDavUsername: username.trim() };
+      backup.profile.cloud = { webDavUrl: normalizedUrl, webDavUsername: username.trim() };
       const date = formatBackupDate(backup.exportedAt);
       if (!window.confirm(`Ripristinare il backup Nextcloud del ${date}? I dati locali attuali verranno sostituiti.`)) return;
       const result = onRestore(backup);
@@ -1654,21 +1661,21 @@ function BackupSheet({ profile, history, workout, onRestore, onSaveCloud, showTo
   return <div className="sheet-backdrop" onMouseDown={(event) => event.target === event.currentTarget && onClose()}>
     <section className="cloud-backup-sheet" role="dialog" aria-modal="true" aria-label="Backup Nextcloud">
       <button className="sheet-close" onClick={onClose}><Icon name="close" size={19}/></button>
-      <span className="eyebrow">BACKUP CLOUD · WEBDAV</span>
+      <span className="eyebrow">BACKUP CLOUD</span>
       <h2>Nextcloud</h2>
-      <p>Easyfit salva un solo file chiamato <strong>easyfit-backup.json</strong> nella cartella indicata.</p>
+      <p>Inserisci il normale indirizzo con cui apri Nextcloud. Easyfit prepara automaticamente la cartella <strong>Easyfit</strong> e il file <strong>easyfit-backup.json</strong>.</p>
       <div className="cloud-fields">
-        <label><span>URL CARTELLA WEBDAV</span><input type="url" inputMode="url" value={folderUrl} onChange={(event) => setFolderUrl(event.target.value)} placeholder="https://cloud.example.com/remote.php/dav/files/utente/Easyfit/"/></label>
-        <label><span>USERNAME</span><input autoComplete="username" value={username} onChange={(event) => setUsername(event.target.value)} placeholder="utente"/></label>
-        <label><span>APP PASSWORD</span><input type="password" autoComplete="off" value={password} onChange={(event) => setPassword(event.target.value)} onBlur={saveConnection} placeholder="Richiesta per questa operazione"/></label>
+        <label><span>INDIRIZZO NEXTCLOUD</span><input type="url" inputMode="url" value={cloudUrl} onChange={(event) => setCloudUrl(event.target.value)} placeholder="https://cloud.example.com"/></label>
+        <label><span>NOME UTENTE NEXTCLOUD</span><input autoComplete="username" value={username} onChange={(event) => setUsername(event.target.value)} placeholder="utente"/></label>
+        <label><span>APP PASSWORD</span><input type="password" autoComplete="current-password" value={password} onChange={(event) => setPassword(event.target.value)} placeholder="Password applicativa"/></label>
       </div>
       <p className="cloud-security"><Icon name="check" size={15}/> Upload e ripristino avvengono solo quando premi il relativo pulsante. L’app password resta in memoria soltanto finché questo pannello è aperto.</p>
       {message && <div className="cloud-message">{message}</div>}
       <div className="cloud-actions">
-        <button className="button dark" disabled={!folderUrl.trim() || busy} onClick={upload}><Icon name="upload" size={18}/>{busy === 'upload' ? 'Caricamento…' : 'Carica / sovrascrivi'}</button>
-        <button className="button cloud-restore" disabled={!folderUrl.trim() || busy} onClick={restore}><Icon name="download" size={18}/>{busy === 'download' ? 'Download…' : 'Ripristina dal cloud'}</button>
+        <button className="button dark" disabled={!cloudUrl.trim() || !username.trim() || !password || busy} onClick={upload}><Icon name="upload" size={18}/>{busy === 'upload' ? 'Caricamento…' : 'Carica / sovrascrivi'}</button>
+        <button className="button cloud-restore" disabled={!cloudUrl.trim() || !username.trim() || !password || busy} onClick={restore}><Icon name="download" size={18}/>{busy === 'download' ? 'Download…' : 'Ripristina dal cloud'}</button>
       </div>
-      <small className="cloud-help">Usa l’URL mostrato in Nextcloud → File → Impostazioni WebDAV e una app password. Le condivisioni pubbliche scrivibili possono usare `/public.php/dav/files/TOKEN`; se protette, usa `anonymous` come username e la password della condivisione.</small>
+      <small className="cloud-help">Non serve cercare o incollare un indirizzo WebDAV. Usa l’indirizzo principale del tuo Storage Share/Nextcloud e una password applicativa revocabile.</small>
     </section>
   </div>;
 }
@@ -1719,7 +1726,7 @@ function Profile({ profile, setProfile, history, workout, onRestoreBackup, insta
     <SettingsGroup title="Attrezzatura"><div className="tag-list">{Object.entries(equipmentLabels).map(([id, label]) => <button key={id} className={profile.equipment.includes(id) ? 'selected' : ''} onClick={() => toggleEquipment(id)}>{label}{profile.equipment.includes(id) && <Icon name="check" size={14}/>}</button>)}</div><WeightInventoryEditor profile={profile} setProfile={setProfile}/>{missingMovementFamilies.length > 0 && <p className="inventory-required">Configurazione incompleta: non puoi eseguire {missingMovementFamilies.map((family) => ({ push: 'spinte', pull: 'tirate', knee: 'movimenti per quadricipiti', hip: 'movimenti per catena posteriore' })[family]).join(', ')}. Il generatore userà soltanto le famiglie realmente disponibili.</p>}</SettingsGroup>
     <ExerciseFilterSettings profile={profile} update={update}/>
     <ExcludedExercises profile={profile} update={update}/>
-    <SettingsGroup title="Backup e cloud"><div className="backup-options"><button onClick={exportBackup}><span><Icon name="download" size={18}/></span><div><strong>Esporta backup</strong><small>Scarica profilo, storico, workout e preferenze</small></div></button><label><input type="file" accept="application/json,.json" onChange={importBackup}/><span><Icon name="upload" size={18}/></span><div><strong>Importa backup</strong><small>Controlla il file prima di sostituire i dati</small></div></label><button onClick={() => setBackupOpen(true)}><span><Icon name="cloud" size={18}/></span><div><strong>Nextcloud</strong><small>{profile.cloud?.webDavUrl ? 'Connessione WebDAV configurata' : 'Carica o ripristina direttamente dal cloud'}</small></div></button></div><p className="setting-help">Il backup è un JSON versionato. Non contiene immagini del catalogo né credenziali cloud.</p></SettingsGroup>
+    <SettingsGroup title="Backup e cloud"><div className="backup-options"><button onClick={exportBackup}><span><Icon name="download" size={18}/></span><div><strong>Esporta backup</strong><small>Scarica profilo, storico, workout e preferenze</small></div></button><label><input type="file" accept="application/json,.json" onChange={importBackup}/><span><Icon name="upload" size={18}/></span><div><strong>Importa backup</strong><small>Controlla il file prima di sostituire i dati</small></div></label><button onClick={() => setBackupOpen(true)}><span><Icon name="cloud" size={18}/></span><div><strong>Nextcloud</strong><small>{profile.cloud?.webDavUrl ? 'Nextcloud configurato' : 'Carica o ripristina direttamente dal cloud'}</small></div></button></div><p className="setting-help">Il backup è un JSON versionato. Non contiene immagini del catalogo né credenziali cloud.</p></SettingsGroup>
     <section className="settings-group danger-zone"><h2>Dati dell’app</h2><p>Cancella tutti i dati salvati su questo dispositivo e riapre la configurazione iniziale.</p><button onClick={() => setResetOpen(true)}><Icon name="trash" size={18}/><span><strong>Cancella tutti i dati</strong><small>Profilo, storico, carichi e preferenze</small></span><Icon name="chevron" size={17}/></button></section>
     <div className="catalog-credit">Catalogo: <a href="https://wger.de" target="_blank" rel="noreferrer">wger</a> · {exerciseCatalogMeta.eligible} esercizi compatibili · licenze indicate nei dati sorgente.</div>
     <div className="version">Easyfit · Motore locale v{ENGINE_VERSION}</div>

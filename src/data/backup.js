@@ -136,8 +136,8 @@ function validateBackupProfile(profile) {
       throw new BackupError('L’inventario dei carichi nel profilo non è valido.');
     }
   }
-  if (profile.cloud?.webDavUrl != null && typeof profile.cloud.webDavUrl !== 'string') throw new BackupError('L’URL WebDAV nel profilo non è valido.');
-  if (profile.cloud?.webDavUsername != null && typeof profile.cloud.webDavUsername !== 'string') throw new BackupError('Lo username WebDAV nel profilo non è valido.');
+  if (profile.cloud?.webDavUrl != null && typeof profile.cloud.webDavUrl !== 'string') throw new BackupError('L’indirizzo Nextcloud nel profilo non è valido.');
+  if (profile.cloud?.webDavUsername != null && typeof profile.cloud.webDavUsername !== 'string') throw new BackupError('Il nome utente Nextcloud nel profilo non è valido.');
 }
 
 function normalizeBackupProfile(profile) {
@@ -222,17 +222,39 @@ export function backupDownloadName(date = new Date()) {
   return `easyfit-backup-${date.toISOString().slice(0, 10)}.json`;
 }
 
-export function buildWebDavFileUrl(folderUrl, filename = BACKUP_FILENAME) {
+export function normalizeNextcloudBaseUrl(value) {
   let url;
   try {
-    url = new URL(String(folderUrl).trim());
+    url = new URL(String(value).trim());
   } catch {
-    throw new BackupError('Inserisci un URL WebDAV completo e valido.', 'invalid-url');
+    throw new BackupError('Inserisci l’indirizzo completo del tuo Nextcloud.', 'invalid-url');
   }
   const localHttp = url.protocol === 'http:' && ['localhost', '127.0.0.1', '[::1]'].includes(url.hostname);
-  if (url.protocol !== 'https:' && !localHttp) throw new BackupError('WebDAV richiede HTTPS (HTTP è consentito solo in locale).', 'invalid-url');
-  url.pathname = `${url.pathname.replace(/\/+$/, '')}/${encodeURIComponent(filename)}`;
-  return url.toString();
+  if (url.protocol !== 'https:' && !localHttp) throw new BackupError('Nextcloud deve usare HTTPS (HTTP è consentito solo in locale).', 'invalid-url');
+  const filesAppIndex = url.pathname.indexOf('/apps/files');
+  const davIndex = url.pathname.indexOf('/remote.php/dav');
+  const internalFileMatch = url.pathname.match(/^(.*?)(?:\/index\.php)?\/f\/\d+\/?$/);
+  const rawInstallationPath = filesAppIndex >= 0
+    ? url.pathname.slice(0, filesAppIndex)
+    : davIndex >= 0
+      ? url.pathname.slice(0, davIndex)
+      : internalFileMatch
+        ? internalFileMatch[1]
+        : url.pathname === '/' || url.pathname === '/index.php'
+          ? ''
+          : url.pathname;
+  const installationPath = rawInstallationPath.replace(/\/index\.php$/, '').replace(/\/+$/, '');
+  return `${url.origin}${installationPath}`;
+}
+
+export function buildWebDavFolderUrl(cloudUrl, username) {
+  const account = String(username || '').trim();
+  if (!account) throw new BackupError('Inserisci il nome utente Nextcloud.', 'auth');
+  return `${normalizeNextcloudBaseUrl(cloudUrl)}/remote.php/dav/files/${encodeURIComponent(account)}/Easyfit`;
+}
+
+export function buildWebDavFileUrl(cloudUrl, username, filename = BACKUP_FILENAME) {
+  return `${buildWebDavFolderUrl(cloudUrl, username)}/${encodeURIComponent(filename)}`;
 }
 
 function basicAuthorization(username, password) {
@@ -260,22 +282,42 @@ async function webDavRequest(url, options, fetcher) {
     const response = await fetcher(url, options);
     if (!response.ok) {
       if (response.status === 401 || response.status === 403) throw new BackupError('Accesso negato: controlla username e app password.', 'auth');
-      if (response.status === 404) throw new BackupError('Backup o cartella WebDAV non trovati.', 'not-found');
+      if (response.status === 404) throw new BackupError('Nessun backup Easyfit trovato su Nextcloud.', 'not-found');
       if (response.status === 412) throw new BackupError('Il backup cloud è cambiato su un altro dispositivo.', 'conflict');
       throw new BackupError(`Nextcloud ha risposto con errore ${response.status}.`, 'webdav');
     }
     return response;
   } catch (error) {
     if (error instanceof BackupError) throw error;
-    throw new BackupError('Connessione WebDAV non riuscita. Controlla URL, rete e configurazione CORS di Nextcloud.', 'network');
+    throw new BackupError('Connessione a Nextcloud non riuscita. Controlla indirizzo, rete e autorizzazione WebAppPassword.', 'network');
   }
 }
 
-export async function uploadWebDavBackup({ folderUrl, username = '', password = '', serialized, fetcher = fetch }) {
+async function ensureWebDavBackupFolder(cloudUrl, username, password, fetcher) {
+  const url = buildWebDavFolderUrl(cloudUrl, username);
+  let response;
+  try {
+    response = await fetcher(url, {
+      method: 'MKCOL',
+      headers: webDavHeaders(username, password),
+      mode: 'cors',
+      cache: 'no-store',
+    });
+  } catch {
+    throw new BackupError('Nextcloud non è raggiungibile. Controlla rete e autorizzazione WebAppPassword.', 'network');
+  }
+  if (response.ok || response.status === 405) return url;
+  if (response.status === 401 || response.status === 403) throw new BackupError('Accesso negato: controlla username e app password.', 'auth');
+  throw new BackupError(`Non è stato possibile preparare la cartella Easyfit (${response.status}).`, 'webdav');
+}
+
+export async function uploadWebDavBackup({ cloudUrl, folderUrl, username = '', password = '', serialized, fetcher = fetch }) {
   if (new TextEncoder().encode(String(serialized)).byteLength > MAX_BACKUP_BYTES) {
     throw new BackupError('Il backup è troppo grande per essere caricato.', 'too-large');
   }
-  const url = buildWebDavFileUrl(folderUrl);
+  const nextcloudUrl = cloudUrl || folderUrl;
+  await ensureWebDavBackupFolder(nextcloudUrl, username, password, fetcher);
+  const url = buildWebDavFileUrl(nextcloudUrl, username);
   await webDavRequest(url, {
     method: 'PUT',
     headers: {
@@ -286,8 +328,8 @@ export async function uploadWebDavBackup({ folderUrl, username = '', password = 
   return url;
 }
 
-export async function downloadWebDavBackup({ folderUrl, username = '', password = '', fetcher = fetch }) {
-  const url = buildWebDavFileUrl(folderUrl);
+export async function downloadWebDavBackup({ cloudUrl, folderUrl, username = '', password = '', fetcher = fetch }) {
+  const url = buildWebDavFileUrl(cloudUrl || folderUrl, username);
   const response = await webDavRequest(url, {
     method: 'GET',
     headers: webDavHeaders(username, password),

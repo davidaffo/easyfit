@@ -4,9 +4,11 @@ import { catalogExercises, exercises } from '../src/data/exercises.js';
 import {
   BACKUP_FILENAME,
   MAX_BACKUP_BYTES,
+  buildWebDavFolderUrl,
   buildWebDavFileUrl,
   downloadWebDavBackup,
   parseBackup,
+  normalizeNextcloudBaseUrl,
   serializeBackup,
   uploadWebDavBackup,
 } from '../src/data/backup.js';
@@ -98,7 +100,7 @@ const catalogEditorHtml = await readFile(new URL('../tools/catalog-editor/index.
 const catalogEditorSource = await readFile(new URL('../tools/catalog-editor/app.js', import.meta.url), 'utf8');
 assert(serviceWorkerSource.includes('cache.addAll(images)'), 'The service worker install must fail atomically if any bundled guide image cannot be cached');
 assert(!serviceWorkerSource.includes('Promise.allSettled(images'), 'Offline installation must not silently ignore missing guide images');
-assert(serviceWorkerSource.includes("const CACHE = 'easyfit-v38'"), 'An app-shell or catalog change must bump the offline cache version');
+assert(serviceWorkerSource.includes("const CACHE = 'easyfit-v39'"), 'An app-shell or catalog change must bump the offline cache version');
 assert(serviceWorkerSource.includes("cache.delete(request)"), 'The current PWA cache must remove assets no longer present in the build or guide index');
 assert(serviceWorkerSource.includes("requestUrl.origin !== self.location.origin"), 'The service worker must never intercept cross-origin WebDAV traffic');
 assert(serviceWorkerSource.includes("headers.has('Authorization')"), 'Authenticated responses must never enter the PWA cache');
@@ -109,6 +111,7 @@ assert(appSource.includes('function WorkoutComplete') && appSource.includes('And
 assert(appSource.includes('function UnderperformanceSheet') && appSource.includes('Ero solo stanco') && appSource.includes("onChoose('recalibrate')"), 'A final-set volume shortfall must ask whether to maintain or recalibrate the next prescription');
 assert(!appSource.includes('Termina alle') && !appSource.includes('Recupero in corso'), 'The PWA must not fake a persistent notification countdown using an absolute end time');
 assert(!appSource.includes('Catalogo essenziale') && !appSource.includes('Mostra tutte le varianti'), 'The removed essential-catalog mode must not remain exposed in settings or replacement UI');
+assert(appSource.includes('INDIRIZZO NEXTCLOUD') && !appSource.includes('URL CARTELLA WEBDAV') && !appSource.includes('/public.php/dav/files/'), 'Cloud backup must ask for a normal Nextcloud address instead of exposing technical WebDAV links');
 assert(!generatorSource.includes('getRecovery') && !generatorSource.includes('MIN_TRAINING_READINESS') && !generatorSource.includes('recoveryAtGeneration'), 'Muscle recovery estimation must not return as a generator input or gate');
 assert(!appSource.includes('Più affaticato') && !appSource.includes('Più fresco') && !appSource.includes('Prontezza'), 'The UI must expose stimulus priorities instead of obsolete recovery controls');
 for (const filter of ['language', 'equipment', 'muscle', 'category', 'kind', 'pattern', 'image', 'guide']) {
@@ -416,30 +419,47 @@ const conflictingDuplicate = structuredClone(hardHistory[0]);
 conflictingDuplicate.exercises[0].sets[0].reps = 7;
 assert.throws(() => parseBackup(JSON.stringify({ format: 'easyfit-backup', schemaVersion: 1, payload: { profile, history: [hardHistory[0], conflictingDuplicate], workout: null } })), /stesso identificatore/, 'Different workouts sharing an ID must be rejected instead of silently losing one record');
 assert.equal(
-  buildWebDavFileUrl('https://cloud.example.test/remote.php/dav/files/user/Easyfit/'),
+  buildWebDavFileUrl('https://cloud.example.test', 'user'),
   `https://cloud.example.test/remote.php/dav/files/user/Easyfit/${BACKUP_FILENAME}`,
-  'The fixed backup filename must be appended to the WebDAV folder',
+  'A normal Nextcloud address must be expanded to the private Easyfit WebDAV file',
 );
+assert.equal(buildWebDavFolderUrl('https://cloud.example.test/index.php/apps/files/files?dir=/Documents', 'user name'), 'https://cloud.example.test/remote.php/dav/files/user%20name/Easyfit', 'A regular Files-app URL must be reduced to the Nextcloud installation automatically');
+assert.equal(normalizeNextcloudBaseUrl('https://cloud.example.test/nextcloud/remote.php/dav/files/user/Easyfit'), 'https://cloud.example.test/nextcloud', 'A legacy technical WebDAV URL must migrate back to its normal Nextcloud base address');
 
-let uploadRequest;
+const uploadRequests = [];
 await uploadWebDavBackup({
-  folderUrl: 'https://cloud.example.test/remote.php/dav/files/user/Easyfit',
+  cloudUrl: 'https://cloud.example.test',
   username: 'user',
   password: 'app-password',
   serialized: serializedBackup,
   fetcher: async (url, options) => {
-    uploadRequest = { url, options };
+    uploadRequests.push({ url, options });
     return { ok: true, status: 201 };
   },
 });
+const [folderRequest, uploadRequest] = uploadRequests;
+assert.equal(folderRequest.options.method, 'MKCOL', 'Upload must create the fixed Easyfit folder automatically');
+assert.equal(folderRequest.url, 'https://cloud.example.test/remote.php/dav/files/user/Easyfit');
 assert.equal(uploadRequest.options.method, 'PUT', 'Nextcloud upload must use WebDAV PUT');
+assert.equal(uploadRequest.url, `https://cloud.example.test/remote.php/dav/files/user/Easyfit/${BACKUP_FILENAME}`);
 assert.equal(uploadRequest.options.body, serializedBackup, 'Nextcloud upload must send the serialized backup unchanged');
 assert(uploadRequest.options.headers.Authorization.startsWith('Basic '), 'Authenticated WebDAV must send Basic authorization');
 assert.equal(uploadRequest.options.headers['X-Requested-With'], 'XMLHttpRequest', 'Writable public shares require the XMLHttpRequest header');
+let existingFolderCalls = 0;
+await assert.doesNotReject(() => uploadWebDavBackup({
+  cloudUrl: 'https://cloud.example.test',
+  username: 'user',
+  password: 'app-password',
+  serialized: serializedBackup,
+  fetcher: async () => (++existingFolderCalls === 1
+    ? { ok: false, status: 405 }
+    : { ok: true, status: 204 }),
+}), 'An already existing Easyfit folder must not make subsequent uploads fail');
+assert.equal(existingFolderCalls, 2, 'An existing folder must still be followed by the backup PUT');
 
 let downloadMethod;
 const downloadedBackup = await downloadWebDavBackup({
-  folderUrl: 'https://cloud.example.test/remote.php/dav/files/user/Easyfit',
+  cloudUrl: 'https://cloud.example.test',
   username: 'user',
   password: 'app-password',
   fetcher: async (_url, options) => {
@@ -450,7 +470,8 @@ const downloadedBackup = await downloadWebDavBackup({
 assert.equal(downloadMethod, 'GET', 'Nextcloud restore must use WebDAV GET');
 assert.deepEqual(parseBackup(downloadedBackup).history[0].exercises, hardHistory[0].exercises, 'A cloud download must remain a valid Easyfit backup');
 await assert.rejects(() => downloadWebDavBackup({
-  folderUrl: 'https://cloud.example.test/remote.php/dav/files/user/Easyfit',
+  cloudUrl: 'https://cloud.example.test',
+  username: 'user',
   fetcher: async () => ({ ok: true, status: 200, headers: { get: () => String(MAX_BACKUP_BYTES + 1) }, text: async () => '' }),
 }), /troppo grande/, 'A cloud backup must be size-limited before it is loaded into memory');
 
