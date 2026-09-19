@@ -24,6 +24,7 @@ import {
   getExerciseAnalytics,
   getEquipmentCoverage,
   getExerciseHistory,
+  getExerciseMuscleContributions,
   getExercisePrescription,
   getAdaptiveTrainingOverview,
   getAddableExercises,
@@ -579,6 +580,7 @@ function App() {
 
 function Home({ profile, history, workout, onOpenWorkout, onDiscardWorkout, onGenerate, onShowStimulus, installPrompt, onInstalled }) {
   const adaptiveOverview = useMemo(() => getAdaptiveTrainingOverview(profile, history, profile.duration), [history, profile]);
+  const urgentMuscles = rankMusclePriorities(adaptiveOverview).slice(0, 4);
   const today = new Intl.DateTimeFormat('it-IT', { weekday: 'long', day: 'numeric', month: 'long' }).format(new Date());
   const completedWeek = history.filter((item) => item.completedAt <= Date.now() && Date.now() - item.completedAt < 7 * 864e5).length;
 
@@ -593,7 +595,7 @@ function Home({ profile, history, workout, onOpenWorkout, onDiscardWorkout, onGe
     <section className="welcome"><span className="eyebrow">{today.toUpperCase()}</span><h1>Ciao, sei pronto?</h1><p>{history.length ? `${completedWeek} allenament${completedWeek === 1 ? 'o' : 'i'} questa settimana. Continua così.` : 'Il tuo primo allenamento è già pronto.'}</p></section>
 
     <section className="stimulus-strip">
-      <div><span className="section-kicker">ORDINE DI URGENZA</span><div className="fresh-list">{adaptiveOverview.families.map((family, index) => <span key={family.id}><i style={{ '--value': `${Math.round(family.need.score * 360)}deg` }}/><b>{adaptiveFamilyLabels[family.id]}</b><small>priorità {index + 1}</small></span>)}</div></div>
+      <div><span className="section-kicker">MUSCOLI PRIORITARI</span><div className="fresh-list">{urgentMuscles.map(([muscle, item], index) => <span key={muscle}><i style={{ '--value': `${Math.round(item.priority / 100 * 360)}deg` }}/><b>{muscles[muscle]}</b><small>priorità {index + 1}</small></span>)}</div></div>
       <button className="round-arrow" aria-label="Vedi stimolo" onClick={onShowStimulus}><Icon name="chevron"/></button>
     </section>
 
@@ -606,7 +608,11 @@ function Home({ profile, history, workout, onOpenWorkout, onDiscardWorkout, onGe
   </main>;
 }
 
-const adaptiveFamilyLabels = { push: 'Spinta', pull: 'Schiena', knee: 'Quadricipiti', hip: 'Catena posteriore' };
+function rankMusclePriorities(overview) {
+  return Object.entries(overview.muscleStatus)
+    .filter(([, item]) => !item.excluded)
+    .sort(([, first], [, second]) => second.priority - first.priority);
+}
 
 function WorkoutHero({ workout, onOpen, onDiscard }) {
   const active = isWorkoutActive(workout);
@@ -1093,6 +1099,10 @@ function ExerciseCard({ item, exerciseIndex, language, updateSet, recordAvailabl
   const [initialLoad, setInitialLoadValue] = useState('');
   const [initialReps, setInitialRepsValue] = useState('');
   const usesWeight = ['external', 'per-dumbbell'].includes(exercise.loadType);
+  const targetRepSequence = item.sets.map((set) => Number(set.targetReps || set.reps));
+  const targetRepSummary = new Set(targetRepSequence).size === 1
+    ? `${item.sets.length} × ${targetRepSequence[0]}`
+    : `${item.sets.length} serie · ${targetRepSequence.join('/')}`;
   const needsInitialLoad = usesWeight && item.sets.every((set) => set.weight == null);
   const submitInitialLoad = (event) => {
     event.preventDefault();
@@ -1106,7 +1116,7 @@ function ExerciseCard({ item, exerciseIndex, language, updateSet, recordAvailabl
   };
 
   return <article className="exercise-card">
-    <header><span className="exercise-index">{String(exerciseIndex + 1).padStart(2, '0')}</span><div><div className="exercise-name-row"><h2>{getExerciseName(exercise, language)}</h2>{item.progressionStep === 'max-increase' && <span className="progression-badge">MASSIMALE +{Math.max(.1, Number(item.performanceEvidence?.maximumChange || 0) * 100).toFixed(1)}%</span>}{item.progressionStep === 'max-decrease' && <span className="progression-badge">RICALIBRATO</span>}{item.progressionStep === 'load' && <span className="progression-badge load">+ CARICO</span>}</div><p>{muscles[exercise.primary] || 'Esercizio salvato'} · {item.sets.length} × {item.sets[0].targetReps || item.sets[0].reps}{item.calibrationBelowRange ? ' · range adattato alla capacità' : item.repRange ? ` · range ${item.repRange.min}–${item.repRange.max}` : ''} · RIR {item.targetRir}</p></div>{currentCatalogExercise && <button className="icon-button" onClick={onOptions} aria-label={`Opzioni per ${getExerciseName(exercise, language)}`}><Icon name="more" size={20}/></button>}</header>
+    <header><span className="exercise-index">{String(exerciseIndex + 1).padStart(2, '0')}</span><div><div className="exercise-name-row"><h2>{getExerciseName(exercise, language)}</h2>{item.progressionStep === 'max-increase' && <span className="progression-badge">MASSIMALE +{Math.max(.1, Number(item.performanceEvidence?.maximumChange || 0) * 100).toFixed(1)}%</span>}{item.progressionStep === 'max-decrease' && <span className="progression-badge">RICALIBRATO</span>}{item.progressionStep === 'load' && <span className="progression-badge load">+ CARICO</span>}</div><p>{muscles[exercise.primary] || 'Esercizio salvato'} · {targetRepSummary}{item.calibrationBelowRange ? ' · range adattato alla capacità' : item.repRange ? ` · range ${item.repRange.min}–${item.repRange.max}` : ''} · RIR {item.targetRir}</p></div>{currentCatalogExercise && <button className="icon-button" onClick={onOptions} aria-label={`Opzioni per ${getExerciseName(exercise, language)}`}><Icon name="more" size={20}/></button>}</header>
     {currentCatalogExercise && <ExercisePreview source={details?.image} name={getExerciseName(exercise, language)} onOpen={onGuide}/>}
     {needsInitialLoad ? <form className="initial-load" onSubmit={submitInitialLoad}>
       <div><span>PRIMA VOLTA</span><strong>Che carico vuoi usare?</strong><small>Scegli un peso con cui pensi di chiudere le serie a RIR {item.targetRir}.</small></div>
@@ -1268,7 +1278,9 @@ function SimilarExerciseSheet({ workout, exerciseId, profile, language, onChoose
     return `${exercise.name} ${getExerciseName(exercise, language)} ${equipment}`.toLocaleLowerCase().includes(normalizedQuery);
   });
   const exact = filtered.filter((exercise) => exercise.pattern === current.pattern);
-  const related = filtered.filter((exercise) => exercise.pattern !== current.pattern);
+  const sameTarget = filtered.filter((exercise) => exercise.pattern !== current.pattern && exercise.primary === current.primary);
+  const supporting = filtered.filter((exercise) => exercise.primary !== current.primary
+    && Number(getExerciseMuscleContributions(exercise)[current.primary] || 0) > 0);
   const renderGroup = (title, items) => items.length > 0 && <section className="similar-group">
     <h3>{title}<span>{items.length}</span></h3>
     <div className="similar-list">{items.map((exercise) => <button key={exercise.id} onClick={() => onChoose(exercise.id)}>
@@ -1285,7 +1297,7 @@ function SimilarExerciseSheet({ workout, exerciseId, profile, language, onChoose
       <h2>Scegli l’alternativa</h2>
       <p>Al posto di <strong>{getExerciseName(current, language)}</strong></p>
       <label className="similar-search"><span>CERCA</span><input type="search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Nome o attrezzatura"/></label>
-      {filtered.length ? <div className="similar-results">{renderGroup('Stesso movimento', exact)}{renderGroup('Stesso gruppo muscolare', related)}</div> : <div className="similar-empty"><Icon name="swap" size={27}/><strong>Nessuna alternativa trovata</strong><span>Prova un’altra ricerca o modifica l’attrezzatura.</span></div>}
+      {filtered.length ? <div className="similar-results">{renderGroup('Più consigliati', exact)}{renderGroup(`Stesso muscolo target · ${muscles[current.primary]}`, sameTarget)}{renderGroup(`Stimolano anche ${muscles[current.primary]}`, supporting)}</div> : <div className="similar-empty"><Icon name="swap" size={27}/><strong>Nessuna alternativa trovata</strong><span>Prova un’altra ricerca o modifica l’attrezzatura.</span></div>}
     </section>
   </div>;
 }
@@ -1430,14 +1442,12 @@ function Stimulus({ history, profile }) {
   const overview = useMemo(() => getAdaptiveTrainingOverview(profile, history, profile.duration), [profile, history]);
   const status = overview.muscleStatus;
   const isPlanned = (muscle) => overview.plannedFamilies.some((family) => (family.primaryMuscles || family.muscles).includes(muscle));
-  const sorted = Object.entries(status)
-    .filter(([, item]) => !item.excluded)
-    .sort((a, b) => Number(isPlanned(b[0])) - Number(isPlanned(a[0])) || b[1].priority - a[1].priority);
+  const sorted = rankMusclePriorities(overview);
   const lastStimulusLabel = (hours) => hours == null ? 'mai' : hours < 24 ? 'oggi' : hours < 48 ? 'ieri' : `${Math.floor(hours / 24)} giorni fa`;
-  const statusLabel = (muscle, item) => isPlanned(muscle) ? 'Famiglia scelta' : item.doseStimulus >= item.targetStimulus ? 'Dose coperta' : 'In attesa';
-  const nextFamilies = overview.families.map((family) => adaptiveFamilyLabels[family.id]).join(' + ');
+  const statusLabel = (muscle, item) => isPlanned(muscle) ? 'Prossimo workout' : item.doseStimulus >= item.targetStimulus ? 'Dose coperta' : 'In attesa';
+  const urgentMuscleNames = sorted.slice(0, 4).map(([muscle]) => muscles[muscle]).join(' · ');
   return <main className="standard-page"><PageHeader kicker="STIMOLO ALLENANTE" title="Cosa allenare adesso" subtitle="Priorità calcolate esclusivamente dal lavoro che hai registrato."/>
-    <section className="stimulus-summary simple-stimulus-summary"><span className="next-workout-icon"><Icon name="spark" size={30}/></span><div><small>CODA DI PRIORITÀ</small><strong>{nextFamilies || 'Configura almeno un esercizio compatibile'}</strong><p>L’engine percorre questa coda dall’inizio e inserisce esercizi finché trova spazio, saltando soltanto quelli incompatibili con i vincoli.</p></div></section>
+    <section className="stimulus-summary simple-stimulus-summary"><span className="next-workout-icon"><Icon name="spark" size={30}/></span><div><small>MUSCOLI PIÙ URGENTI</small><strong>{urgentMuscleNames || 'Configura almeno un esercizio compatibile'}</strong><p>Il generatore parte dai muscoli con maggiore bisogno di stimolo e continua in ordine di priorità, rispettando attrezzatura, tempo e composizione della seduta.</p></div></section>
     <section className="muscle-list training-status-list"><div className="list-caption"><span>GRUPPO MUSCOLARE</span><span>STATO</span></div>{sorted.map(([muscle, item]) => {
       const dosePercent = Math.min(100, item.targetStimulus ? item.doseStimulus / item.targetStimulus * 100 : 0);
       return <div className="muscle-row" key={muscle}><span className="muscle-dot" style={{ opacity: Math.max(.35, item.priority / 100) }}/><div><div className="muscle-status-title"><strong>{muscles[muscle]}</strong><small>Ultimo stimolo: {lastStimulusLabel(item.hoursSinceStimulus)}</small></div><div className="clear-status-line"><span>Priorità <b>{item.priority}%</b></span><i><b style={{ width: `${item.priority}%` }}/></i></div><div className="clear-status-line stimulus"><span>Stimolo coperto <b>{Math.round(dosePercent)}%</b></span><i><b style={{ width: `${dosePercent}%` }}/></i></div></div><b className={`status-pill ${isPlanned(muscle) ? 'planned' : ''}`}>{statusLabel(muscle, item)}</b></div>;

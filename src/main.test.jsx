@@ -229,7 +229,7 @@ test('disabled core and calves never appear in today priorities or stimulus deta
     exerciseFilters: { ...profile.exerciseFilters, excludeDirectCore: true, excludeCalves: true },
   } });
   render(<App/>);
-  expect(screen.getByText('ORDINE DI URGENZA')).toBeTruthy();
+  expect(screen.getByText('MUSCOLI PRIORITARI')).toBeTruthy();
   expect(screen.queryByText('PIÙ RECUPERATI')).toBeNull();
   expect(screen.queryByText('Core')).toBeNull();
   expect(screen.queryByText('Polpacci')).toBeNull();

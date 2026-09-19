@@ -100,7 +100,7 @@ const catalogEditorHtml = await readFile(new URL('../tools/catalog-editor/index.
 const catalogEditorSource = await readFile(new URL('../tools/catalog-editor/app.js', import.meta.url), 'utf8');
 assert(serviceWorkerSource.includes('cache.addAll(images)'), 'The service worker install must fail atomically if any bundled guide image cannot be cached');
 assert(!serviceWorkerSource.includes('Promise.allSettled(images'), 'Offline installation must not silently ignore missing guide images');
-assert(serviceWorkerSource.includes("const CACHE = 'easyfit-v39'"), 'An app-shell or catalog change must bump the offline cache version');
+assert(serviceWorkerSource.includes("const CACHE = 'easyfit-v42'"), 'An app-shell or catalog change must bump the offline cache version');
 assert(serviceWorkerSource.includes("cache.delete(request)"), 'The current PWA cache must remove assets no longer present in the build or guide index');
 assert(serviceWorkerSource.includes("requestUrl.origin !== self.location.origin"), 'The service worker must never intercept cross-origin WebDAV traffic');
 assert(serviceWorkerSource.includes("headers.has('Authorization')"), 'Authenticated responses must never enter the PWA cache');
@@ -114,6 +114,8 @@ assert(!appSource.includes('Catalogo essenziale') && !appSource.includes('Mostra
 assert(appSource.includes('INDIRIZZO NEXTCLOUD') && !appSource.includes('URL CARTELLA WEBDAV') && !appSource.includes('/public.php/dav/files/'), 'Cloud backup must ask for a normal Nextcloud address instead of exposing technical WebDAV links');
 assert(!generatorSource.includes('getRecovery') && !generatorSource.includes('MIN_TRAINING_READINESS') && !generatorSource.includes('recoveryAtGeneration'), 'Muscle recovery estimation must not return as a generator input or gate');
 assert(!appSource.includes('Più affaticato') && !appSource.includes('Più fresco') && !appSource.includes('Prontezza'), 'The UI must expose stimulus priorities instead of obsolete recovery controls');
+assert(appSource.includes('MUSCOLI PIÙ URGENTI') && !appSource.includes('adaptiveFamilyLabels'), 'Stimulus UI must show anatomical muscles rather than internal movement-family names');
+assert(appSource.includes('Più consigliati') && appSource.includes('Stesso muscolo target') && appSource.includes('Stimolano anche'), 'The replacement picker must explain strict, same-target and broader muscle alternatives');
 for (const filter of ['language', 'equipment', 'muscle', 'category', 'kind', 'pattern', 'image', 'guide']) {
   assert(catalogEditorHtml.includes(`filter-${filter}`) && catalogEditorSource.includes(`state.filters.${filter}`), `The developer catalog must expose and apply its ${filter} filter`);
 }
@@ -1015,6 +1017,45 @@ assert(wholeExerciseProgress.latestRepVolumeRatio > 1.09, 'Progress must retain 
 const progressedFromWholeVolume = generateWorkout(manualCurlProfile, wholeExerciseSurplusHistory, { targets: ['biceps'], duration: 30 }).exercises[0];
 assert(progressedFromWholeVolume.sets[0].reps > 10, 'A total-volume surplus must increase the next prescription even when one set is below the others');
 assert(progressedFromWholeVolume.performanceEvidence.repVolumeRatio > 1.09, 'Whole-exercise volume progression must be visible in workout metadata');
+const unevenElevenRepHistory = [{
+  id: 'eleven-eleven-ten',
+  completedAt: Date.now() - 36e5,
+  exercises: [{ exerciseId: dumbbellCurl.id, sets: [11, 11, 10].map((reps, index) => ({
+    done: true, weight: 17, targetWeight: 17, targetReps: 10, reps,
+    targetRir: [2, 1, 0][index], rir: [2, 1, 0][index],
+  })) }],
+}];
+const gradualElevenRepProgress = generateWorkout(manualCurlProfile, unevenElevenRepHistory, { targets: ['biceps'], duration: 30 }).exercises[0];
+assert.deepEqual(gradualElevenRepProgress.sets.map((set) => set.targetReps), [11, 11, 11], 'Completing 11/11/10 must progress to 11/11/11, never jump to 12/12/12');
+assert.equal(
+  gradualElevenRepProgress.sets.reduce((sum, set) => sum + set.targetReps, 0),
+  11 + 11 + 10 + 1,
+  'A volume-only maximum increase may add at most one total repetition in the following exposure',
+);
+const failedElevenRepTarget = [{
+  id: 'failed-eleven-rep-target',
+  completedAt: Date.now() - 36e5,
+  exercises: [{
+    exerciseId: dumbbellCurl.id,
+    performanceCalibration: {
+      version: 1,
+      kind: 'e1rm',
+      estimatedMaximum: estimateOneRepMax(17, 12, 0),
+      previousMaximum: estimateOneRepMax(17, 12, 0),
+      change: 0,
+      decision: 'maintain-prescription',
+    },
+    sets: [11, 11, 10].map((reps, index) => ({
+      done: true, weight: 17, targetWeight: 17, targetReps: 11, reps,
+      targetRir: [2, 1, 0][index], rir: [2, 1, 0][index],
+    })),
+  }],
+}];
+const heldFailedTarget = generateWorkout(manualCurlProfile, failedElevenRepTarget, { targets: ['biceps'], duration: 30 }).exercises[0];
+assert.deepEqual(heldFailedTarget.sets.map((set) => set.targetReps), [11, 11, 11], 'Failing an 11/11/11 target with 11/11/10 must never increase the next prescription to 12/12/12');
+failedElevenRepTarget[0].exercises[0].performanceCalibration.decision = 'recalibrate-down';
+const reducedFailedTarget = generateWorkout(manualCurlProfile, failedElevenRepTarget, { targets: ['biceps'], duration: 30 }).exercises[0];
+assert.deepEqual(reducedFailedTarget.sets.map((set) => set.targetReps), [11, 11, 10], 'Choosing downward recalibration after a failed target must not prescribe more volume than was completed');
 const heavierOverrideHistory = [{
   id: 'whole-exercise-load-volume-surplus',
   completedAt: Date.now() - 36e5,
@@ -1260,6 +1301,9 @@ assert.equal(isPrimaryMovement(fly), false, 'A fly must remain an accessory in w
 const currentExercise = exercises.find((exercise) => exercise.id === editingWorkout.exercises[0].exerciseId);
 const similarChoices = getSimilarExercises(editingWorkout, currentExercise.id, focusProfile);
 assert(similarChoices.length > 1, 'The replacement picker must receive a list of compatible alternatives');
+const firstBroaderReplacement = similarChoices.findIndex((exercise) => exercise.pattern !== currentExercise.pattern);
+assert(firstBroaderReplacement > 0, 'Strict same-movement replacements must remain at the top of the picker');
+assert(similarChoices.slice(0, firstBroaderReplacement).every((exercise) => exercise.pattern === currentExercise.pattern), 'No broad muscle alternative may outrank an exact movement replacement');
 const allSimilarChoices = getSimilarExercises(editingWorkout, currentExercise.id, focusProfile, { includeVariants: true });
 assert.deepEqual(allSimilarChoices, similarChoices, 'The removed essential-catalog mode must expose every compatible replacement without a hidden variants mode');
 const dumbbellTriceps = exercises.find((exercise) => exercise.wgerId === 1336);
@@ -1273,6 +1317,10 @@ const tricepsAlternatives = getSimilarExercises(
 );
 assert(tricepsAlternatives.some((exercise) => exercise.id === dumbbellSkullcrusher.id)
   && tricepsAlternatives.some((exercise) => exercise.id === dumbbellKickback.id), 'A dumbbell triceps exercise must expose both imaged and text-only compatible replacements');
+assert(tricepsAlternatives.some((exercise) => exercise.primary !== 'triceps'
+  && Number(getExerciseMuscleContributions(exercise).triceps || 0) > 0), 'The replacement picker must also offer compatible exercises that train triceps as a meaningful secondary muscle');
+assert(tricepsAlternatives.findIndex((exercise) => exercise.primary !== 'triceps')
+  > tricepsAlternatives.findIndex((exercise) => exercise.id === dumbbellSkullcrusher.id), 'Broader muscle alternatives must appear below the stricter recommendations');
 const selectedSimilar = similarChoices[0];
 const similarWorkout = replaceExercise(editingWorkout, currentExercise.id, focusProfile, [], selectedSimilar.id);
 const similarExercise = exercises.find((exercise) => exercise.id === similarWorkout.exercises[0].exerciseId);

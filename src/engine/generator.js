@@ -9,7 +9,7 @@ const CONTINUITY_BREAK_DAYS = 28;
 const RECENT_VARIATION_DAYS = 7;
 const EXERCISE_ROTATION_EXPOSURES = 4;
 export const SESSION_TIME_TOLERANCE_MINUTES = 7;
-export const ENGINE_VERSION = 36;
+export const ENGINE_VERSION = 37;
 
 const muscleBaseImportance = {
   chest: 100,
@@ -391,6 +391,8 @@ export function getExerciseProgress(history = [], exerciseId, now = Date.now()) 
         : completed.filter((set) => Math.abs(Number(set.weight) - workingWeight) / workingWeight <= 0.03);
       const repCapacities = comparableSets.map((set) => Number(set.reps) + recordedRir(set));
       const performedReps = comparableSets.map((set) => Number(set.reps)).filter((value) => value > 0);
+      const performedRepsBySet = comparableSets.map((set) => Number(set.reps)).filter((value) => value > 0);
+      const targetRepsBySet = comparableSets.map((set) => Number(set.targetReps)).filter((value) => value > 0);
       const targetRirs = comparableSets.map((set) => Number(set.targetRir ?? 2));
       const supportedReps = comparableSets.map((set, index) => repCapacities[index] - targetRirs[index]);
       const prescribedSets = Math.max(completed.length, item.sets?.length || 0);
@@ -446,6 +448,7 @@ export function getExerciseProgress(history = [], exerciseId, now = Date.now()) 
       return {
         completedAt,
         storedPerformance: item.performanceCalibration,
+        calibrationDecision: storedDecision || null,
         e1rm: sessionE1rm,
         bestE1rm: estimates.length ? Math.max(...estimates) : null,
         finalE1rm: finalEstimate,
@@ -464,6 +467,8 @@ export function getExerciseProgress(history = [], exerciseId, now = Date.now()) 
         minimumSupportedReps: supportedReps.length ? Math.min(...supportedReps) : null,
         performedReps: median(performedReps),
         minimumPerformedReps: performedReps.length ? Math.min(...performedReps) : null,
+        performedRepsBySet,
+        targetRepsBySet,
         repCapacities,
         targetRirs,
         targetRir: median(targetRirs),
@@ -471,6 +476,7 @@ export function getExerciseProgress(history = [], exerciseId, now = Date.now()) 
         completedSets: completed.length,
         repVolumeRatio,
         loadVolumeRatio,
+        finalPerformanceSurplus,
       };
     })
     .filter((session) => session.completedSets)
@@ -531,12 +537,16 @@ export function getExerciseProgress(history = [], exerciseId, now = Date.now()) 
     minimumSupportedReps: latest?.minimumSupportedReps ?? null,
     latestPerformedReps: latest?.performedReps ?? null,
     minimumPerformedReps: latest?.minimumPerformedReps ?? null,
+    latestPerformedRepsBySet: latest?.performedRepsBySet || [],
+    latestTargetRepsBySet: latest?.targetRepsBySet || [],
     latestRepCapacities: latest?.repCapacities || [],
     latestTargetRirs: latest?.targetRirs || [],
     latestTargetRir: latest?.targetRir ?? null,
     latestCompletionRate: latest?.completionRate ?? null,
     latestRepVolumeRatio: latest?.repVolumeRatio ?? null,
     latestLoadVolumeRatio: latest?.loadVolumeRatio ?? null,
+    latestFinalPerformanceSurplus: latest?.finalPerformanceSurplus ?? false,
+    latestCalibrationDecision: latest?.calibrationDecision ?? null,
     trend: latest?.performanceMaxChange ?? (latest?.e1rm && previous?.e1rm ? (latest.e1rm - previous.e1rm) / previous.e1rm : null),
   };
 }
@@ -1169,6 +1179,63 @@ function doubleProgression(exercise, profile, progress, limits, intensity, setCo
   };
 }
 
+function gradualRepTargets(progression, progress, setCount, limits, targetRirs) {
+  const uniformTargets = Array.from({ length: setCount }, () => progression.reps);
+  const previousReps = progress.latestPerformedRepsBySet || [];
+  const previousTargets = progress.latestTargetRepsBySet || [];
+  if (!setCount || !previousReps.length || previousReps.length !== previousTargets.length
+    || ['load', 'load-adjustment', 'effort-adjustment', 'performance-adjustment', 'recalibrate-load'].includes(progression.step)) {
+    return uniformTargets;
+  }
+  const sameLoad = Number(progression.weight || 0) === 0
+    || Math.abs(Number(progression.weight) - Number(progress.lastWeight)) / Math.max(1, Number(progress.lastWeight)) <= .03;
+  const previousRirs = progress.latestTargetRirs || [];
+  const sameEffort = previousRirs.length > 0 && targetRirs.length > 0
+    && Math.abs(Number(previousRirs.at(-1)) - Number(targetRirs.at(-1))) < .5;
+  if (!sameLoad || !sameEffort) return uniformTargets;
+
+  const performedTotal = previousReps.reduce((sum, reps) => sum + Math.max(0, Number(reps) || 0), 0);
+  const previousTargetTotal = previousTargets.reduce((sum, reps) => sum + Math.max(0, Number(reps) || 0), 0);
+  const uniformTotal = Number(progression.reps) * setCount;
+  const failedPreviousTarget = performedTotal < previousTargetTotal;
+  if (failedPreviousTarget) {
+    // A failed prescription can never produce a larger prescription at the
+    // same load and effort. "Stanco" repeats the previous target exactly;
+    // downward recalibration may use at most the volume actually completed.
+    const maximumNextTotal = progress.latestCalibrationDecision === 'recalibrate-down'
+      ? performedTotal
+      : previousTargetTotal;
+    if (previousTargets.length === setCount && uniformTotal >= maximumNextTotal && maximumNextTotal === previousTargetTotal) {
+      return previousTargets.map((reps) => clamp(reps, 1, limits.maxReps));
+    }
+    const nextTotal = Math.min(uniformTotal, maximumNextTotal);
+    const base = Math.floor(nextTotal / setCount);
+    const remainder = nextTotal % setCount;
+    return Array.from({ length: setCount }, (_, index) => clamp(
+      base + (index < remainder ? 1 : 0),
+      1,
+      limits.maxReps,
+    ));
+  }
+
+  if (previousReps.length !== setCount) return uniformTargets;
+  if (!progress.latestPositiveEvidence || progress.latestFinalPerformanceSurplus) return uniformTargets;
+  if (uniformTotal <= performedTotal + 1) return uniformTargets;
+
+  // Whole-session volume may prove that the estimated maximum increased, but
+  // it does not justify filling every set to the new ceiling immediately.
+  // Add at most one total repetition, then spread it into a non-increasing
+  // sequence so 11/11/10 becomes 11/11/11 rather than 12/12/12.
+  const nextTotal = Math.min(uniformTotal, performedTotal + 1);
+  const base = Math.floor(nextTotal / setCount);
+  const remainder = nextTotal % setCount;
+  return Array.from({ length: setCount }, (_, index) => clamp(
+    base + (index < remainder ? 1 : 0),
+    1,
+    limits.maxReps,
+  ));
+}
+
 function prescribedSetCount(exercise, profile, context, limits) {
   const defaultTargets = getWeeklyTargets(profile);
   const contributions = Object.entries(getExerciseMuscleContributions(exercise))
@@ -1219,6 +1286,7 @@ function prescription(exercise, profile, history, context = {}) {
   const adjustedIntensity = rule.intensity - Math.max(0, targetRir - goal.targetRir) * 0.03;
   const progression = doubleProgression(exercise, profile, progress, limits, adjustedIntensity, sets);
   const targetRirs = targetRirsForSetCount(limits.targetRirs, sets);
+  const targetReps = gradualRepTargets(progression, progress, sets, limits, targetRirs);
 
   return {
     exerciseId: exercise.id,
@@ -1262,10 +1330,10 @@ function prescription(exercise, profile, history, context = {}) {
     needsInitialLoad: ['external', 'per-dumbbell'].includes(exercise.loadType) && progression.weight == null,
     needsInitialReps: exercise.loadType === 'bodyweight' && progress.sessions === 0,
     sets: Array.from({ length: sets }, (_, index) => ({
-      targetReps: progression.reps,
+      targetReps: targetReps[index] ?? progression.reps,
       targetWeight: progression.weight,
       targetRir: targetRirs[index] ?? targetRir,
-      reps: progression.reps,
+      reps: targetReps[index] ?? progression.reps,
       weight: progression.weight,
       rir: null,
       done: false,
@@ -1926,7 +1994,7 @@ export function generateWorkout(profile, history = [], options = {}) {
       maintenanceMode,
       estimatedMinutes: Math.round(usedMinutes),
       timeToleranceMinutes: SESSION_TIME_TOLERANCE_MINUTES,
-      evidenceProfile: 'V36-USER-CONFIRMED-UNDERPERFORMANCE',
+      evidenceProfile: 'V37-FAILED-TARGET-NONINCREASING',
     },
   };
 }
@@ -2086,20 +2154,26 @@ export function rebuildWorkoutMetadata(workout) {
 export function getSimilarExercises(workout, exerciseId, profile, options = {}) {
   const current = exercises.find((item) => item.id === exerciseId);
   if (!current) return [];
+  const targetMuscle = current.primary;
   const used = workout.exercises
     .filter((item) => item.exerciseId !== exerciseId)
     .map((item) => exercises.find((exercise) => exercise.id === item.exerciseId));
   const broadCandidates = exercises
-    .filter((exercise) => exercise.id !== exerciseId && exercise.primary === current.primary)
+    .filter((exercise) => exercise.id !== exerciseId
+      && Number(getExerciseMuscleContributions(exercise)[targetMuscle] || 0) > 0)
     .filter((exercise) => isExerciseAllowed(exercise, profile))
     .filter((exercise) => !used.some((item) => item?.id === exercise.id || getExerciseVariantKey(item) === getExerciseVariantKey(exercise)))
     .sort((a, b) => {
-      const patternDifference = Number(b.pattern === current.pattern) - Number(a.pattern === current.pattern);
+      const replacementTier = (exercise) => exercise.pattern === current.pattern ? 0 : exercise.primary === targetMuscle ? 1 : 2;
+      const tierDifference = replacementTier(a) - replacementTier(b);
+      const roleDifference = Number(b.sessionRole === current.sessionRole) - Number(a.sessionRole === current.sessionRole);
       const compoundDifference = Number(b.compound === current.compound) - Number(a.compound === current.compound);
-      return patternDifference || compoundDifference || canonicalScore(b, profile) - canonicalScore(a, profile) || a.name.localeCompare(b.name);
+      const contributionDifference = Number(getExerciseMuscleContributions(b)[targetMuscle] || 0)
+        - Number(getExerciseMuscleContributions(a)[targetMuscle] || 0);
+      return tierDifference || roleDifference || compoundDifference || contributionDifference
+        || canonicalScore(b, profile) - canonicalScore(a, profile) || a.name.localeCompare(b.name);
     });
-  const samePattern = broadCandidates.filter((exercise) => exercise.pattern === current.pattern);
-  return samePattern.length ? samePattern : broadCandidates;
+  return broadCandidates;
 }
 
 export function replaceExercise(workout, exerciseId, profile, history = [], replacementId = null) {
