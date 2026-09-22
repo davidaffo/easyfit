@@ -9,7 +9,7 @@ const CONTINUITY_BREAK_DAYS = 28;
 const RECENT_VARIATION_DAYS = 7;
 const EXERCISE_ROTATION_EXPOSURES = 4;
 export const SESSION_TIME_TOLERANCE_MINUTES = 7;
-export const ENGINE_VERSION = 38;
+export const ENGINE_VERSION = 39;
 
 const muscleBaseImportance = {
   chest: 100,
@@ -1839,6 +1839,7 @@ export function generateWorkout(profile, history = [], options = {}) {
   const plannedFamilies = [];
   const unavailableMovementFamilies = [];
   let usedMinutes = 7;
+  let maintenanceMode = false;
 
   const addExercise = (exercise, allowMaintenance = false, exerciseTargets = targets, guaranteeMinimum = false) => {
     const prescribed = prescription(exercise, profile, history, {
@@ -1918,7 +1919,13 @@ export function generateWorkout(profile, history = [], options = {}) {
     now - Number(patternState.exercises?.[exercise.id]?.lastPerformedAt || 0) <= RECENT_VARIATION_DAYS * DAY
   ));
   const rankAccessoryCandidates = () => {
-    const ranked = rankCandidates(null, accessoryTargets).filter(({ exercise }) => !isPrimaryMovement(exercise));
+    const ranked = rankCandidates(null, accessoryTargets)
+      .filter(({ exercise }) => !isPrimaryMovement(exercise))
+      .filter(({ exercise }) => {
+        if (['biceps', 'triceps', 'core', 'calves'].includes(exercise.primary)) return true;
+        const family = getMovementFamily(exercise);
+        return !family || chosen.some((selected) => isPrimaryMovement(selected) && getMovementFamily(selected) === family);
+      });
     const fresh = ranked.filter(({ exercise }) => !wasUsedRecently(exercise));
     // An exact accessory is not repeated in the same seven-day window merely
     // because its pattern has no near-identical substitute. Rotate to another
@@ -1944,6 +1951,28 @@ export function generateWorkout(profile, history = [], options = {}) {
     }
     if (compatibleCompounds.some((exercise) => addExercise(exercise))) plannedFamilies.push(family);
   });
+
+  // Composition is a hard ordering rule, not merely a scoring preference.
+  // In particular, a short session must reserve its scarce slots for useful
+  // primary movements before chest/arm isolations are allowed to fill it.
+  // If the normal adaptive dose is already covered, use the minimum
+  // maintenance dose for the next urgent compatible family instead of
+  // returning an accessory-only workout.
+  const minimumPrimaryMovements = Math.min(desiredPrimaryMovements, maxExercises);
+  while (chosen.filter(isPrimaryMovement).length < minimumPrimaryMovements) {
+    const primaryFallbacks = requiredFamilies
+      .flatMap((family) => rankCandidates(family.patterns).map((candidate) => ({ ...candidate, family })))
+      .filter(({ exercise }) => isPrimaryMovement(exercise))
+      .sort((a, b) => b.score - a.score);
+    const next = primaryFallbacks[0];
+    if (!next) break;
+    if (!addExercise(next.exercise, true, targets)) {
+      avoidIds.add(next.exercise.id);
+      continue;
+    }
+    maintenanceMode = true;
+    if (!plannedFamilies.some((family) => family.id === next.family.id)) plannedFamilies.push(next.family);
+  }
 
   while (chosen.filter((exercise) => !isPrimaryMovement(exercise)).length < compositionLimits.desiredAccessories
     && chosen.length < maxExercises) {
@@ -1977,7 +2006,6 @@ export function generateWorkout(profile, history = [], options = {}) {
   // is already covered, add one compatible maintenance accessory rather than
   // returning an accidentally truncated workout. Equipment, lower-body and
   // time guards are still enforced.
-  let maintenanceMode = false;
   const minimumExerciseCount = Math.min(3, maxExercises);
   while (chosen.length < minimumExerciseCount) {
     const ranked = rankAccessoryCandidates();
@@ -2044,7 +2072,7 @@ export function generateWorkout(profile, history = [], options = {}) {
       maintenanceMode,
       estimatedMinutes: Math.round(usedMinutes),
       timeToleranceMinutes: SESSION_TIME_TOLERANCE_MINUTES,
-      evidenceProfile: 'V38-STRICT-DOUBLE-PROGRESSION',
+      evidenceProfile: 'V39-PRIMARY-FIRST-COMPOSITION',
     },
   };
 }

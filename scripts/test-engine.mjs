@@ -100,7 +100,7 @@ const catalogEditorHtml = await readFile(new URL('../tools/catalog-editor/index.
 const catalogEditorSource = await readFile(new URL('../tools/catalog-editor/app.js', import.meta.url), 'utf8');
 assert(serviceWorkerSource.includes('cache.addAll(images)'), 'The service worker install must fail atomically if any bundled guide image cannot be cached');
 assert(!serviceWorkerSource.includes('Promise.allSettled(images'), 'Offline installation must not silently ignore missing guide images');
-assert(serviceWorkerSource.includes("const CACHE = 'easyfit-v43'"), 'An app-shell or catalog change must bump the offline cache version');
+assert(serviceWorkerSource.includes("const CACHE = 'easyfit-v44'"), 'An app-shell or catalog change must bump the offline cache version');
 assert(serviceWorkerSource.includes("cache.delete(request)"), 'The current PWA cache must remove assets no longer present in the build or guide index');
 assert(serviceWorkerSource.includes("requestUrl.origin !== self.location.origin"), 'The service worker must never intercept cross-origin WebDAV traffic');
 assert(serviceWorkerSource.includes("headers.has('Authorization')"), 'Authenticated responses must never enter the PWA cache');
@@ -1479,6 +1479,17 @@ for (const goal of ['muscle', 'strength', 'fitness']) {
       assert(generated.exercises.length >= Math.min(3, limits.maxExercises), 'A compatible adaptive workout must not collapse to only two exercises');
       assert(generated.engine.composition.compounds <= limits.maxCompounds, 'Stress generation must respect compound caps');
       assert(generated.engine.composition.primaryMovements <= limits.maxCompounds, 'Stress generation must respect primary-movement caps including fly variations');
+      assert(
+        generatedExercises.slice(0, limits.desiredPrimaryMovements).every(isPrimaryMovement),
+        'Adaptive composition must reserve the first slots for primary movements before considering accessories',
+      );
+      generatedExercises.filter((exercise) => !isPrimaryMovement(exercise)
+        && !['biceps', 'triceps', 'core', 'calves'].includes(exercise.primary)).forEach((accessory) => {
+        assert(
+          generatedExercises.some((exercise) => isPrimaryMovement(exercise) && getMovementFamily(exercise) === getMovementFamily(accessory)),
+          'A major-muscle accessory must complement a selected primary movement instead of introducing that family alone',
+        );
+      });
       assert(generated.engine.estimatedMinutes <= duration + SESSION_TIME_TOLERANCE_MINUTES, 'Stress generation must respect the explicit scheduling tolerance');
       assert(generated.exercises.every((item) => item.sets.length > 0), 'Stress generation must never emit an exercise without sets');
       assert(!(families.has('knee') && families.has('hip')), 'Stress generation must not combine both lower-body families');
