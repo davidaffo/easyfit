@@ -100,7 +100,7 @@ const catalogEditorHtml = await readFile(new URL('../tools/catalog-editor/index.
 const catalogEditorSource = await readFile(new URL('../tools/catalog-editor/app.js', import.meta.url), 'utf8');
 assert(serviceWorkerSource.includes('cache.addAll(images)'), 'The service worker install must fail atomically if any bundled guide image cannot be cached');
 assert(!serviceWorkerSource.includes('Promise.allSettled(images'), 'Offline installation must not silently ignore missing guide images');
-assert(serviceWorkerSource.includes("const CACHE = 'easyfit-v42'"), 'An app-shell or catalog change must bump the offline cache version');
+assert(serviceWorkerSource.includes("const CACHE = 'easyfit-v43'"), 'An app-shell or catalog change must bump the offline cache version');
 assert(serviceWorkerSource.includes("cache.delete(request)"), 'The current PWA cache must remove assets no longer present in the build or guide index');
 assert(serviceWorkerSource.includes("requestUrl.origin !== self.location.origin"), 'The service worker must never intercept cross-origin WebDAV traffic');
 assert(serviceWorkerSource.includes("headers.has('Authorization')"), 'Authenticated responses must never enter the PWA cache');
@@ -324,7 +324,7 @@ const rirSurplusHistory = [{
   ] }],
 }];
 const rirSurplusWorkout = generateWorkout({ ...profile, trainingStyle: 'intense' }, rirSurplusHistory, { targets: ['chest'], duration: 25, now: rirSurplusNow });
-assert.equal(rirSurplusWorkout.exercises[0].sets[0].targetReps, 11, 'Finishing at RIR 3 against a RIR 0 target must rebuild the prescription from the demonstrated maximum');
+assert.deepEqual(rirSurplusWorkout.exercises[0].sets.map((set) => set.targetReps), [9, 9], 'Finishing above the target RIR must advance by one repetition level instead of jumping to the estimated maximum');
 assert(rirSurplusWorkout.exercises[0].estimatedOneRepMax > estimateOneRepMax(60, 8, 0), 'Extra final-set RIR must raise the stored exercise maximum');
 
 const timedTwoSetBench = {
@@ -531,7 +531,7 @@ assert.equal(decayedDoseWorkout.exercises[0].sets.length, 2, 'Set prescription m
 const recalibrated = generateWorkout(profile, hardHistory, { targets: ['chest'], duration: 25 });
 assert.equal(recalibrated.exercises[0].exerciseId, bench.id);
 assert.equal(recalibrated.exercises[0].sets[0].weight, 60, 'One exceptional set must not raise load when every work set has not reached the top');
-assert.equal(recalibrated.exercises[0].sets[0].reps, 12, 'A large whole-session volume surplus must rebuild the prescription from the increased exercise maximum');
+assert.equal(recalibrated.exercises[0].sets[0].reps, 9, 'A large whole-session surplus must still advance only one repetition level');
 
 const focusProfile = {
   ...profile,
@@ -854,8 +854,8 @@ const gradualProgressHistory = [{
 }];
 const gradualProgress = generateWorkout(profile, gradualProgressHistory, { targets: ['chest'], duration: 25 }).exercises[0];
 assert.equal(gradualProgress.sets[0].weight, 60, 'Double progression must keep load while the top of the rep range is not reached');
-assert.equal(gradualProgress.sets[0].reps, 8, 'Exactly matching the prescription must hold the capacity-derived target instead of inventing a repetition');
-assert.equal(gradualProgress.progressionStep, 'hold');
+assert.equal(gradualProgress.sets[0].reps, 9, 'Completing every prescribed set must advance exactly one repetition level at the same load');
+assert.equal(gradualProgress.progressionStep, 'reps');
 
 const maximumUpdateNow = Date.now();
 const exactMaximumWorkout = finalizeWorkoutPerformance({
@@ -879,6 +879,7 @@ assert(storedMaximum.estimatedMaximum > storedMaximum.previousMaximum, 'Extra RI
 const maximumDrivenPrescription = generateWorkout(profile, [exactMaximumWorkout, improvedMaximumWorkout], { targets: ['chest'], duration: 25, now: maximumUpdateNow }).exercises[0];
 assert.equal(maximumDrivenPrescription.sets[0].weight, 60, 'The next prescription must start from the persisted exercise maximum at the available load');
 assert.equal(maximumDrivenPrescription.sets[0].reps, 9, 'The next prescription must derive repetitions from the increased maximum, not increment the previous workout directly');
+assert.deepEqual(maximumDrivenPrescription.sets.map((set) => set.targetReps), [9, 9], 'Extra final-set RIR may add only one repetition level, not jump to the estimated ceiling');
 assert.equal(maximumDrivenPrescription.progressionStep, 'max-increase');
 
 const tiredButMaintainedWorkout = finalizeWorkoutPerformance({
@@ -940,8 +941,8 @@ const overPerformedHistory = [{
 }];
 const overPerformedProgress = generateWorkout(profile, overPerformedHistory, { targets: ['chest'], duration: 25 }).exercises[0];
 assert.equal(overPerformedProgress.sets[0].weight, 60, 'Exceeding prescribed reps must retain the load actually performed');
-assert.equal(overPerformedProgress.sets[0].reps, 10, 'The next prescription must anchor to demonstrated reps instead of adding one to the stale old target');
-assert.equal(overPerformedProgress.progressionStep, 'hold', 'The first recorded maximum must establish a baseline without displaying a false +1 rep badge');
+assert(overPerformedProgress.sets.every((set) => set.reps === 9), 'Exceeding a stale target must advance only one repetition level instead of copying a large overperformance wholesale');
+assert.equal(overPerformedProgress.progressionStep, 'reps', 'The repetition badge must appear only when the next prescription really advances one level');
 
 const slightlyUnderPerformedHistory = [{
   id: 'slightly-under-performed-reps',
@@ -983,6 +984,17 @@ const inventoriedProfile = { ...profile, loadInventory: { barbell: [60, 61, 62.5
 assert.deepEqual(getAvailableLoads(bench, inventoriedProfile), [60, 61, 62.5], 'The engine must read the user’s actual available barbell loads');
 const inventoriedProgress = generateWorkout(inventoriedProfile, loadProgressHistory, { targets: ['chest'], duration: 25 }).exercises[0];
 assert.equal(inventoriedProgress.sets[0].weight, 61, 'Load progression must choose the smallest real available weight instead of a fixed increment');
+assert.equal(inventoriedProgress.sets[0].reps, 8, 'After increasing load, strict double progression must restart from the bottom of the repetition range');
+const belowTopLoadHistory = [{
+  id: 'below-top-load-gate',
+  completedAt: Date.now() - 36e5,
+  exercises: [{ exerciseId: bench.id, sets: Array.from({ length: 3 }, () => ({
+    ...baseSet, targetReps: 10, reps: 10, targetRir: 2, rir: 4,
+  })) }],
+}];
+const belowTopLoadProgress = generateWorkout(inventoriedProfile, belowTopLoadHistory, { targets: ['chest'], duration: 25 }).exercises[0];
+assert.equal(belowTopLoadProgress.sets[0].weight, 60, 'A higher estimated maximum must not raise load before every work set reaches the top of the rep range');
+assert.notEqual(belowTopLoadProgress.progressionStep, 'load', 'Estimated capacity alone must never skip the repetition ladder');
 const dumbbellCurl = exercises.find((exercise) => exercise.name === 'Biceps Curls With Dumbbell');
 const manualCurlProfile = {
   ...profile,
@@ -1213,6 +1225,19 @@ const complementaryPullWorkout = generateWorkout({
   preferences: complementaryPullPreferences,
 }, recentVerticalPullHistory, { targets: ['back'], duration: 30, now: continuityNow });
 assert.equal(exercises.find((exercise) => exercise.id === complementaryPullWorkout.exercises[0].exerciseId).pattern, 'horizontal-pull', 'A second weekly back exposure must prefer a row after a vertical pull instead of merely swapping pull-up grip');
+const dumbbellFly = exercises.find((exercise) => exercise.wgerId === 238);
+const recentFlyHistory = [{
+  id: 'recent-fly', completedAt: continuityNow - 2 * 864e5,
+  exercises: [{ exerciseId: dumbbellFly.id, sets: Array.from({ length: 3 }, () => ({
+    targetReps: 10, reps: 10, targetRir: 1, rir: 1, weight: 10, done: true,
+  })) }],
+}];
+const rotatedAccessoryWorkout = generateWorkout({
+  ...focusProfile,
+  equipment: ['bodyweight', 'dumbbells', 'bench'],
+  loadInventory: { dumbbells: [10, 12] },
+}, recentFlyHistory, { targets: ['chest'], duration: 30, now: continuityNow, variation: 612 });
+assert(!rotatedAccessoryWorkout.exercises.some((item) => item.exerciseId === dumbbellFly.id), 'A fly must not repeat inside seven days when another compatible fresh accessory exists');
 const continuitySeed = generateWorkout(focusProfile, [], { targets: ['chest'], duration: 30, now: continuityNow - 4 * 864e5 });
 const continuityExerciseId = continuitySeed.exercises[0].exerciseId;
 const continuityHistory = Array.from({ length: 3 }, (_, index) => ({

@@ -9,7 +9,7 @@ const CONTINUITY_BREAK_DAYS = 28;
 const RECENT_VARIATION_DAYS = 7;
 const EXERCISE_ROTATION_EXPOSURES = 4;
 export const SESSION_TIME_TOLERANCE_MINUTES = 7;
-export const ENGINE_VERSION = 37;
+export const ENGINE_VERSION = 38;
 
 const muscleBaseImportance = {
   chest: 100,
@@ -1052,6 +1052,18 @@ function nextAvailableLoad(exercise, profile, current) {
   return null;
 }
 
+function completedRepRangeTop(progress, limits) {
+  const performed = progress.latestPerformedRepsBySet || [];
+  const capacities = progress.latestRepCapacities || [];
+  const prescribedRirs = progress.latestTargetRirs || [];
+  if (!performed.length || progress.latestCompletionRate < 1) return false;
+  return performed.every((reps, index) => {
+    const targetRir = Number(prescribedRirs[index] ?? limits.targetRir ?? 2);
+    return Number(reps) >= limits.maxReps
+      && Number(capacities[index]) >= limits.maxReps + targetRir;
+  });
+}
+
 export function getExercisePrescription(profile, exercise) {
   const goal = trainingRules[profile.goal] || trainingRules.muscle;
   const rule = exercise.compound ? goal.compound : goal.accessory;
@@ -1160,14 +1172,20 @@ function doubleProgression(exercise, profile, progress, limits, intensity, setCo
   }
 
   if (supportedReps >= limits.maxReps) {
-    const nextLoad = nextAvailableLoad(exercise, profile, weight);
-    const relativeIncrease = nextLoad ? (nextLoad - weight) / weight : null;
-    if (nextLoad && relativeIncrease <= .1 && repsAt(nextLoad) >= limits.minReps) {
-      return {
-        weight: nextLoad,
-        reps: clamp(repsAt(nextLoad), limits.minReps, limits.maxReps),
-        step: 'load',
-      };
+    // Estimated strength may raise the repetition prescription, but it may
+    // not skip the double-progression ladder. Increase load only after every
+    // prescribed work set actually reaches the top of the range at the
+    // required RIR. A new load always restarts from the bottom of the range.
+    if (completedRepRangeTop(progress, limits)) {
+      const nextLoad = nextAvailableLoad(exercise, profile, weight);
+      const relativeIncrease = nextLoad ? (nextLoad - weight) / weight : null;
+      if (nextLoad && relativeIncrease <= .1 && repsAt(nextLoad) >= limits.minReps) {
+        return {
+          weight: nextLoad,
+          reps: limits.minReps,
+          step: 'load',
+        };
+      }
     }
     return { weight, reps: limits.maxReps, step: performanceChange > .005 ? 'max-increase' : 'top' };
   }
@@ -1189,10 +1207,12 @@ function gradualRepTargets(progression, progress, setCount, limits, targetRirs) 
   }
   const sameLoad = Number(progression.weight || 0) === 0
     || Math.abs(Number(progression.weight) - Number(progress.lastWeight)) / Math.max(1, Number(progress.lastWeight)) <= .03;
+  const performedLoadOverride = Number(progress.latestTargetWeight) > 0 && Number(progress.lastWeight) > 0
+    && Math.abs(Number(progress.latestTargetWeight) - Number(progress.lastWeight)) / Number(progress.lastWeight) > .03;
   const previousRirs = progress.latestTargetRirs || [];
   const sameEffort = previousRirs.length > 0 && targetRirs.length > 0
     && Math.abs(Number(previousRirs.at(-1)) - Number(targetRirs.at(-1))) < .5;
-  if (!sameLoad || !sameEffort) return uniformTargets;
+  if (!sameLoad || !sameEffort || performedLoadOverride) return uniformTargets;
 
   const performedTotal = previousReps.reduce((sum, reps) => sum + Math.max(0, Number(reps) || 0), 0);
   const previousTargetTotal = previousTargets.reduce((sum, reps) => sum + Math.max(0, Number(reps) || 0), 0);
@@ -1218,22 +1238,35 @@ function gradualRepTargets(progression, progress, setCount, limits, targetRirs) 
     ));
   }
 
-  if (previousReps.length !== setCount) return uniformTargets;
-  if (!progress.latestPositiveEvidence || progress.latestFinalPerformanceSurplus) return uniformTargets;
-  if (uniformTotal <= performedTotal + 1) return uniformTargets;
+  const performedCapacityTotal = (progress.latestRepCapacities || []).reduce((sum, capacity) => sum + Number(capacity || 0), 0);
+  const targetCapacityTotal = previousTargets.reduce((sum, reps, index) => (
+    sum + Number(reps) + Number(previousRirs[index] ?? limits.targetRir ?? 2)
+  ), 0);
+  const metPreviousTarget = progress.latestCompletionRate >= 1
+    && performedTotal >= previousTargetTotal
+    && performedCapacityTotal >= targetCapacityTotal;
+  if (previousReps.length === setCount) {
+    const calibratedBelowRange = Math.max(...previousTargets) < limits.minReps;
+    if (calibratedBelowRange && !progress.latestPositiveEvidence) {
+      return previousTargets.map((reps) => clamp(reps, 1, limits.maxReps));
+    }
+    if (!metPreviousTarget) {
+      return previousTargets.map((reps) => clamp(reps, 1, limits.maxReps));
+    }
+    // Classic double progression: once every set meets both reps and RIR,
+    // advance exactly one repetition level. The load gate above takes over
+    // only after every set has actually reached the top of the range.
+    return previousTargets.map((reps) => clamp(Number(reps) + 1, 1, limits.maxReps));
+  }
 
-  // Whole-session volume may prove that the estimated maximum increased, but
-  // it does not justify filling every set to the new ceiling immediately.
-  // Add at most one total repetition, then spread it into a non-increasing
-  // sequence so 11/11/10 becomes 11/11/11 rather than 12/12/12.
-  const nextTotal = Math.min(uniformTotal, performedTotal + 1);
-  const base = Math.floor(nextTotal / setCount);
-  const remainder = nextTotal % setCount;
-  return Array.from({ length: setCount }, (_, index) => clamp(
-    base + (index < remainder ? 1 : 0),
-    1,
-    limits.maxReps,
-  ));
+  if (previousReps.length !== setCount) {
+    const previousTargetLevel = median(previousTargets);
+    const nextLevel = metPreviousTarget
+      ? Math.min(Number(previousTargetLevel) + 1, limits.maxReps)
+      : Math.min(Number(previousTargetLevel), limits.maxReps);
+    return Array.from({ length: setCount }, () => clamp(nextLevel, 1, limits.maxReps));
+  }
+  return uniformTargets;
 }
 
 function prescribedSetCount(exercise, profile, context, limits) {
@@ -1287,6 +1320,11 @@ function prescription(exercise, profile, history, context = {}) {
   const progression = doubleProgression(exercise, profile, progress, limits, adjustedIntensity, sets);
   const targetRirs = targetRirsForSetCount(limits.targetRirs, sets);
   const targetReps = gradualRepTargets(progression, progress, sets, limits, targetRirs);
+  const previousTargetLevel = Math.max(0, ...(progress.latestTargetRepsBySet || []).map(Number));
+  const nextTargetLevel = Math.max(0, ...targetReps.map(Number));
+  const progressionStep = progression.step === 'hold' && previousTargetLevel > 0 && nextTargetLevel > previousTargetLevel
+    ? 'reps'
+    : progression.step;
 
   return {
     exerciseId: exercise.id,
@@ -1312,7 +1350,7 @@ function prescription(exercise, profile, history, context = {}) {
     targetRir: targetRirs.at(-1) ?? targetRir,
     targetRirs,
     repRange: { min: limits.minReps, max: limits.maxReps },
-    progressionStep: progression.step,
+    progressionStep,
     performanceEvidence: progress.sessions ? {
       repVolumeRatio: progress.latestRepVolumeRatio,
       loadVolumeRatio: progress.latestLoadVolumeRatio,
@@ -1876,6 +1914,18 @@ export function generateWorkout(profile, history = [], options = {}) {
     .sort((a, b) => b.score - a.score);
   };
 
+  const wasUsedRecently = (exercise) => Object.values(continuity).some((patternState) => (
+    now - Number(patternState.exercises?.[exercise.id]?.lastPerformedAt || 0) <= RECENT_VARIATION_DAYS * DAY
+  ));
+  const rankAccessoryCandidates = () => {
+    const ranked = rankCandidates(null, accessoryTargets).filter(({ exercise }) => !isPrimaryMovement(exercise));
+    const fresh = ranked.filter(({ exercise }) => !wasUsedRecently(exercise));
+    // An exact accessory is not repeated in the same seven-day window merely
+    // because its pattern has no near-identical substitute. Rotate to another
+    // useful accessory; repeat only when no compatible fresh option exists.
+    return fresh.length ? fresh : ranked;
+  };
+
   requiredFamilies.forEach((family) => {
     if (plannedFamilies.length >= Math.min(maxCompounds, desiredPrimaryMovements)) return;
     if (chosen.filter(isPrimaryMovement).length >= Math.min(maxCompounds, desiredPrimaryMovements)) return;
@@ -1897,7 +1947,7 @@ export function generateWorkout(profile, history = [], options = {}) {
 
   while (chosen.filter((exercise) => !isPrimaryMovement(exercise)).length < compositionLimits.desiredAccessories
     && chosen.length < maxExercises) {
-    const ranked = rankCandidates(null, accessoryTargets).filter(({ exercise }) => !isPrimaryMovement(exercise));
+    const ranked = rankAccessoryCandidates();
     if (!ranked.length) break;
     const next = ranked[0].exercise;
     const nextItem = prescription(next, profile, history, { ...prescriptionContext, targetMuscles: accessoryTargets });
@@ -1912,7 +1962,7 @@ export function generateWorkout(profile, history = [], options = {}) {
   }
 
   while (usedMinutes < targetMinutes - 2 && chosen.length < maxExercises) {
-    const ranked = rankCandidates(null, accessoryTargets).filter(({ exercise }) => !isPrimaryMovement(exercise));
+    const ranked = rankAccessoryCandidates();
     if (!ranked.length) break;
     const next = ranked[0].exercise;
     const nextItem = prescription(next, profile, history, { ...prescriptionContext, targetMuscles: accessoryTargets });
@@ -1930,7 +1980,7 @@ export function generateWorkout(profile, history = [], options = {}) {
   let maintenanceMode = false;
   const minimumExerciseCount = Math.min(3, maxExercises);
   while (chosen.length < minimumExerciseCount) {
-    const ranked = rankCandidates(null, accessoryTargets).filter(({ exercise }) => !isPrimaryMovement(exercise));
+    const ranked = rankAccessoryCandidates();
     const fallbackPrimaries = requiredFamilies
       .flatMap((family) => rankCandidates(family.patterns))
       .filter(({ exercise }) => isPrimaryMovement(exercise));
@@ -1994,7 +2044,7 @@ export function generateWorkout(profile, history = [], options = {}) {
       maintenanceMode,
       estimatedMinutes: Math.round(usedMinutes),
       timeToleranceMinutes: SESSION_TIME_TOLERANCE_MINUTES,
-      evidenceProfile: 'V37-FAILED-TARGET-NONINCREASING',
+      evidenceProfile: 'V38-STRICT-DOUBLE-PROGRESSION',
     },
   };
 }
