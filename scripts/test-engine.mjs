@@ -941,7 +941,7 @@ const overPerformedHistory = [{
 }];
 const overPerformedProgress = generateWorkout(profile, overPerformedHistory, { targets: ['chest'], duration: 25 }).exercises[0];
 assert.equal(overPerformedProgress.sets[0].weight, 60, 'Exceeding prescribed reps must retain the load actually performed');
-assert(overPerformedProgress.sets.every((set) => set.reps === 9), 'Exceeding a stale target must advance only one repetition level instead of copying a large overperformance wholesale');
+assert(overPerformedProgress.sets.every((set) => set.reps === 10), 'Exceeding a stale target at the required RIR must preserve demonstrated repetitions');
 assert.equal(overPerformedProgress.progressionStep, 'reps', 'The repetition badge must appear only when the next prescription really advances one level');
 
 const slightlyUnderPerformedHistory = [{
@@ -1004,6 +1004,18 @@ const manualCurlProfile = {
   preferences: Object.fromEntries(exercises.map((exercise) => [exercise.id, exercise.id === dumbbellCurl.id ? 'normal' : 'exclude'])),
   exerciseOverrides: { [dumbbellCurl.id]: { minReps: 8, maxReps: 12 } },
 };
+for (const targetReps of [10, 12]) {
+  const sevenKiloProfile = { ...manualCurlProfile, loadInventory: { dumbbells: [7] } };
+  const sevenKiloHistory = [{
+    id: 'seven-kilo-twelve-reps',
+    completedAt: Date.now() - 36e5,
+    exercises: [{ exerciseId: dumbbellCurl.id, sets: [2, 1, 0].map((rir) => ({
+      done: true, weight: 7, targetWeight: 7, targetReps, reps: 12, targetRir: rir, rir,
+    })) }],
+  }];
+  const next = generateWorkout(sevenKiloProfile, sevenKiloHistory, { targets: ['biceps'], duration: 30 }).exercises[0];
+  assert(next.sets.every((set) => set.weight === 7 && set.targetReps === 12), '7 kg x 12 at the required RIR must not regress, including when the saved target was lower');
+}
 const manualCurlHistory = [{
   id: 'manual-curl-load',
   completedAt: Date.now() - 36e5,

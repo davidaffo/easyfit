@@ -9,7 +9,7 @@ const CONTINUITY_BREAK_DAYS = 28;
 const RECENT_VARIATION_DAYS = 7;
 const EXERCISE_ROTATION_EXPOSURES = 4;
 export const SESSION_TIME_TOLERANCE_MINUTES = 7;
-export const ENGINE_VERSION = 39;
+export const ENGINE_VERSION = 40;
 
 const muscleBaseImportance = {
   chest: 100,
@@ -1245,6 +1245,12 @@ function gradualRepTargets(progression, progress, setCount, limits, targetRirs) 
   const metPreviousTarget = progress.latestCompletionRate >= 1
     && performedTotal >= previousTargetTotal
     && performedCapacityTotal >= targetCapacityTotal;
+  // Retain repetitions already demonstrated at the prescribed effort, even
+  // when the saved target lagged behind the user's actual performance.
+  const demonstratedReps = previousReps.map((reps, index) => Math.min(
+    Number(reps),
+    Math.floor(Number(progress.latestRepCapacities?.[index] || 0) - Number(previousRirs[index] ?? limits.targetRir ?? 2) + .001),
+  ));
   if (previousReps.length === setCount) {
     const calibratedBelowRange = Math.max(...previousTargets) < limits.minReps;
     if (calibratedBelowRange && !progress.latestPositiveEvidence) {
@@ -1256,13 +1262,13 @@ function gradualRepTargets(progression, progress, setCount, limits, targetRirs) 
     // Classic double progression: once every set meets both reps and RIR,
     // advance exactly one repetition level. The load gate above takes over
     // only after every set has actually reached the top of the range.
-    return previousTargets.map((reps) => clamp(Number(reps) + 1, 1, limits.maxReps));
+    return previousTargets.map((reps, index) => clamp(Math.max(Number(reps) + 1, demonstratedReps[index]), 1, limits.maxReps));
   }
 
   if (previousReps.length !== setCount) {
     const previousTargetLevel = median(previousTargets);
     const nextLevel = metPreviousTarget
-      ? Math.min(Number(previousTargetLevel) + 1, limits.maxReps)
+      ? Math.min(Math.max(Number(previousTargetLevel) + 1, Math.min(...demonstratedReps)), limits.maxReps)
       : Math.min(Number(previousTargetLevel), limits.maxReps);
     return Array.from({ length: setCount }, () => clamp(nextLevel, 1, limits.maxReps));
   }
