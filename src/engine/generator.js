@@ -1,4 +1,5 @@
 import { exercises, muscles } from '../data/exercises.js';
+import { calculateProgression } from './progression.js';
 
 const allMuscles = Object.keys(muscles);
 const DAY = 864e5;
@@ -9,7 +10,7 @@ const CONTINUITY_BREAK_DAYS = 28;
 const RECENT_VARIATION_DAYS = 7;
 const EXERCISE_ROTATION_EXPOSURES = 4;
 export const SESSION_TIME_TOLERANCE_MINUTES = 7;
-export const ENGINE_VERSION = 40;
+export const ENGINE_VERSION = 42;
 
 const muscleBaseImportance = {
   chest: 100,
@@ -176,16 +177,14 @@ export function willCompleteExercise(sets = [], setIndex) {
 
 export function isFinalSetBelowTarget(item, setIndex, setOverride = {}) {
   const sets = item?.sets || [];
-  if (!sets.length || setIndex !== sets.length - 1 || !willCompleteExercise(sets, setIndex)) return false;
-  const set = { ...sets[setIndex], ...setOverride };
-  const performedReps = Math.max(0, Number(set.reps) || 0);
-  const targetReps = Math.max(0, Number(set.targetReps) || 0);
-  const performedWeight = Math.max(0, Number(set.weight) || 0);
-  const targetWeight = Math.max(0, Number(set.targetWeight ?? set.weight) || 0);
-  if (!targetReps) return false;
-  return targetWeight > 0
-    ? performedWeight * performedReps < targetWeight * targetReps - .001
-    : performedReps < targetReps;
+  if (!sets.length || !sets[setIndex] || !willCompleteExercise(sets, setIndex)) return false;
+  return sets.some((recorded, index) => {
+    const set = index === setIndex ? { ...recorded, ...setOverride } : recorded;
+    if (!(Number(set.targetReps) > 0)) return false;
+    return Number(set.reps || 0) < Number(set.targetReps)
+      || Number(set.weight || 0) < Number(set.targetWeight ?? set.weight ?? 0) - .001
+      || (set.rir != null && Number(set.rir) < Number(set.targetRir ?? 2));
+  });
 }
 
 export function isWorkoutActive(workout) {
@@ -447,6 +446,7 @@ export function getExerciseProgress(history = [], exerciseId, now = Date.now()) 
       const maintainedPrescription = storedDecision === 'maintain-prescription';
       return {
         completedAt,
+        recordedSets: item.sets.map((set) => ({ ...set })),
         storedPerformance: item.performanceCalibration,
         calibrationDecision: storedDecision || null,
         e1rm: sessionE1rm,
@@ -520,6 +520,7 @@ export function getExerciseProgress(history = [], exerciseId, now = Date.now()) 
   const previous = sessions.at(-2);
   return {
     sessions: sessions.length,
+    latestSets: latest?.recordedSets || [],
     latestE1rm: latest?.e1rm != null ? latest?.performanceMax ?? latest.e1rm : null,
     latestSessionE1rm: latest?.e1rm ?? null,
     latestRepCapacity: latest?.e1rm == null ? latest?.performanceMax ?? null : null,
@@ -577,10 +578,13 @@ export function finalizeWorkoutPerformance(workout, history = []) {
       const previousMaximum = kind === 'e1rm'
         ? previousProgress?.latestE1rm
         : previousProgress?.latestRepCapacity;
-      const conservativeFinalRir = Math.min(recordedRir(finalSet), Number(finalSet?.targetRir ?? 2));
-      const reducedMaximum = kind === 'e1rm'
-        ? estimateOneRepMax(finalSet?.weight, finalSet?.reps, conservativeFinalRir)
-        : Number(finalSet?.reps || 0) + conservativeFinalRir;
+      const reductionEstimates = (item.sets || []).filter((set) => set.done).map((set) => {
+        const rir = Math.min(recordedRir(set), Number(set.targetRir ?? 2));
+        return kind === 'e1rm'
+          ? estimateOneRepMax(set.weight, set.reps, rir)
+          : Number(set.reps || 0) + rir;
+      }).filter((value) => Number.isFinite(value) && value > 0);
+      const reducedMaximum = reductionEstimates.length ? Math.min(...reductionEstimates) : null;
       const measuredMaximum = kind === 'e1rm' ? progress.latestE1rm : progress.latestRepCapacity;
       const estimatedMaximum = maintainPrescription
         ? Number(previousMaximum) || Number(item.performanceEvidence?.estimatedMaximum) || prescribedMaximum
@@ -1025,45 +1029,6 @@ export function getAvailableLoads(exercise, profile = {}) {
     .sort((a, b) => a - b);
 }
 
-function roundLoad(value, exercise, profile) {
-  const available = getAvailableLoads(exercise, profile);
-  if (available.length) return available.reduce((closest, load) => (
-    Math.abs(load - value) < Math.abs(closest - value) ? load : closest
-  ), available[0]);
-  return null;
-}
-
-function reconcilePerformedLoad(value, exercise, profile) {
-  const performed = Number(value);
-  const available = getAvailableLoads(exercise, profile);
-  if (!performed) return { weight: null, adjusted: false, unsafeIncrease: false };
-  if (!available.length) return { weight: null, adjusted: true, unsafeIncrease: false };
-  const exact = available.find((load) => Math.abs(load - performed) < .001);
-  if (exact) return { weight: exact, adjusted: false, unsafeIncrease: false };
-  const lower = available.filter((load) => load < performed).at(-1);
-  if (lower) return { weight: lower, adjusted: true, unsafeIncrease: false };
-  const next = available[0];
-  return { weight: next, adjusted: true, unsafeIncrease: (next - performed) / performed > .1 };
-}
-
-function nextAvailableLoad(exercise, profile, current) {
-  const available = getAvailableLoads(exercise, profile);
-  if (available.length) return available.find((load) => load > current + 0.001) ?? null;
-  return null;
-}
-
-function completedRepRangeTop(progress, limits) {
-  const performed = progress.latestPerformedRepsBySet || [];
-  const capacities = progress.latestRepCapacities || [];
-  const prescribedRirs = progress.latestTargetRirs || [];
-  if (!performed.length || progress.latestCompletionRate < 1) return false;
-  return performed.every((reps, index) => {
-    const targetRir = Number(prescribedRirs[index] ?? limits.targetRir ?? 2);
-    return Number(reps) >= limits.maxReps
-      && Number(capacities[index]) >= limits.maxReps + targetRir;
-  });
-}
-
 export function getExercisePrescription(profile, exercise) {
   const goal = trainingRules[profile.goal] || trainingRules.muscle;
   const rule = exercise.compound ? goal.compound : goal.accessory;
@@ -1105,176 +1070,6 @@ export function getExercisePrescription(profile, exercise) {
   };
 }
 
-function doubleProgression(exercise, profile, progress, limits, intensity, setCount) {
-  const usesWeight = ['external', 'per-dumbbell'].includes(exercise.loadType);
-  const desiredRirs = targetRirsForSetCount(limits.targetRirs, Math.max(1, setCount));
-  const desiredFinalRir = Number(desiredRirs.at(-1) ?? limits.targetRir ?? 2);
-  const previousFinalRir = Number(progress.latestTargetRirs?.at(-1) ?? progress.latestTargetRir);
-  const effortChanged = progress.sessions > 0 && Number.isFinite(previousFinalRir)
-    && Math.abs(previousFinalRir - desiredFinalRir) >= .5;
-  const performanceChange = Number(progress.latestPerformanceMaxChange);
-  const performanceStep = effortChanged
-    ? 'effort-adjustment'
-    : performanceChange > .005
-      ? 'max-increase'
-      : performanceChange < -.005
-        ? 'max-decrease'
-        : progress.sessions ? 'hold' : 'start';
-
-  if (!usesWeight) {
-    if (!progress.sessions || progress.latestRepCapacity == null) {
-      return { weight: 0, reps: limits.minReps, step: 'start' };
-    }
-    const supportedReps = Math.floor(Number(progress.latestRepCapacity) - desiredFinalRir + .001);
-    return {
-      weight: 0,
-      reps: clamp(supportedReps, 1, limits.maxReps),
-      step: supportedReps >= limits.maxReps ? 'top' : performanceStep,
-    };
-  }
-
-  const reconciledLoad = progress.lastWeight
-    ? reconcilePerformedLoad(progress.lastWeight, exercise, profile)
-    : { weight: null, adjusted: false, unsafeIncrease: false };
-  const lastAvailableWeight = reconciledLoad.weight;
-  if (reconciledLoad.unsafeIncrease) {
-    return { weight: null, reps: limits.minReps, step: 'recalibrate-load' };
-  }
-  if (!progress.sessions || !progress.latestE1rm) return { weight: null, reps: limits.minReps, step: 'start' };
-  if (lastAvailableWeight && reconciledLoad.adjusted) {
-    return {
-      weight: lastAvailableWeight,
-      reps: clamp(Math.round(Number(progress.latestPerformedReps) || Number(progress.latestTargetReps) || limits.minReps), limits.minReps, limits.maxReps),
-      step: 'load-adjustment',
-    };
-  }
-
-  let weight = lastAvailableWeight || roundLoad(progress.latestE1rm * intensity, exercise, profile);
-  if (!weight) return { weight: null, reps: limits.minReps, step: 'recalibrate-load' };
-
-  const repsAt = (load) => {
-    const capacity = estimateEffectiveReps(progress.latestE1rm, load);
-    return capacity == null ? 0 : Math.floor(capacity - desiredFinalRir + .001);
-  };
-  let supportedReps = repsAt(weight);
-
-  if (supportedReps < limits.minReps) {
-    const lowerLoads = getAvailableLoads(exercise, profile).filter((load) => load < weight - .001);
-    const executableLoad = [...lowerLoads].reverse().find((load) => repsAt(load) >= limits.minReps);
-    if (!executableLoad) return { weight: null, reps: limits.minReps, step: 'recalibrate-load' };
-    weight = executableLoad;
-    supportedReps = repsAt(weight);
-    return {
-      weight,
-      reps: clamp(supportedReps, limits.minReps, limits.maxReps),
-      step: effortChanged ? 'effort-adjustment' : 'performance-adjustment',
-    };
-  }
-
-  if (supportedReps >= limits.maxReps) {
-    // Estimated strength may raise the repetition prescription, but it may
-    // not skip the double-progression ladder. Increase load only after every
-    // prescribed work set actually reaches the top of the range at the
-    // required RIR. A new load always restarts from the bottom of the range.
-    if (completedRepRangeTop(progress, limits)) {
-      const nextLoad = nextAvailableLoad(exercise, profile, weight);
-      const relativeIncrease = nextLoad ? (nextLoad - weight) / weight : null;
-      if (nextLoad && relativeIncrease <= .1 && repsAt(nextLoad) >= limits.minReps) {
-        return {
-          weight: nextLoad,
-          reps: limits.minReps,
-          step: 'load',
-        };
-      }
-    }
-    return { weight, reps: limits.maxReps, step: performanceChange > .005 ? 'max-increase' : 'top' };
-  }
-
-  return {
-    weight,
-    reps: clamp(supportedReps, limits.minReps, limits.maxReps),
-    step: reconciledLoad.adjusted ? 'load-adjustment' : performanceStep,
-  };
-}
-
-function gradualRepTargets(progression, progress, setCount, limits, targetRirs) {
-  const uniformTargets = Array.from({ length: setCount }, () => progression.reps);
-  const previousReps = progress.latestPerformedRepsBySet || [];
-  const previousTargets = progress.latestTargetRepsBySet || [];
-  if (!setCount || !previousReps.length || previousReps.length !== previousTargets.length
-    || ['load', 'load-adjustment', 'effort-adjustment', 'performance-adjustment', 'recalibrate-load'].includes(progression.step)) {
-    return uniformTargets;
-  }
-  const sameLoad = Number(progression.weight || 0) === 0
-    || Math.abs(Number(progression.weight) - Number(progress.lastWeight)) / Math.max(1, Number(progress.lastWeight)) <= .03;
-  const performedLoadOverride = Number(progress.latestTargetWeight) > 0 && Number(progress.lastWeight) > 0
-    && Math.abs(Number(progress.latestTargetWeight) - Number(progress.lastWeight)) / Number(progress.lastWeight) > .03;
-  const previousRirs = progress.latestTargetRirs || [];
-  const sameEffort = previousRirs.length > 0 && targetRirs.length > 0
-    && Math.abs(Number(previousRirs.at(-1)) - Number(targetRirs.at(-1))) < .5;
-  if (!sameLoad || !sameEffort || performedLoadOverride) return uniformTargets;
-
-  const performedTotal = previousReps.reduce((sum, reps) => sum + Math.max(0, Number(reps) || 0), 0);
-  const previousTargetTotal = previousTargets.reduce((sum, reps) => sum + Math.max(0, Number(reps) || 0), 0);
-  const uniformTotal = Number(progression.reps) * setCount;
-  const failedPreviousTarget = performedTotal < previousTargetTotal;
-  if (failedPreviousTarget) {
-    // A failed prescription can never produce a larger prescription at the
-    // same load and effort. "Stanco" repeats the previous target exactly;
-    // downward recalibration may use at most the volume actually completed.
-    const maximumNextTotal = progress.latestCalibrationDecision === 'recalibrate-down'
-      ? performedTotal
-      : previousTargetTotal;
-    if (previousTargets.length === setCount && uniformTotal >= maximumNextTotal && maximumNextTotal === previousTargetTotal) {
-      return previousTargets.map((reps) => clamp(reps, 1, limits.maxReps));
-    }
-    const nextTotal = Math.min(uniformTotal, maximumNextTotal);
-    const base = Math.floor(nextTotal / setCount);
-    const remainder = nextTotal % setCount;
-    return Array.from({ length: setCount }, (_, index) => clamp(
-      base + (index < remainder ? 1 : 0),
-      1,
-      limits.maxReps,
-    ));
-  }
-
-  const performedCapacityTotal = (progress.latestRepCapacities || []).reduce((sum, capacity) => sum + Number(capacity || 0), 0);
-  const targetCapacityTotal = previousTargets.reduce((sum, reps, index) => (
-    sum + Number(reps) + Number(previousRirs[index] ?? limits.targetRir ?? 2)
-  ), 0);
-  const metPreviousTarget = progress.latestCompletionRate >= 1
-    && performedTotal >= previousTargetTotal
-    && performedCapacityTotal >= targetCapacityTotal;
-  // Retain repetitions already demonstrated at the prescribed effort, even
-  // when the saved target lagged behind the user's actual performance.
-  const demonstratedReps = previousReps.map((reps, index) => Math.min(
-    Number(reps),
-    Math.floor(Number(progress.latestRepCapacities?.[index] || 0) - Number(previousRirs[index] ?? limits.targetRir ?? 2) + .001),
-  ));
-  if (previousReps.length === setCount) {
-    const calibratedBelowRange = Math.max(...previousTargets) < limits.minReps;
-    if (calibratedBelowRange && !progress.latestPositiveEvidence) {
-      return previousTargets.map((reps) => clamp(reps, 1, limits.maxReps));
-    }
-    if (!metPreviousTarget) {
-      return previousTargets.map((reps) => clamp(reps, 1, limits.maxReps));
-    }
-    // Classic double progression: once every set meets both reps and RIR,
-    // advance exactly one repetition level. The load gate above takes over
-    // only after every set has actually reached the top of the range.
-    return previousTargets.map((reps, index) => clamp(Math.max(Number(reps) + 1, demonstratedReps[index]), 1, limits.maxReps));
-  }
-
-  if (previousReps.length !== setCount) {
-    const previousTargetLevel = median(previousTargets);
-    const nextLevel = metPreviousTarget
-      ? Math.min(Math.max(Number(previousTargetLevel) + 1, Math.min(...demonstratedReps)), limits.maxReps)
-      : Math.min(Number(previousTargetLevel), limits.maxReps);
-    return Array.from({ length: setCount }, () => clamp(nextLevel, 1, limits.maxReps));
-  }
-  return uniformTargets;
-}
-
 function prescribedSetCount(exercise, profile, context, limits) {
   const defaultTargets = getWeeklyTargets(profile);
   const contributions = Object.entries(getExerciseMuscleContributions(exercise))
@@ -1314,23 +1109,26 @@ function prescribedSetCount(exercise, profile, context, limits) {
 }
 
 function prescription(exercise, profile, history, context = {}) {
-  const goal = trainingRules[profile.goal] || trainingRules.muscle;
-  const rule = exercise.compound ? goal.compound : goal.accessory;
   const targetMinutes = context.targetMinutes || profile.duration || 45;
   const enrichedContext = { ...context, targetMinutes };
   const limits = getExercisePrescription(profile, exercise);
   const sets = prescribedSetCount(exercise, profile, enrichedContext, limits);
   const targetRir = limits.targetRir;
   const progress = getExerciseProgress(history, exercise.id, context.now || Date.now());
-  const adjustedIntensity = rule.intensity - Math.max(0, targetRir - goal.targetRir) * 0.03;
-  const progression = doubleProgression(exercise, profile, progress, limits, adjustedIntensity, sets);
   const targetRirs = targetRirsForSetCount(limits.targetRirs, sets);
-  const targetReps = gradualRepTargets(progression, progress, sets, limits, targetRirs);
-  const previousTargetLevel = Math.max(0, ...(progress.latestTargetRepsBySet || []).map(Number));
-  const nextTargetLevel = Math.max(0, ...targetReps.map(Number));
-  const progressionStep = progression.step === 'hold' && previousTargetLevel > 0 && nextTargetLevel > previousTargetLevel
-    ? 'reps'
-    : progression.step;
+  const progression = calculateProgression({
+    sets: progress.latestSets,
+    decision: progress.latestCalibrationDecision,
+    usesWeight: ['external', 'per-dumbbell'].includes(exercise.loadType),
+    loads: getAvailableLoads(exercise, profile),
+    limits,
+    targetRirs,
+    workingWeight: progress.lastWeight,
+    estimateMax: estimateOneRepMax,
+    estimateReps: estimateEffectiveReps,
+  });
+  const targetReps = progression.targetReps;
+  const progressionStep = progression.step;
 
   return {
     exerciseId: exercise.id,
@@ -1357,6 +1155,7 @@ function prescription(exercise, profile, history, context = {}) {
     targetRirs,
     repRange: { min: limits.minReps, max: limits.maxReps },
     progressionStep,
+    progressionReason: progression.reason,
     performanceEvidence: progress.sessions ? {
       repVolumeRatio: progress.latestRepVolumeRatio,
       loadVolumeRatio: progress.latestLoadVolumeRatio,

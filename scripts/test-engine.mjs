@@ -153,7 +153,7 @@ const finalSetTargetCheck = { sets: [
   { done: false, weight: 60, targetWeight: 60, reps: 7, targetReps: 8 },
 ] };
 assert.equal(isFinalSetBelowTarget(finalSetTargetCheck, 1, { done: true }), true, 'Closing the final set below prescribed load-volume must request a user decision');
-assert.equal(isFinalSetBelowTarget({ ...finalSetTargetCheck, sets: finalSetTargetCheck.sets.map((set, index) => index ? { ...set, weight: 55, reps: 9 } : set) }, 1, { done: true }), false, 'Extra repetitions that recover the prescribed load-volume must not trigger a false shortfall prompt');
+assert.equal(isFinalSetBelowTarget({ ...finalSetTargetCheck, sets: finalSetTargetCheck.sets.map((set, index) => index ? { ...set, weight: 55, reps: 9 } : set) }, 1, { done: true }), true, 'Extra repetitions must not hide a reduced load');
 assert.equal(isFinalSetBelowTarget(finalSetTargetCheck, 0, { done: true }), false, 'Only the actual final set may trigger the shortfall decision');
 const hardHistory = [{
   id: 'hard-session',
@@ -531,7 +531,7 @@ assert.equal(decayedDoseWorkout.exercises[0].sets.length, 2, 'Set prescription m
 const recalibrated = generateWorkout(profile, hardHistory, { targets: ['chest'], duration: 25 });
 assert.equal(recalibrated.exercises[0].exerciseId, bench.id);
 assert.equal(recalibrated.exercises[0].sets[0].weight, 60, 'One exceptional set must not raise load when every work set has not reached the top');
-assert.equal(recalibrated.exercises[0].sets[0].reps, 9, 'A large whole-session surplus must still advance only one repetition level');
+assert.equal(recalibrated.exercises[0].sets[0].reps, 8, 'Extra repetitions taken below prescribed RIR must hold the target');
 
 const focusProfile = {
   ...profile,
@@ -850,7 +850,7 @@ assert(returnWorkout.exercises.every((item) => item.sets.length <= 2), 'Gradual 
 const gradualProgressHistory = [{
   id: 'gradual-progress',
   completedAt: Date.now() - 36e5,
-  exercises: [{ exerciseId: bench.id, sets: [{ ...baseSet, targetReps: 8, reps: 8, rir: 2 }] }],
+  exercises: [{ exerciseId: bench.id, sets: Array.from({ length: 2 }, () => ({ ...baseSet, targetReps: 8, reps: 8, rir: 2 })) }],
 }];
 const gradualProgress = generateWorkout(profile, gradualProgressHistory, { targets: ['chest'], duration: 25 }).exercises[0];
 assert.equal(gradualProgress.sets[0].weight, 60, 'Double progression must keep load while the top of the rep range is not reached');
@@ -880,7 +880,7 @@ const maximumDrivenPrescription = generateWorkout(profile, [exactMaximumWorkout,
 assert.equal(maximumDrivenPrescription.sets[0].weight, 60, 'The next prescription must start from the persisted exercise maximum at the available load');
 assert.equal(maximumDrivenPrescription.sets[0].reps, 9, 'The next prescription must derive repetitions from the increased maximum, not increment the previous workout directly');
 assert.deepEqual(maximumDrivenPrescription.sets.map((set) => set.targetReps), [9, 9], 'Extra final-set RIR may add only one repetition level, not jump to the estimated ceiling');
-assert.equal(maximumDrivenPrescription.progressionStep, 'max-increase');
+assert.equal(maximumDrivenPrescription.progressionStep, 'reps');
 
 const tiredButMaintainedWorkout = finalizeWorkoutPerformance({
   id: 'temporary-fatigue-maintained',
@@ -941,8 +941,18 @@ const overPerformedHistory = [{
 }];
 const overPerformedProgress = generateWorkout(profile, overPerformedHistory, { targets: ['chest'], duration: 25 }).exercises[0];
 assert.equal(overPerformedProgress.sets[0].weight, 60, 'Exceeding prescribed reps must retain the load actually performed');
-assert(overPerformedProgress.sets.every((set) => set.reps === 10), 'Exceeding a stale target at the required RIR must preserve demonstrated repetitions');
+assert(overPerformedProgress.sets.every((set) => set.reps === 9), 'Exceeding the target must advance the prescription by only one repetition');
 assert.equal(overPerformedProgress.progressionStep, 'reps', 'The repetition badge must appear only when the next prescription really advances one level');
+
+const unevenOverPerformedHistory = [{
+  ...overPerformedHistory[0],
+  exercises: [{ exerciseId: bench.id, sets: [10, 12, 10].map((reps) => ({
+    ...baseSet, targetReps: 8, reps, targetRir: 2, rir: 2,
+  })) }],
+}];
+const unevenOverPerformedProgress = generateWorkout(profile, unevenOverPerformedHistory, { targets: ['chest'], duration: 25 }).exercises[0];
+assert.equal(unevenOverPerformedProgress.sets[0].weight, 60);
+assert(unevenOverPerformedProgress.sets.every((set) => set.reps === 9), 'Uneven extra repetitions must not become uneven targets in the next session');
 
 const slightlyUnderPerformedHistory = [{
   id: 'slightly-under-performed-reps',
@@ -953,7 +963,7 @@ const slightlyUnderPerformedHistory = [{
 }];
 const slightlyUnderProgress = generateWorkout({ ...profile, loadInventory: { barbell: [50, 60] } }, slightlyUnderPerformedHistory, { targets: ['chest'], duration: 25 }).exercises[0];
 assert.equal(slightlyUnderProgress.sets[0].weight, 60, 'Missing one repetition must not cause an unnecessary load drop');
-assert.equal(slightlyUnderProgress.sets[0].reps, 9, 'A small shortfall must be reflected directly in the next repetition target');
+assert.equal(slightlyUnderProgress.sets[0].reps, 10, 'A shortfall must hold the prescription until recalibration is requested');
 assert.equal(slightlyUnderProgress.progressionStep, 'hold', 'The first observed maximum must establish the corrected baseline without a misleading regression label');
 
 const doseWorkout = (id, reps) => ({
@@ -969,7 +979,7 @@ assert(underDose < exactDose && exactDose < overDose, 'Adaptive volume must use 
 const loadProgressHistory = [{
   id: 'load-progress',
   completedAt: Date.now() - 36e5,
-  exercises: [{ exerciseId: bench.id, sets: [{ ...baseSet, targetReps: 12, reps: 12, rir: 2 }] }],
+  exercises: [{ exerciseId: bench.id, sets: Array.from({ length: 2 }, () => ({ ...baseSet, targetReps: 12, reps: 12, rir: 2 })) }],
 }];
 const loadProgress = generateWorkout(profile, loadProgressHistory, { targets: ['chest'], duration: 25 }).exercises[0];
 assert.equal(loadProgress.sets[0].weight, 60, 'The engine must not invent a heavier load when the available inventory is empty');
@@ -1014,7 +1024,7 @@ for (const targetReps of [10, 12]) {
     })) }],
   }];
   const next = generateWorkout(sevenKiloProfile, sevenKiloHistory, { targets: ['biceps'], duration: 30 }).exercises[0];
-  assert(next.sets.every((set) => set.weight === 7 && set.targetReps === 12), '7 kg x 12 at the required RIR must not regress, including when the saved target was lower');
+  assert(next.sets.every((set) => set.weight === 7 && set.targetReps === Math.min(targetReps + 1, 12)), 'Extra repetitions must advance the prescribed target by one, capped at the top of the range');
 }
 const manualCurlHistory = [{
   id: 'manual-curl-load',
@@ -1039,7 +1049,7 @@ const wholeExerciseSurplusHistory = [{
 const wholeExerciseProgress = getExerciseProgress(wholeExerciseSurplusHistory, dumbbellCurl.id);
 assert(wholeExerciseProgress.latestRepVolumeRatio > 1.09, 'Progress must retain the completed whole-exercise volume ratio');
 const progressedFromWholeVolume = generateWorkout(manualCurlProfile, wholeExerciseSurplusHistory, { targets: ['biceps'], duration: 30 }).exercises[0];
-assert(progressedFromWholeVolume.sets[0].reps > 10, 'A total-volume surplus must increase the next prescription even when one set is below the others');
+assert(progressedFromWholeVolume.sets.every((set) => set.reps === 10), 'A total-volume surplus must not compensate for a failed set');
 assert(progressedFromWholeVolume.performanceEvidence.repVolumeRatio > 1.09, 'Whole-exercise volume progression must be visible in workout metadata');
 const unevenElevenRepHistory = [{
   id: 'eleven-eleven-ten',
@@ -1079,7 +1089,7 @@ const heldFailedTarget = generateWorkout(manualCurlProfile, failedElevenRepTarge
 assert.deepEqual(heldFailedTarget.sets.map((set) => set.targetReps), [11, 11, 11], 'Failing an 11/11/11 target with 11/11/10 must never increase the next prescription to 12/12/12');
 failedElevenRepTarget[0].exercises[0].performanceCalibration.decision = 'recalibrate-down';
 const reducedFailedTarget = generateWorkout(manualCurlProfile, failedElevenRepTarget, { targets: ['biceps'], duration: 30 }).exercises[0];
-assert.deepEqual(reducedFailedTarget.sets.map((set) => set.targetReps), [11, 11, 10], 'Choosing downward recalibration after a failed target must not prescribe more volume than was completed');
+assert.deepEqual(reducedFailedTarget.sets.map((set) => set.targetReps), [10, 10, 10], 'Choosing downward recalibration after a failed target must not prescribe more volume than was completed');
 const heavierOverrideHistory = [{
   id: 'whole-exercise-load-volume-surplus',
   completedAt: Date.now() - 36e5,
@@ -1137,8 +1147,8 @@ const unevenProgressHistory = [{
   ] }],
 }];
 const unevenProgress = generateWorkout(profile, unevenProgressHistory, { targets: ['chest'], duration: 25 }).exercises[0];
-assert.equal(unevenProgress.sets[0].weight, null, 'One good final set must never hide two failed work sets when no executable lower load is available');
-assert.equal(unevenProgress.needsInitialLoad, true, 'An inventory without a safe lower load must request recalibration');
+assert.equal(unevenProgress.sets[0].weight, 60, 'Failed sets must hold the load pending an explicit recalibration');
+assert.equal(unevenProgress.progressionStep, 'hold', 'One successful set must not compensate for failed sets');
 assert.notEqual(unevenProgress.progressionStep, 'load', 'Load progression must evaluate the whole prescription');
 
 const mixedLoadHistory = [{
@@ -1169,10 +1179,10 @@ const reducedDuringSessionHistory = [{
 }];
 assert.equal(getExerciseProgress(reducedDuringSessionHistory, bench.id).lastWeight, 50, 'A deliberate final work-set load reduction must not be hidden by the modal earlier load');
 const reducedNextWorkout = generateWorkout({ ...profile, loadInventory: { barbell: [50, 60] } }, reducedDuringSessionHistory, { targets: ['chest'], duration: 25 }).exercises[0];
-assert.equal(reducedNextWorkout.sets[0].weight, 50, 'The next workout must start from the reduced executable load');
+assert.equal(reducedNextWorkout.sets[0].weight, null, 'A reduced load still below the required RIR needs calibration when no lower load exists');
 const missedRepsHistory = [{
   id: 'missed-reps', completedAt: Date.now() - 1000,
-  exercises: [{ exerciseId: bench.id, sets: Array.from({ length: 3 }, () => ({ ...baseSet, weight: 60, targetWeight: 60, reps: 5, targetReps: 8, rir: 0 })) }],
+  exercises: [{ exerciseId: bench.id, performanceCalibration: { decision: 'recalibrate-down' }, sets: Array.from({ length: 3 }, () => ({ ...baseSet, weight: 60, targetWeight: 60, reps: 5, targetReps: 8, rir: 0 })) }],
 }];
 const missedRepsAdjustment = generateWorkout({ ...profile, loadInventory: { barbell: [50, 60] } }, missedRepsHistory, { targets: ['chest'], duration: 25 }).exercises[0];
 assert.equal(missedRepsAdjustment.sets[0].weight, 50, 'Significant repetition underperformance must use the next real lower load');
@@ -1432,7 +1442,7 @@ const weakNextWorkout = generateWorkout({ ...profile, equipment: ['bodyweight'],
 assert(weakNextWorkout.exercises[0].sets[0].reps <= 3, 'A low bodyweight calibration must persist into the following session instead of jumping to the nominal minimum');
 assert(Number.isInteger(weakNextWorkout.exercises[0].sets[0].reps), 'Bodyweight progression must always prescribe an integer repetition target');
 const bodyWorkout = generateWorkout({ ...profile, equipment: ['bodyweight'], preferences: bodyPreferences }, bodyweightHistory, { targets: ['quads'], duration: 25 });
-assert(bodyWorkout.exercises[0].sets[0].reps > 8, 'Bodyweight reps must adapt to demonstrated capacity');
+assert.equal(bodyWorkout.exercises[0].sets[0].reps, 8, 'Bodyweight extra reps below prescribed RIR must not advance the target');
 
 const goblet = exercises.find((exercise) => exercise.name === 'Dumbbell Goblet Squat');
 const gobletStats = getExerciseHistory([{

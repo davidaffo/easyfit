@@ -1189,7 +1189,9 @@ function ExerciseGuideSheet({ exerciseId, language, onClose }) {
 
 function UnderperformanceSheet({ item, language, onChoose }) {
   const exercise = getWorkoutExercise(item);
-  const finalSet = item.sets.at(-1);
+  const finalSet = item.sets.find((set) => Number(set.reps) < Number(set.targetReps)
+    || Number(set.weight) < Number(set.targetWeight ?? set.weight)
+    || (set.rir != null && Number(set.rir) < Number(set.targetRir ?? 2))) || item.sets.at(-1);
   const usesWeight = Number(finalSet?.targetWeight ?? finalSet?.weight) > 0;
   const performed = usesWeight
     ? `${finalSet.weight} kg × ${finalSet.reps}`
@@ -1199,9 +1201,9 @@ function UnderperformanceSheet({ item, language, onChoose }) {
     : `${finalSet.targetReps} ripetizioni`;
   return <div className="sheet-backdrop">
     <section className="underperformance-sheet" role="dialog" aria-modal="true" aria-label="Gestisci volume sotto target">
-      <span className="eyebrow">ULTIMA SERIE SOTTO TARGET</span>
+      <span className="eyebrow">OBIETTIVO NON COMPLETATO</span>
       <h2>Come gestiamo la prossima volta?</h2>
-      <p>Su <strong>{getExerciseName(exercise, language)}</strong> hai completato {performed}, contro {target} previsti.</p>
+      <p>Su <strong>{getExerciseName(exercise, language)}</strong> una serie è sotto l’obiettivo: {performed}, contro {target} previsti{finalSet.rir != null ? ` · RIR ${finalSet.rir}, previsto ${finalSet.targetRir ?? 2}` : ''}.</p>
       <div className="underperformance-options">
         <button className="button dark" onClick={() => onChoose('recalibrate')}><strong>Riduci il volume</strong><small>Usa questa prestazione per ricalibrare il massimale e la prossima prescrizione.</small></button>
         <button className="button light" onClick={() => onChoose('maintain')}><strong>Ero solo stanco</strong><small>Mantieni invariati massimale, carico e ripetizioni per la prossima volta.</small></button>

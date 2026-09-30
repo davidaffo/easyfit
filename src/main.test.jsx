@@ -75,7 +75,7 @@ beforeEach(() => {
 afterEach(cleanup);
 
 describe('critical workout lifecycle', () => {
-  test('a final-set volume shortfall asks whether to recalibrate or preserve the prescription', async () => {
+  test.each(['first', 'last'])('a %s-set shortfall asks whether to recalibrate or preserve the prescription', async (failedPosition) => {
     const user = userEvent.setup();
     const workout = readyWorkout();
     const exercise = workout.exercises[0];
@@ -85,7 +85,7 @@ describe('critical workout lifecycle', () => {
         ...set,
         done: index < sets.length - 1,
         rir: index < sets.length - 1 ? set.targetRir : null,
-        reps: index === sets.length - 1 ? Math.max(0, set.targetReps - 1) : set.targetReps,
+        reps: index === (failedPosition === 'first' ? 0 : sets.length - 1) ? Math.max(0, set.targetReps - 1) : set.targetReps,
       })),
     }];
     saveState({ workout });
@@ -97,7 +97,7 @@ describe('critical workout lifecycle', () => {
     await user.click(screen.getByRole('button', { name: /2.*Due/ }));
 
     expect(screen.getByRole('dialog', { name: 'Gestisci volume sotto target' })).toBeTruthy();
-    expect(screen.getByText(/ultima serie sotto target/i)).toBeTruthy();
+    expect(screen.getByText(/obiettivo non completato/i)).toBeTruthy();
     await user.click(screen.getByRole('button', { name: /Ero solo stanco/ }));
     await waitFor(() => {
       const saved = JSON.parse(localStorage.getItem('easyfit-workout'));
