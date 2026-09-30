@@ -10,7 +10,7 @@ const CONTINUITY_BREAK_DAYS = 28;
 const RECENT_VARIATION_DAYS = 7;
 const EXERCISE_ROTATION_EXPOSURES = 4;
 export const SESSION_TIME_TOLERANCE_MINUTES = 7;
-export const ENGINE_VERSION = 42;
+export const ENGINE_VERSION = 43;
 
 const muscleBaseImportance = {
   chest: 100,

@@ -42,7 +42,9 @@ export function calculateProgression({ sets = [], decision, usesWeight, loads = 
     ? Number(set.rir) : Number(set.targetRir ?? 2);
   const capacityAt = (load) => relevant.map((set) => {
     const rir = decision === 'recalibrate-down' ? Math.min(rirOf(set), Number(set.targetRir ?? 2)) : rirOf(set);
-    return usesWeight
+    // At the recorded load use the observed reps directly. Converting through
+    // a strength estimate can round across formula boundaries and drop a rep.
+    return usesWeight && !same(load, set.weight)
       ? estimateReps(estimateMax(Number(set.weight), Number(set.reps), rir), load)
       : Number(set.reps) + rir;
   }).filter((value) => value != null && Number.isFinite(value));
@@ -59,8 +61,11 @@ export function calculateProgression({ sets = [], decision, usesWeight, loads = 
       const lower = available.filter((load) => load < weight).reverse().find((load) => supportedAt(load) >= limits.minReps);
       if (!lower) return result(null, limits.minReps, 'recalibrate-load', 'no-supported-load');
       weight = lower;
-      supported = supportedAt(weight);
+      // Only lower the load after exhausting the rep range at the current
+      // load. Restart at the minimum instead of filling the new capacity.
+      supported = limits.minReps;
     }
+    if (decision === 'recalibrate-down' && hasTargets) supported = Math.min(supported, baseline);
     const step = effortChanged ? 'effort-adjustment' : loadChanged ? 'load-adjustment' : 'performance-adjustment';
     return result(weight, bounded(supported, usesWeight ? limits.minReps : 1, limits.maxReps), step,
       effortChanged ? 'effort-changed' : loadChanged ? 'performed-load-changed' : 'recalibration');

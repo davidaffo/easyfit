@@ -11,6 +11,23 @@ const calculate = (overrides = {}) => calculateProgression({
 });
 
 describe('prescription decisions', () => {
+  it('reduces reps at the same load before considering a lower load', () => {
+    for (const reps of [8, 9, 10, 11]) {
+      const next = calculate({ sets: [set({ targetReps: 12, reps }), set({ targetReps: 12, reps })], decision: 'recalibrate-down' });
+      expect(next.weight).toBe(60);
+      expect(next.targetReps).toEqual([reps, reps]);
+    }
+  });
+  it('uses recorded capacity at the same load without estimating it again', () => {
+    const next = calculate({ sets: [set({ targetReps: 12, reps: 9, rir: 1 }), set({ targetReps: 12, reps: 9, rir: 1 })], decision: 'recalibrate-down', estimateMax: () => { throw new Error('Unnecessary strength estimate'); } });
+    expect(next.weight).toBe(60);
+    expect(next.targetReps).toEqual([8, 8]);
+  });
+  it('drops load only below the rep floor and restarts at that floor', () => {
+    const next = calculate({ sets: [set({ targetReps: 12, reps: 7 }), set({ targetReps: 12, reps: 7 })], decision: 'recalibrate-down' });
+    expect(next.weight).toBe(50);
+    expect(next.targetReps).toEqual([8, 8]);
+  });
   it('advances prescribed repetitions once regardless of uneven extra reps', () => {
     for (let first = 8; first <= 20; first++) {
       for (let second = 8; second <= 20; second++) {
