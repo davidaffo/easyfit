@@ -75,6 +75,28 @@ beforeEach(() => {
 afterEach(cleanup);
 
 describe('critical workout lifecycle', () => {
+  test('sufficient total volume does not ask for recalibration after an uneven performance', async () => {
+    const user = userEvent.setup();
+    const workout = readyWorkout();
+    const exercise = workout.exercises[0];
+    workout.exercises = [{ ...exercise, sets: exercise.sets.map((set, index, sets) => ({
+      ...set,
+      done: index < sets.length - 1,
+      rir: index < sets.length - 1 ? set.targetRir : null,
+      reps: set.targetReps + (index === 0 ? 1 : index === sets.length - 1 ? -1 : 0),
+    })) }];
+    saveState({ workout });
+    const { container } = render(<App/>);
+    await user.click(screen.getByRole('button', { name: 'Riprendi allenamento' }));
+    const checks = container.querySelectorAll('.set-check');
+    await user.click(checks[checks.length - 1]);
+    await user.click(screen.getByRole('button', { name: /2.*Due/ }));
+    expect(screen.queryByRole('dialog', { name: 'Gestisci volume sotto target' })).toBeNull();
+    const saved = JSON.parse(localStorage.getItem('easyfit-workout'));
+    expect(saved.exercises[0].sets.every((set) => set.done)).toBe(true);
+    expect(saved.exercises[0].underperformanceDecision).not.toBe('pending');
+  });
+
   test('generation previews the workout and only the start button starts it', async () => {
     const user = userEvent.setup();
     saveState();

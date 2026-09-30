@@ -178,13 +178,17 @@ export function willCompleteExercise(sets = [], setIndex) {
 export function isFinalSetBelowTarget(item, setIndex, setOverride = {}) {
   const sets = item?.sets || [];
   if (!sets.length || !sets[setIndex] || !willCompleteExercise(sets, setIndex)) return false;
-  return sets.some((recorded, index) => {
+  const usesWeight = sets.some((set) => Number(set.targetWeight ?? set.weight) > 0);
+  let performedVolume = 0;
+  let targetVolume = 0;
+  sets.forEach((recorded, index) => {
     const set = index === setIndex ? { ...recorded, ...setOverride } : recorded;
-    if (!(Number(set.targetReps) > 0)) return false;
-    return Number(set.reps || 0) < Number(set.targetReps)
-      || Number(set.weight || 0) < Number(set.targetWeight ?? set.weight ?? 0) - .001
-      || (set.rir != null && Number(set.rir) < Number(set.targetRir ?? 2));
+    performedVolume += Math.max(0, Number(set.reps) || 0) * (usesWeight ? Math.max(0, Number(set.weight) || 0) : 1);
+    targetVolume += Math.max(0, Number(set.targetReps) || 0) * (usesWeight ? Math.max(0, Number(set.targetWeight ?? set.weight) || 0) : 1);
   });
+  // This prompt concerns total volume. Per-set reps and RIR still determine
+  // progression independently; a missed individual target need not interrupt.
+  return targetVolume > 0 && performedVolume < targetVolume - .001;
 }
 
 export function isWorkoutActive(workout) {

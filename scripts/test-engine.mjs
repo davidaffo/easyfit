@@ -153,7 +153,15 @@ const finalSetTargetCheck = { sets: [
   { done: false, weight: 60, targetWeight: 60, reps: 7, targetReps: 8 },
 ] };
 assert.equal(isFinalSetBelowTarget(finalSetTargetCheck, 1, { done: true }), true, 'Closing the final set below prescribed load-volume must request a user decision');
-assert.equal(isFinalSetBelowTarget({ ...finalSetTargetCheck, sets: finalSetTargetCheck.sets.map((set, index) => index ? { ...set, weight: 55, reps: 9 } : set) }, 1, { done: true }), true, 'Extra repetitions must not hide a reduced load');
+assert.equal(isFinalSetBelowTarget({ ...finalSetTargetCheck, sets: finalSetTargetCheck.sets.map((set, index) => index ? { ...set, weight: 55, reps: 9 } : set) }, 1, { done: true }), false, 'Sufficient total volume must not trigger the recalibration prompt');
+assert.equal(isFinalSetBelowTarget({ sets: [
+  { ...baseSet, reps: 9, rir: 0 },
+  { ...baseSet, reps: 7, rir: 0, done: false },
+] }, 1, { done: true }), false, 'Compensated reps and lower RIR must not prompt when total volume meets the target');
+assert.equal(isFinalSetBelowTarget({ sets: [
+  { ...baseSet, targetWeight: 0, weight: 0, reps: 9 },
+  { ...baseSet, targetWeight: 0, weight: 0, reps: 7, done: false },
+] }, 1, { done: true }), false, 'Bodyweight volume must use total repetitions');
 assert.equal(isFinalSetBelowTarget(finalSetTargetCheck, 0, { done: true }), false, 'Only the actual final set may trigger the shortfall decision');
 const hardHistory = [{
   id: 'hard-session',
