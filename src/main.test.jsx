@@ -75,7 +75,7 @@ beforeEach(() => {
 afterEach(cleanup);
 
 describe('critical workout lifecycle', () => {
-  test('sufficient total volume does not ask for recalibration after an uneven performance', async () => {
+  test.each([0, 1])('a small volume shortfall does not ask for recalibration (extra reps: %s)', async (extraReps) => {
     const user = userEvent.setup();
     const workout = readyWorkout();
     const exercise = workout.exercises[0];
@@ -83,7 +83,7 @@ describe('critical workout lifecycle', () => {
       ...set,
       done: index < sets.length - 1,
       rir: index < sets.length - 1 ? set.targetRir : null,
-      reps: set.targetReps + (index === 0 ? 1 : index === sets.length - 1 ? -1 : 0),
+      reps: set.targetReps + (index === 0 ? extraReps : index === sets.length - 1 ? -1 : 0),
     })) }];
     saveState({ workout });
     const { container } = render(<App/>);
@@ -134,7 +134,7 @@ describe('critical workout lifecycle', () => {
         ...set,
         done: index < sets.length - 1,
         rir: index < sets.length - 1 ? set.targetRir : null,
-        reps: index === (failedPosition === 'first' ? 0 : sets.length - 1) ? Math.max(0, set.targetReps - 1) : set.targetReps,
+        reps: index === (failedPosition === 'first' ? 0 : sets.length - 1) ? 0 : set.targetReps,
       })),
     }];
     saveState({ workout });

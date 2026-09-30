@@ -3,6 +3,7 @@ import { calculateProgression } from './progression.js';
 
 const allMuscles = Object.keys(muscles);
 const DAY = 864e5;
+const VOLUME_SHORTFALL_TOLERANCE = 0.10;
 const STIMULUS_MEMORY_DAYS = 21;
 const STIMULUS_HALF_LIFE_DAYS = 7;
 const CONTINUITY_HISTORY_DAYS = 90;
@@ -188,7 +189,7 @@ export function isFinalSetBelowTarget(item, setIndex, setOverride = {}) {
   });
   // This prompt concerns total volume. Per-set reps and RIR still determine
   // progression independently; a missed individual target need not interrupt.
-  return targetVolume > 0 && performedVolume < targetVolume - .001;
+  return targetVolume > 0 && performedVolume < targetVolume * (1 - VOLUME_SHORTFALL_TOLERANCE) - .001;
 }
 
 export function isWorkoutActive(workout) {

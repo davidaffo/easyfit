@@ -152,7 +152,14 @@ const finalSetTargetCheck = { sets: [
   { done: true, weight: 60, targetWeight: 60, reps: 8, targetReps: 8 },
   { done: false, weight: 60, targetWeight: 60, reps: 7, targetReps: 8 },
 ] };
-assert.equal(isFinalSetBelowTarget(finalSetTargetCheck, 1, { done: true }), true, 'Closing the final set below prescribed load-volume must request a user decision');
+assert.equal(isFinalSetBelowTarget(finalSetTargetCheck, 1, { done: true }), false, 'A small total-volume shortfall must not request recalibration');
+for (const weight of [0, 60]) {
+  for (const [reps, expected] of [[10, false], [9, false], [8, true]]) {
+    assert.equal(isFinalSetBelowTarget({ sets: [{
+      done: false, weight, targetWeight: weight, targetReps: 10, reps,
+    }] }, 0, { done: true }), expected, 'Only deficits greater than 10% should request recalibration, including bodyweight');
+  }
+}
 assert.equal(isFinalSetBelowTarget({ ...finalSetTargetCheck, sets: finalSetTargetCheck.sets.map((set, index) => index ? { ...set, weight: 55, reps: 9 } : set) }, 1, { done: true }), false, 'Sufficient total volume must not trigger the recalibration prompt');
 assert.equal(isFinalSetBelowTarget({ sets: [
   { ...baseSet, reps: 9, rir: 0 },
