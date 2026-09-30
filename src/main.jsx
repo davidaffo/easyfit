@@ -472,6 +472,7 @@ function App() {
   const finishOnboarding = (newProfile) => {
     setProfile(newProfile);
     setWorkout(generateWorkout(newProfile, []));
+    setView('preview');
   };
 
   if (!profile) return <Onboarding onDone={finishOnboarding}/>;
@@ -482,12 +483,11 @@ function App() {
       setToast('Nessun esercizio compatibile: controlla attrezzatura ed esclusioni');
       return;
     }
-    const activeWorkout = startWorkout(generated);
-    if (!persist('easyfit-workout', activeWorkout)) setToast('Workout non salvato: libera spazio prima di continuare');
-    setWorkout(activeWorkout);
-    setView('workout');
+    if (!persist('easyfit-workout', generated)) setToast('Workout non salvato: libera spazio prima di continuare');
+    setWorkout(generated);
+    setView('preview');
   };
-  const openWorkout = () => {
+  const beginWorkout = () => {
     if (!workout || workout.completedAt) {
       setWorkout(null);
       setView('home');
@@ -511,6 +511,10 @@ function App() {
       return resumedWorkout;
     });
     setView('workout');
+  };
+  const openWorkout = () => {
+    if (isWorkoutActive(workout)) beginWorkout();
+    else setView('preview');
   };
   const showToast = (message) => setToast(message);
   const discardWorkout = () => {
@@ -564,9 +568,11 @@ function App() {
           setView('home');
           setCompletedSummary({ workout: completed, previousHistory: history });
         }}/>
+      : view === 'preview' && workout
+        ? <WorkoutPreview workout={workout} profile={profile} onBack={() => setView('home')} onStart={beginWorkout} onRegenerate={() => createWorkout(workout.duration)}/>
       : <>
         <div className="page-wrap">
-          {view === 'home' && <Home profile={profile} history={history} workout={workout} onOpenWorkout={openWorkout} onDiscardWorkout={discardWorkout} onGenerate={createWorkout} onShowStimulus={() => setView('stimulus')} installPrompt={installPrompt} onInstalled={() => setInstallPrompt(null)}/>}
+          {(view === 'home' || (view === 'preview' && !workout)) && <Home profile={profile} history={history} workout={workout} onOpenWorkout={openWorkout} onDiscardWorkout={discardWorkout} onGenerate={createWorkout} onShowStimulus={() => setView('stimulus')} installPrompt={installPrompt} onInstalled={() => setInstallPrompt(null)}/>}
           {view === 'stimulus' && <Stimulus history={history} profile={profile}/>}
           {view === 'history' && <History history={history} profile={profile}/>}
           {view === 'profile' && <Profile profile={profile} setProfile={setProfile} history={history} workout={workout} onRestoreBackup={restoreBackup} installPrompt={installPrompt} onInstalled={() => setInstallPrompt(null)} showToast={showToast} onReset={resetAppData}/>}
@@ -622,12 +628,33 @@ function WorkoutHero({ workout, onOpen, onDiscard }) {
     <div className="hero-noise"/><div className="workout-card-head"><span className="today-pill">{active ? 'IN CORSO' : 'OGGI'}</span><span>Multifrequenza adattiva</span></div>
     <div className="workout-card-copy"><h2>{active ? <>Workout<br/>in pausa.</> : <>Il tuo workout<br/>è pronto.</>}</h2><p>{names}</p></div>
     <div className="workout-meta"><span><b>~{estimatedMinutes}</b><small>minuti stimati</small></span><i/><span><b>{workout.exercises.length}</b><small>esercizi</small></span><i/><span><b>{workout.exercises.reduce((sum, item) => sum + item.sets.length, 0)}</b><small>serie</small></span></div>
-    <div className="workout-hero-actions"><button className="button acid wide" onClick={onOpen}><span className="play-disc"><Icon name="play" size={18}/></span>{active ? 'Riprendi allenamento' : 'Inizia allenamento'}</button>{active && <button className="discard-workout" onClick={onDiscard}><Icon name="trash" size={16}/> Scarta workout</button>}</div>
+    <div className="workout-hero-actions"><button className="button acid wide" onClick={onOpen}><span className="play-disc"><Icon name="play" size={18}/></span>{active ? 'Riprendi allenamento' : 'Anteprima workout'}</button>{active && <button className="discard-workout" onClick={onDiscard}><Icon name="trash" size={16}/> Scarta workout</button>}</div>
   </section>;
 }
 
 function EmptyWorkout({ onGenerate }) {
   return <section className="empty-workout"><span className="empty-icon"><Icon name="spark" size={30}/></span><h2>Pronto quando vuoi</h2><p>Genera un workout in base allo stimolo che hai già accumulato.</p><button className="button dark" onClick={onGenerate}>Genera workout</button></section>;
+}
+
+function WorkoutPreview({ workout, profile, onBack, onStart, onRegenerate }) {
+  const totalSets = workout.exercises.reduce((sum, item) => sum + item.sets.length, 0);
+  return <main className="workout-view workout-preview">
+    <header className="workout-topbar">
+      <button className="icon-button light" onClick={onBack} aria-label="Torna alla home"><Icon name="arrow"/></button>
+      <div><span>ANTEPRIMA WORKOUT</span><strong>~{workout.engine?.estimatedMinutes || workout.duration} min previsti</strong></div>
+      <button className="icon-button light" onClick={onRegenerate} aria-label="Rigenera anteprima"><Icon name="refresh"/></button>
+    </header>
+    <section className="workout-title"><span className="eyebrow">LA TUA SCHEDA</span><h1>{workout.targetMuscles.slice(0, 2).map((item) => muscles[item]).join(' + ')}</h1><p>{workout.exercises.length} esercizi · {totalSets} serie</p><p>Controlla la scheda. Il tempo partirà quando premi Inizia workout.</p></section>
+    <div className="exercise-list">
+      {workout.exercises.map((item, index) => <article className="exercise-card" key={item.exerciseId}>
+        <header><span className="exercise-index">{String(index + 1).padStart(2, '0')}</span><div><h2>{getExerciseName(getWorkoutExercise(item), profile.exerciseLanguage)}</h2><p>Recupero {item.rest} s{item.repRange ? ` · ${item.repRange.min}–${item.repRange.max} reps` : ''}</p></div></header>
+        <table className="preview-sets"><caption>Serie previste per {getExerciseName(getWorkoutExercise(item), profile.exerciseLanguage)}</caption><thead><tr><th>Serie</th><th>Reps</th><th>Carico</th><th>RIR</th></tr></thead><tbody>
+          {item.sets.map((set, setIndex) => <tr key={setIndex}><td>{setIndex + 1}</td><td>{item.needsInitialReps ? 'Da calibrare' : set.targetReps}</td><td>{set.targetWeight == null ? 'Da scegliere' : Number(set.targetWeight) === 0 ? (getWorkoutExercise(item)?.loadType === 'bodyweight' ? 'Corpo libero' : '—') : `${set.targetWeight} kg`}</td><td>{set.targetRir}</td></tr>)}
+        </tbody></table>
+      </article>)}
+    </div>
+    <div className="preview-start"><button className="button acid wide" disabled={!totalSets} onClick={onStart}><Icon name="play"/>Inizia workout</button></div>
+  </main>;
 }
 
 function buildRefreshWorkoutOptions(profile, history, workout, seed) {

@@ -178,6 +178,11 @@ input[type="range"] { width: 100%; height: 4px; margin: 22px 0 10px; accent-colo
 
 /* Workout logging */
 .workout-view { min-height: 100vh; padding-bottom: 100px; background: #e9e7df; }
+.preview-sets { width: calc(100% - 32px); margin: 0 16px 16px; border-collapse: collapse; text-align: center; font-size: 13px; }
+.preview-sets th { font-size: 11px; font-weight: 600; color: #62675b; }
+.preview-sets th, .preview-sets td { padding: 10px 4px; border-bottom: 1px solid #dedfd5; }
+.preview-sets caption { text-align: left; font-size: 11px; color: #62675b; padding-bottom: 8px; }
+.preview-start { position: fixed; z-index: 15; bottom: 0; left: 50%; transform: translateX(-50%); width: min(100%, 600px); background: var(--ink); padding: 14px 16px calc(14px + env(safe-area-inset-bottom)); }
 .workout-topbar { height: calc(70px + env(safe-area-inset-top)); padding: env(safe-area-inset-top) 12px 0; background: var(--ink); color: white; display: flex; align-items: center; justify-content: space-between; }
 .workout-topbar > div { text-align: center; display: flex; flex-direction: column; gap: 3px; }
 .workout-topbar span { font-size: 8px; letter-spacing: 1.3px; color: #858a7e; font-weight: 800; }

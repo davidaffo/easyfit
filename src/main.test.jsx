@@ -75,6 +75,33 @@ beforeEach(() => {
 afterEach(cleanup);
 
 describe('critical workout lifecycle', () => {
+  test('generation previews the workout and only the start button starts it', async () => {
+    const user = userEvent.setup();
+    saveState();
+    const { container, unmount } = render(<App/>);
+    await user.click(screen.getByRole('button', { name: 'Genera workout' }));
+    expect(screen.getByRole('button', { name: 'Inizia workout' })).toBeTruthy();
+    expect(container.querySelector('.preview-sets')).toBeTruthy();
+    expect(container.querySelector('.set-check')).toBeNull();
+    let saved = JSON.parse(localStorage.getItem('easyfit-workout'));
+    expect(saved.startedAt).toBeFalsy();
+    expect(saved.exercises.every((item) => item.sets.every((set) => !set.done))).toBe(true);
+
+    await user.click(screen.getByRole('button', { name: 'Rigenera anteprima' }));
+    expect(JSON.parse(localStorage.getItem('easyfit-workout')).startedAt).toBeFalsy();
+    await user.click(screen.getByRole('button', { name: 'Torna alla home' }));
+    unmount();
+    render(<App/>);
+    await user.click(screen.getByRole('button', { name: 'Anteprima workout' }));
+    saved = JSON.parse(localStorage.getItem('easyfit-workout'));
+    expect(saved.startedAt).toBeFalsy();
+    const earliestStart = Date.now();
+    await user.click(screen.getByRole('button', { name: 'Inizia workout' }));
+    await waitFor(() => expect(JSON.parse(localStorage.getItem('easyfit-workout')).startedAt).toBeGreaterThanOrEqual(earliestStart));
+    expect(screen.getByRole('button', { name: 'Termina workout' })).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Inizia workout' })).toBeNull();
+  });
+
   test.each(['first', 'last'])('a %s-set shortfall asks whether to recalibrate or preserve the prescription', async (failedPosition) => {
     const user = userEvent.setup();
     const workout = readyWorkout();
