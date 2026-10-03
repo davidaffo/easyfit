@@ -20,6 +20,14 @@ La build viene generata in `docs/`, pronta per GitHub Pages. Nelle impostazioni
 del repository seleziona **Deploy from a branch**, il branch desiderato e la
 cartella **/docs**.
 
+Ogni build genera automaticamente una versione del service worker a partire
+dagli asset pubblicati. L’app controlla gli aggiornamenti all’avvio, al ritorno
+in primo piano, al ripristino della rete e ogni 30 minuti. Quando una nuova
+versione è pronta mostra **Aggiorna ora**: la pressione attiva la versione e
+ricarica l’app, conservando profilo, storico e workout salvati. In Impostazioni
+è disponibile anche **Controlla aggiornamenti**. Per rendere disponibili le
+modifiche sul sito occorre pubblicare la nuova cartella `docs/` su GitHub Pages.
+
 Verifica del motore:
 
 ```bash

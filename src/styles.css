@@ -20,6 +20,15 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline: 3px s
 button:disabled { cursor: not-allowed; opacity: .45; }
 
 #root { min-height: 100vh; }
+.app-update-banner { position: fixed; z-index: 110; top: max(12px, env(safe-area-inset-top)); left: 50%; transform: translateX(-50%); width: min(calc(100% - 24px), 576px); padding: 14px; display: flex; align-items: center; gap: 14px; border-radius: 8px; background: var(--ink); color: white; box-shadow: 0 8px 28px rgba(0,0,0,.25); }
+.app-update-banner div { flex: 1; }
+.app-update-banner strong, .app-update-banner span { display: block; }
+.app-update-banner strong { font-size: 13px; }
+.app-update-banner span { margin-top: 5px; font-size: 11px; }
+.app-update-banner button, .app-update-settings button { border: 0; border-radius: 5px; padding: 12px; background: var(--acid); color: var(--ink); font-size: 12px; font-weight: 700; cursor: pointer; }
+.app-update-banner button { flex-shrink: 0; }
+.app-update-settings { padding: 22px; border-bottom: 1px solid var(--line); }
+.app-update-settings p { font-size: 12px; color: var(--muted); }
 .app-shell, .onboarding {
   width: 100%;
   min-height: 100vh;

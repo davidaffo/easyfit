@@ -1,14 +1,14 @@
-const CACHE = 'easyfit-v44';
 const BASE = new URL('./', self.location.href);
+const CACHE = `easyfit-${BASE.href}-__BUILD_VERSION__`;
 const fromBase = (path) => new URL(path, BASE).href;
-const CORE = ['', 'manifest.webmanifest', 'icon.svg', 'icon-192.png', 'icon-512.png'].map(fromBase);
+const CORE = ['manifest.webmanifest', 'icon.svg', 'icon-192.png', 'icon-512.png'].map(fromBase);
 const IMAGE_INDEX = fromBase('exercise-images/index.json');
 
 self.addEventListener('install', (event) => {
   event.waitUntil((async () => {
     const cache = await caches.open(CACHE);
     const desired = new Set([...CORE, fromBase('index.html'), IMAGE_INDEX]);
-    await cache.addAll(CORE);
+    await cache.addAll(CORE.map((url) => new Request(url, { cache: 'reload' })));
     const indexResponse = await fetch(fromBase('index.html'), { cache: 'no-store' });
     if (!indexResponse.ok) throw new Error('App shell unavailable');
     const indexText = await indexResponse.clone().text();
@@ -31,14 +31,22 @@ self.addEventListener('install', (event) => {
       .filter((request) => !desired.has(request.url))
       .map((request) => cache.delete(request)));
   })());
-  self.skipWaiting();
+});
+
+self.addEventListener('message', (event) => {
+  if (event.data?.type === 'SKIP_WAITING') self.skipWaiting();
 });
 
 self.addEventListener('activate', (event) => {
   event.waitUntil(
-    caches.keys().then((keys) => Promise.all(keys.filter((key) => key !== CACHE).map((key) => caches.delete(key))))
+    (async () => {
+      const keys = await caches.keys();
+      await Promise.all(keys.filter((key) => key !== CACHE &&
+        (key.startsWith(`easyfit-${BASE.href}-`) || /^easyfit-v\d+$/.test(key)))
+        .map((key) => caches.delete(key)));
+      await self.clients.claim();
+    })()
   );
-  self.clients.claim();
 });
 
 self.addEventListener('fetch', (event) => {
@@ -46,7 +54,7 @@ self.addEventListener('fetch', (event) => {
   const requestUrl = new URL(event.request.url);
   if (requestUrl.origin !== self.location.origin || event.request.headers.has('Authorization')) return;
   event.respondWith(
-    fetch(event.request)
+    fetch(event.request, event.request.mode === 'navigate' ? { cache: 'no-store' } : {})
       .then((response) => {
         if (!response.ok) throw new Error(`Request failed with ${response.status}`);
         const copy = response.clone();

@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
+import { AppUpdate } from './AppUpdate.jsx';
 import { equipmentLabels, exerciseCatalogMeta, exercises, getExerciseName, muscles } from './data/exercises.js';
 import {
   BACKUP_FILENAME,
@@ -440,7 +441,6 @@ function App() {
   useEffect(() => {
     const handler = (event) => { event.preventDefault(); setInstallPrompt(event); };
     window.addEventListener('beforeinstallprompt', handler);
-    if ('serviceWorker' in navigator) navigator.serviceWorker.register(`${import.meta.env.BASE_URL}sw.js`);
     return () => window.removeEventListener('beforeinstallprompt', handler);
   }, []);
   useEffect(() => {
@@ -475,7 +475,7 @@ function App() {
     setView('preview');
   };
 
-  if (!profile) return <Onboarding onDone={finishOnboarding}/>;
+  if (!profile) return <><Onboarding onDone={finishOnboarding}/><AppUpdate/></>;
 
   const createWorkout = (duration = profile.duration) => {
     const generated = generateWorkout(profile, history, { duration, variation: Date.now() });
@@ -550,6 +550,7 @@ function App() {
   };
 
   return <div className="app-shell">
+    <AppUpdate settings={view === 'profile'}/>
     {view === 'workout' && isWorkoutActive(workout)
       ? <WorkoutView workout={workout} setWorkout={setWorkout} profile={profile} setProfile={setProfile} history={history} showToast={showToast} onBack={() => setView('home')} onFinish={(completed) => {
           const nextHistory = [...history, completed];
