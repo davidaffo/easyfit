@@ -3,8 +3,9 @@ const bounded = (value, min, max) => Math.max(min, Math.min(max, Math.floor(valu
 const same = (a, b) => Math.abs(Number(a) - Number(b)) < .001;
 
 // One decision produces both load and repetitions. Stored strength estimates
-// are analytics, not instructions: only the latest recorded sets drive this.
-export function calculateProgression({ sets = [], decision, usesWeight, loads = [], limits, targetRirs, workingWeight, estimateMax, estimateReps }) {
+// are analytics, not instructions. Recent comparable sessions can protect an
+// established level during recalibration after an isolated poor session.
+export function calculateProgression({ sets = [], recentSessions = [], decision, usesWeight, loads = [], limits, targetRirs, workingWeight, estimateMax, estimateReps }) {
   const count = targetRirs.length;
   const result = (weight, reps, step, reason) => ({
     weight, reps, targetReps: Array(count).fill(reps), step, reason,
@@ -38,6 +39,7 @@ export function calculateProgression({ sets = [], decision, usesWeight, loads = 
     || (sets.length === count && previousRirs.some((rir, index) => !same(rir, targetRirs[index])));
   const loadChanged = usesWeight && completed.some((set) => !same(set.weight, set.targetWeight ?? set.weight));
   const hasTargets = targets.length === sets.length;
+  const recalibrationMin = usesWeight ? Math.min(limits.minReps, limits.recalibrationMinReps ?? 6) : 1;
   const rirOf = (set) => set.rir != null && Number.isFinite(Number(set.rir))
     ? Number(set.rir) : Number(set.targetRir ?? 2);
   const capacityAt = (load) => relevant.map((set) => {
@@ -57,7 +59,27 @@ export function calculateProgression({ sets = [], decision, usesWeight, loads = 
 
   if (effortChanged || loadChanged || !hasTargets || decision === 'recalibrate-down') {
     let supported = supportedAt(weight);
-    if (usesWeight && supported < limits.minReps) {
+    let recentLevelProtected = false;
+    if (decision === 'recalibrate-down' && !effortChanged && !loadChanged && hasTargets) {
+      const comparable = recentSessions.filter((session) => session.sets.length >= count
+        && session.sets.every((set) => set.done && positive(set.reps)
+          && (!usesWeight || same(set.weight, weight))));
+      const missedTarget = (recorded) => recorded.some((set) => !set.done
+        || Number(set.reps) < Number(set.targetReps)
+        || rirOf(set) < Number(set.targetRir ?? 2));
+      const repeatedShortfall = comparable.length > 0 && missedTarget(sets)
+        && missedTarget(comparable.at(-1).sets);
+      if (!repeatedShortfall) {
+        const demonstrated = comparable.map((session) => Math.floor(Math.min(...session.sets.map((set, index) => (
+          Number(set.reps) + Math.min(rirOf(set), Number(set.targetRir ?? 2))
+          - Number(targetRirs[Math.min(index, count - 1)] ?? limits.targetRir ?? 2)
+        ))) + .001));
+        const recentFloor = Math.max(0, ...demonstrated);
+        recentLevelProtected = recentFloor > supported;
+        supported = Math.max(supported, recentFloor);
+      }
+    }
+    if (usesWeight && supported < recalibrationMin) {
       const lower = available.filter((load) => load < weight).reverse().find((load) => supportedAt(load) >= limits.minReps);
       if (!lower) return result(null, limits.minReps, 'recalibrate-load', 'no-supported-load');
       weight = lower;
@@ -65,10 +87,10 @@ export function calculateProgression({ sets = [], decision, usesWeight, loads = 
       // load. Restart at the minimum instead of filling the new capacity.
       supported = limits.minReps;
     }
-    if (decision === 'recalibrate-down' && hasTargets) supported = Math.min(supported, baseline);
+    if (decision === 'recalibrate-down' && hasTargets && !recentLevelProtected) supported = Math.min(supported, baseline);
     const step = effortChanged ? 'effort-adjustment' : loadChanged ? 'load-adjustment' : 'performance-adjustment';
-    return result(weight, bounded(supported, usesWeight ? limits.minReps : 1, limits.maxReps), step,
-      effortChanged ? 'effort-changed' : loadChanged ? 'performed-load-changed' : 'recalibration');
+    return result(weight, bounded(supported, recalibrationMin, limits.maxReps), step,
+      effortChanged ? 'effort-changed' : loadChanged ? 'performed-load-changed' : recentLevelProtected ? 'recent-level-preserved' : 'recalibration');
   }
 
   // Extra reps on one set cannot compensate for a missed set or lower RIR.

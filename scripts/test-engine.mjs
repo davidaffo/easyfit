@@ -935,7 +935,13 @@ const deliberatelyReducedWorkout = finalizeWorkoutPerformance({
 assert.equal(deliberatelyReducedWorkout.exercises[0].performanceCalibration.decision, 'recalibrate-down', 'Choosing a reduction must be persisted distinctly from temporary fatigue');
 assert(deliberatelyReducedWorkout.exercises[0].performanceCalibration.estimatedMaximum < exactMaximumWorkout.exercises[0].performanceCalibration.estimatedMaximum, 'An explicit reduction must lower the maximum even if the recorded RIR would otherwise offset the missing repetitions');
 const reducedNextPrescription = generateWorkout(profile, [exactMaximumWorkout, deliberatelyReducedWorkout], { targets: ['chest'], duration: 25, now: maximumUpdateNow }).exercises[0];
-assert(reducedNextPrescription.sets[0].reps < 8 || reducedNextPrescription.sets[0].weight < 60, 'Choosing a reduction must actually lower the next prescription');
+assert.equal(reducedNextPrescription.sets[0].weight, 60, 'An isolated shortfall must preserve the recently demonstrated load');
+assert(reducedNextPrescription.sets.every((set) => set.targetReps === 8), 'Recalibration must retain a comparable level demonstrated recently');
+const expiredBaseline = { ...exactMaximumWorkout, completedAt: maximumUpdateNow - 22 * 864e5 };
+const withoutRecentBaseline = generateWorkout(profile, [expiredBaseline, deliberatelyReducedWorkout], { targets: ['chest'], duration: 25, now: maximumUpdateNow }).exercises[0];
+assert.equal(withoutRecentBaseline.sets[0].weight, 60, 'Six repetitions should retain the weight below the nominal range');
+assert(withoutRecentBaseline.sets.every((set) => set.targetReps === 6), 'Expired evidence must not prevent recalibration');
+assert.equal(withoutRecentBaseline.calibrationBelowRange, true, 'Below-range repetitions must be marked in the prescription');
 const improvedCompletionInsights = getWorkoutCompletionInsights(improvedMaximumWorkout, [exactMaximumWorkout]);
 assert.equal(improvedCompletionInsights.counts.improved, 1, 'The completion summary must recognize an improved exercise');
 assert.equal(improvedCompletionInsights.counts.records, 1, 'The completion summary must recognize a new personal record');
@@ -1194,7 +1200,8 @@ const reducedDuringSessionHistory = [{
 }];
 assert.equal(getExerciseProgress(reducedDuringSessionHistory, bench.id).lastWeight, 50, 'A deliberate final work-set load reduction must not be hidden by the modal earlier load');
 const reducedNextWorkout = generateWorkout({ ...profile, loadInventory: { barbell: [50, 60] } }, reducedDuringSessionHistory, { targets: ['chest'], duration: 25 }).exercises[0];
-assert.equal(reducedNextWorkout.sets[0].weight, null, 'A reduced load still below the required RIR needs calibration when no lower load exists');
+assert.equal(reducedNextWorkout.sets[0].weight, 50, 'Seven supported reps may retain the performed load below the nominal range');
+assert(reducedNextWorkout.sets.every((set) => set.targetReps === 7));
 const missedRepsHistory = [{
   id: 'missed-reps', completedAt: Date.now() - 1000,
   exercises: [{ exerciseId: bench.id, performanceCalibration: { decision: 'recalibrate-down' }, sets: Array.from({ length: 3 }, () => ({ ...baseSet, weight: 60, targetWeight: 60, reps: 5, targetReps: 8, rir: 0 })) }],

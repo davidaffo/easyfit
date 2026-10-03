@@ -11,7 +11,7 @@ const CONTINUITY_BREAK_DAYS = 28;
 const RECENT_VARIATION_DAYS = 7;
 const EXERCISE_ROTATION_EXPOSURES = 4;
 export const SESSION_TIME_TOLERANCE_MINUTES = 7;
-export const ENGINE_VERSION = 43;
+export const ENGINE_VERSION = 44;
 
 const muscleBaseImportance = {
   chest: 100,
@@ -526,6 +526,9 @@ export function getExerciseProgress(history = [], exerciseId, now = Date.now()) 
   return {
     sessions: sessions.length,
     latestSets: latest?.recordedSets || [],
+    recentSessions: sessions.slice(-4, -1)
+      .filter((session) => now - session.completedAt <= 21 * DAY)
+      .map((session) => ({ completedAt: session.completedAt, sets: session.recordedSets })),
     latestE1rm: latest?.e1rm != null ? latest?.performanceMax ?? latest.e1rm : null,
     latestSessionE1rm: latest?.e1rm ?? null,
     latestRepCapacity: latest?.e1rm == null ? latest?.performanceMax ?? null : null,
@@ -1066,6 +1069,7 @@ export function getExercisePrescription(profile, exercise) {
   return {
     minReps,
     maxReps,
+    recalibrationMinReps: override.minReps != null ? minReps : Math.min(minReps, 6),
     maxSets,
     targetRir: targetRirs.at(-1),
     targetRirs,
@@ -1123,6 +1127,7 @@ function prescription(exercise, profile, history, context = {}) {
   const targetRirs = targetRirsForSetCount(limits.targetRirs, sets);
   const progression = calculateProgression({
     sets: progress.latestSets,
+    recentSessions: progress.recentSessions,
     decision: progress.latestCalibrationDecision,
     usesWeight: ['external', 'per-dumbbell'].includes(exercise.loadType),
     loads: getAvailableLoads(exercise, profile),
@@ -1159,6 +1164,7 @@ function prescription(exercise, profile, history, context = {}) {
     targetRir: targetRirs.at(-1) ?? targetRir,
     targetRirs,
     repRange: { min: limits.minReps, max: limits.maxReps },
+    calibrationBelowRange: targetReps.some((reps) => reps < limits.minReps),
     progressionStep,
     progressionReason: progression.reason,
     performanceEvidence: progress.sessions ? {

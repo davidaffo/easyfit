@@ -24,9 +24,45 @@ describe('prescription decisions', () => {
     expect(next.targetReps).toEqual([8, 8]);
   });
   it('drops load only below the rep floor and restarts at that floor', () => {
-    const next = calculate({ sets: [set({ targetReps: 12, reps: 7 }), set({ targetReps: 12, reps: 7 })], decision: 'recalibrate-down' });
+    const next = calculate({ sets: [set({ targetReps: 12, reps: 5 }), set({ targetReps: 12, reps: 5 })], decision: 'recalibrate-down' });
     expect(next.weight).toBe(50);
     expect(next.targetReps).toEqual([8, 8]);
+  });
+  it('retains the current load at six or seven reps below the nominal range', () => {
+    for (const reps of [6, 7]) {
+      const next = calculate({ sets: [set({ reps }), set({ reps })], decision: 'recalibrate-down' });
+      expect(next.weight).toBe(60);
+      expect(next.targetReps).toEqual([reps, reps]);
+    }
+  });
+  it('respects a custom recalibration minimum', () => {
+    const next = calculate({ sets: [set({ reps: 7 }), set({ reps: 7 })], decision: 'recalibrate-down', limits: { minReps: 8, maxReps: 12, recalibrationMinReps: 8 } });
+    expect(next.weight).toBe(50);
+    expect(next.targetReps).toEqual([8, 8]);
+  });
+  it('uses recent demonstrated reps instead of erasing them after one poor session', () => {
+    const next = calculate({
+      sets: [set({ reps: 6, targetReps: 11 }), set({ reps: 6, targetReps: 11 })],
+      decision: 'recalibrate-down',
+      recentSessions: [{ sets: [set({ reps: 10, targetReps: 10 }), set({ reps: 10, targetReps: 10 })] }],
+    });
+    expect(next.weight).toBe(60);
+    expect(next.targetReps).toEqual([10, 10]);
+    expect(next.reason).toBe('recent-level-preserved');
+  });
+  it('allows regression after consecutive failed comparable sessions', () => {
+    const next = calculate({ sets: [set({ reps: 6 }), set({ reps: 6 })], decision: 'recalibrate-down', recentSessions: [
+      { sets: [set({ reps: 10 }), set({ reps: 10 })] },
+      { sets: [set({ reps: 7 }), set({ reps: 7 })] },
+    ] });
+    expect(next.weight).toBe(60);
+    expect(next.targetReps).toEqual([6, 6]);
+  });
+  it('does not use fewer sets, different loads or excessive effort as proof', () => {
+    for (const recorded of [[set({ reps: 10 })], [set({ weight: 50, reps: 10 }), set({ weight: 50, reps: 10 })], [set({ reps: 8, rir: 0 }), set({ reps: 8, rir: 0 })]]) {
+      const next = calculate({ sets: [set({ reps: 6 }), set({ reps: 6 })], decision: 'recalibrate-down', recentSessions: [{ sets: recorded }] });
+      expect(next.targetReps).toEqual([6, 6]);
+    }
   });
   it('advances prescribed repetitions once regardless of uneven extra reps', () => {
     for (let first = 8; first <= 20; first++) {
