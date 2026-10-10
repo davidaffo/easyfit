@@ -11,7 +11,7 @@ const CONTINUITY_BREAK_DAYS = 28;
 const RECENT_VARIATION_DAYS = 7;
 const EXERCISE_ROTATION_EXPOSURES = 4;
 export const SESSION_TIME_TOLERANCE_MINUTES = 7;
-export const ENGINE_VERSION = 46;
+export const ENGINE_VERSION = 47;
 
 const muscleBaseImportance = {
   chest: 100,
@@ -1560,11 +1560,14 @@ function movementFamilyNeed(family, profile, weeklyLoad, movementFrequency, musc
   // Direct arm work is ranked later as complementary work. It must not dilute
   // the need of the large muscle that makes a movement family selectable.
   const relevantMuscles = (family.primaryMuscles || family.muscles).filter((muscle) => allMuscles.includes(muscle));
-  const average = (selector) => relevantMuscles.reduce((sum, muscle) => sum + selector(muscle), 0) / relevantMuscles.length;
+  const highest = (selector) => Math.max(0, ...relevantMuscles.map(selector));
   const need = {
-    priority: average((muscle) => getMuscleSelectionPriority(muscle, muscleStatus[muscle]) / 100),
+    // Match the anatomical urgency shown in the UI. A well-trained glute must
+    // not dilute an untrained hamstring merely because they share a family.
+    urgentPriority: highest((muscle) => muscleStatus[muscle]?.excluded ? 0 : Number(muscleStatus[muscle]?.priority) || 0),
+    priority: highest((muscle) => getMuscleSelectionPriority(muscle, muscleStatus[muscle]) / 100),
     frequencyGap: Math.max(0, weeklyTargets.frequency - movementFrequency[family.id]),
-    volumeGap: average((muscle) => muscleStatus[muscle]?.volumeNeed
+    volumeGap: highest((muscle) => muscleStatus[muscle]?.volumeNeed
       ?? clamp((weeklyTargets.sets - weeklyLoad.volume[muscle]) / weeklyTargets.sets, 0, 1)),
   };
   return {
@@ -1577,13 +1580,14 @@ function movementFamilyNeed(family, profile, weeklyLoad, movementFrequency, musc
 function compareMovementFamilyNeed(a, b, profile, weeklyLoad, movementFrequency, muscleStatus) {
   const needA = movementFamilyNeed(a, profile, weeklyLoad, movementFrequency, muscleStatus);
   const needB = movementFamilyNeed(b, profile, weeklyLoad, movementFrequency, muscleStatus);
-  return needB.score - needA.score || a.id.localeCompare(b.id);
+  return needB.urgentPriority - needA.urgentPriority || needB.score - needA.score || a.id.localeCompare(b.id);
 }
 
 function getAvailableAdaptiveFamilies(profile, weeklyLoad, movementFrequency, muscleStatus, targetMinutes, avoidIds = new Set()) {
   const ranked = [...movementFamilies]
     .sort((a, b) => compareMovementFamilyNeed(a, b, profile, weeklyLoad, movementFrequency, muscleStatus));
-  const available = ranked.filter((family) => exercises.some((exercise) => isPrimaryMovement(exercise)
+  const available = ranked.filter((family) => exercises.some((exercise) => (isPrimaryMovement(exercise)
+      || family.primaryMuscles.includes(exercise.primary))
     && !avoidIds.has(exercise.id)
     && family.patterns.includes(exercise.pattern)
     && isExerciseAllowed(exercise, profile)
@@ -1832,11 +1836,13 @@ export function generateWorkout(profile, history = [], options = {}) {
     if (plannedFamilies.length >= Math.min(maxCompounds, desiredPrimaryMovements)) return;
     if (chosen.filter(isPrimaryMovement).length >= Math.min(maxCompounds, desiredPrimaryMovements)) return;
     if (chosen.some((exercise) => getMovementFamily(exercise) === family.id)) return;
-    const compatibleCompounds = rankCandidates(family.patterns)
-      .map(({ exercise }) => exercise)
-      .filter(isPrimaryMovement);
-    if (!compatibleCompounds.length) {
-      const hasCompatibleExercise = exercises.some((exercise) => isPrimaryMovement(exercise)
+    const candidates = rankCandidates(family.patterns).map(({ exercise }) => exercise);
+    const compatibleCompounds = candidates.filter(isPrimaryMovement);
+    const familyCandidates = compatibleCompounds.length ? compatibleCompounds
+      : candidates.filter((exercise) => family.primaryMuscles.includes(exercise.primary));
+    if (!familyCandidates.length) {
+      const hasCompatibleExercise = exercises.some((exercise) => (isPrimaryMovement(exercise)
+          || family.primaryMuscles.includes(exercise.primary))
         && family.patterns.includes(exercise.pattern)
         && targets.includes(exercise.primary)
         && isExerciseAllowed(exercise, profile)
@@ -1844,7 +1850,7 @@ export function generateWorkout(profile, history = [], options = {}) {
       if (!hasCompatibleExercise) unavailableMovementFamilies.push(family.id);
       return;
     }
-    if (compatibleCompounds.some((exercise) => addExercise(exercise))) plannedFamilies.push(family);
+    if (familyCandidates.some((exercise) => addExercise(exercise))) plannedFamilies.push(family);
   });
 
   // Composition is a hard ordering rule, not merely a scoring preference.
@@ -1853,7 +1859,9 @@ export function generateWorkout(profile, history = [], options = {}) {
   // If the normal adaptive dose is already covered, use the minimum
   // maintenance dose for the next urgent compatible family instead of
   // returning an accessory-only workout.
-  const minimumPrimaryMovements = Math.min(desiredPrimaryMovements, maxExercises);
+  const isolationFamilies = plannedFamilies.filter((family) => !chosen.some((exercise) =>
+    isPrimaryMovement(exercise) && getMovementFamily(exercise) === family.id)).length;
+  const minimumPrimaryMovements = Math.max(0, Math.min(desiredPrimaryMovements, maxExercises) - isolationFamilies);
   while (chosen.filter(isPrimaryMovement).length < minimumPrimaryMovements) {
     const primaryFallbacks = requiredFamilies
       .flatMap((family) => rankCandidates(family.patterns).map((candidate) => ({ ...candidate, family })))
