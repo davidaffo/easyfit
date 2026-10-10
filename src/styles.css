@@ -213,6 +213,7 @@ input[type="range"] { width: 100%; height: 4px; margin: 22px 0 10px; accent-colo
 .focus-badge { flex: 0 0 auto; padding: 3px 5px; border-radius: 3px; background: var(--acid); color: var(--ink); font-size: 7px; font-weight: 900; letter-spacing: .7px; }
 .progression-badge { flex: 0 0 auto; padding: 3px 5px; border-radius: 3px; background: #e8e6de; color: #666a60; font-size: 7px; font-weight: 900; letter-spacing: .4px; }
 .progression-badge.load { background: var(--ink); color: var(--acid); }
+.exercise-rotation { margin: 0 0 12px; color: var(--muted); font-size: 11px; }
 .exercise-preview { width: 100%; height: 145px; padding: 0; border: 0; border-bottom: 1px solid #e4e2da; background: #f2f1eb; position: relative; overflow: hidden; cursor: pointer; }
 .exercise-preview img { width: 100%; height: 100%; object-fit: contain; display: block; mix-blend-mode: multiply; }
 .exercise-preview > span { position: absolute; right: 9px; bottom: 9px; min-height: 27px; padding: 0 9px; border-radius: 15px; background: rgba(16,18,15,.9); color: white; display: flex; align-items: center; gap: 5px; font-size: 8px; font-weight: 800; }

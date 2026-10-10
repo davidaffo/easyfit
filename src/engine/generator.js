@@ -11,7 +11,7 @@ const CONTINUITY_BREAK_DAYS = 28;
 const RECENT_VARIATION_DAYS = 7;
 const EXERCISE_ROTATION_EXPOSURES = 4;
 export const SESSION_TIME_TOLERANCE_MINUTES = 7;
-export const ENGINE_VERSION = 45;
+export const ENGINE_VERSION = 46;
 
 const muscleBaseImportance = {
   chest: 100,
@@ -1141,9 +1141,15 @@ function prescription(exercise, profile, history, context = {}) {
   });
   const targetReps = progression.targetReps;
   const progressionStep = progression.step;
+  const rotationBlock = (context.rotationBlocks || getExerciseRotationBlocks(history, profile, context.now || Date.now()))[rotationKey(exercise)];
 
   return {
     exerciseId: exercise.id,
+    rotation: {
+      block: rotationBlock?.number ?? 1,
+      completedExposures: rotationBlock?.exposures[exercise.id] ?? 0,
+      targetExposures: EXERCISE_ROTATION_EXPOSURES,
+    },
     exerciseSnapshot: {
       id: exercise.id,
       wgerId: exercise.wgerId,
@@ -1333,6 +1339,70 @@ export function getExerciseContinuity(history = [], now = Date.now()) {
     if (now - state[pattern].lastPerformedAt > CONTINUITY_BREAK_DAYS * DAY) delete state[pattern];
   });
   return state;
+}
+
+const rotationKey = (exercise) => `${exercise.primary}:${exercise.pattern}:${exercise.sessionRole}`;
+
+// Reconstruct blocks from completed work, so previews and skipped workouts do
+// not advance rotation. Each movement keeps up to two compatible exercises.
+export function getExerciseRotationBlocks(history = [], profile, now = Date.now()) {
+  const pools = new Map();
+  exercises.filter((exercise) => isExerciseAllowed(exercise, profile)).forEach((exercise) => {
+    const key = rotationKey(exercise);
+    pools.set(key, [...(pools.get(key) || []), exercise]);
+  });
+  const blocks = {};
+  const membersFor = (pool, previous = [], first = null, lastUsed = {}) => {
+    const ranked = [...pool].sort((a, b) => Number(previous.includes(a.id)) - Number(previous.includes(b.id))
+      || (previous.includes(a.id) ? (lastUsed[a.id] || 0) - (lastUsed[b.id] || 0) : 0)
+      || canonicalScore(b, profile) - canonicalScore(a, profile) || a.id.localeCompare(b.id));
+    return [...(first ? [first] : []), ...ranked.map((exercise) => exercise.id).filter((id) => id !== first)].slice(0, 2);
+  };
+  const complete = (block) => block.exerciseIds.every((id) => block.exposures[id] >= EXERCISE_ROTATION_EXPOSURES);
+  const advance = (block, pool) => {
+    const exerciseIds = membersFor(pool, block.exerciseIds, null, block.lastUsed);
+    return { ...block, number: block.number + 1, previousExerciseIds: block.exerciseIds,
+      exerciseIds, exposures: Object.fromEntries(exerciseIds.map((id) => [id, 0])) };
+  };
+  [...history].filter((workout) => validCompletedWorkout(workout, now)
+    && now - workout.completedAt <= CONTINUITY_HISTORY_DAYS * DAY)
+    .sort((a, b) => a.completedAt - b.completedAt).forEach((workout) => {
+      const counted = new Set();
+      const visitedKeys = new Set();
+      (workout.exercises || []).forEach((item) => {
+        if (counted.has(item.exerciseId) || !item.sets?.some((set) => set.done && setStimulusQuality(set) >= .7)) return;
+        counted.add(item.exerciseId);
+        const exercise = resolveRecordedExercise(item);
+        if (!exercise) return;
+        const key = rotationKey(exercise);
+        const pool = pools.get(key) || [];
+        if (!pool.some((candidate) => candidate.id === exercise.id)) return;
+        let block = blocks[key];
+        if (!block || workout.completedAt - block.lastPerformedAt > CONTINUITY_BREAK_DAYS * DAY) {
+          const exerciseIds = membersFor(pool, [], exercise.id);
+          block = { number: 1, exerciseIds, previousExerciseIds: [],
+            exposures: Object.fromEntries(exerciseIds.map((id) => [id, 0])), lastUsed: {} };
+        } else if (!visitedKeys.has(key) && complete(block)) block = advance(block, pool);
+        visitedKeys.add(key);
+        // An explicit manual substitution joins the block. It replaces an
+        // unused/least-used member instead of discarding the other member's work.
+        if (!block.exerciseIds.includes(exercise.id)) {
+          const replaceId = [...block.exerciseIds].sort((a, b) => block.exposures[a] - block.exposures[b]).at(0);
+          block.exerciseIds = block.exerciseIds.map((id) => id === replaceId ? exercise.id : id);
+          delete block.exposures[replaceId];
+          block.exposures[exercise.id] = 0;
+        }
+        block.exposures[exercise.id] += 1;
+        block.lastUsed[exercise.id] = workout.completedAt;
+        block.lastPerformedAt = workout.completedAt;
+        blocks[key] = block;
+      });
+    });
+  Object.entries(blocks).forEach(([key, block]) => {
+    if (now - block.lastPerformedAt > CONTINUITY_BREAK_DAYS * DAY) delete blocks[key];
+    else if (complete(block)) blocks[key] = advance(block, pools.get(key));
+  });
+  return blocks;
 }
 
 export function getTrackedExerciseIds(history = [], limit = 6, now = Date.now()) {
@@ -1629,9 +1699,11 @@ export function generateWorkout(profile, history = [], options = {}) {
   const doseMovementFrequency = getWeeklyMovementFrequency(history, now);
   let targets = options.targets || targetMuscles();
   const continuity = getExerciseContinuity(history, now);
+  const rotationBlocks = getExerciseRotationBlocks(history, profile, now);
   const avoidIds = new Set(options.avoidExerciseIds || []);
   const returningFromBreak = isReturningAfterBreak(history, now);
   const prescriptionContext = {
+    rotationBlocks,
     weeklyLoad: doseLoad,
     muscleStatus,
     targetMinutes,
@@ -1690,7 +1762,7 @@ export function generateWorkout(profile, history = [], options = {}) {
   };
 
   const rankCandidates = (patterns = null, scoringTargets = targets) => {
-    const eligible = exercises
+    const compatible = exercises
     .filter((exercise) => profile.preferences?.[exercise.id] !== 'exclude' && !chosen.some((item) => item.id === exercise.id))
     .filter((exercise) => isExerciseAllowed(exercise, profile))
     .filter((exercise) => isEssentialExercise(exercise, profile))
@@ -1701,6 +1773,17 @@ export function generateWorkout(profile, history = [], options = {}) {
       return currentLowerBodyCount < 1;
     })
     .filter((exercise) => !patterns || patterns.includes(exercise.pattern));
+    const eligible = compatible.filter((exercise) => {
+      const key = rotationKey(exercise);
+      const block = rotationBlocks[key];
+      if (!block) return true;
+      if (block.exerciseIds.includes(exercise.id) && block.exposures[exercise.id] < EXERCISE_ROTATION_EXPOSURES) return true;
+      // Equipment, exclusions and time constraints may make every unfinished
+      // block member unavailable. Keep a usable replacement in that case.
+      return !compatible.some((alternative) => rotationKey(alternative) === key
+        && block.exerciseIds.includes(alternative.id)
+        && block.exposures[alternative.id] < EXERCISE_ROTATION_EXPOSURES);
+    });
     const varied = eligible.filter((exercise) => {
       const patternState = continuity[exercise.pattern];
       const repeatedRecently = patternState?.lastExerciseId === exercise.id
@@ -1721,15 +1804,7 @@ export function generateWorkout(profile, history = [], options = {}) {
         && alternative.pattern !== exercise.pattern
         && now - Number(continuity[alternative.pattern]?.lastPerformedAt || 0) > RECENT_VARIATION_DAYS * DAY);
     }) : varied;
-    const complementaryPool = complementary.length ? complementary : varied;
-    const rotationEligible = complementaryPool.filter((exercise) => {
-      const exposures = continuity[exercise.pattern]?.exercises?.[exercise.id]?.exposures || 0;
-      if (exposures < EXERCISE_ROTATION_EXPOSURES) return true;
-      return !complementaryPool.some((alternative) => alternative.pattern === exercise.pattern
-        && alternative.id !== exercise.id
-        && (continuity[alternative.pattern]?.exercises?.[alternative.id]?.exposures || 0) < EXERCISE_ROTATION_EXPOSURES);
-    });
-    const pool = rotationEligible.length ? rotationEligible : complementaryPool.length ? complementaryPool : eligible;
+    const pool = complementary.length ? complementary : varied.length ? varied : eligible;
     return pool.map((exercise) => ({ exercise, score: scoreExercise(exercise, scoringTargets, profile, doseLoad, muscleStatus, continuity, chosen, random) }))
     .filter((item) => item.score > -100)
     .sort((a, b) => b.score - a.score);
@@ -1869,6 +1944,9 @@ export function generateWorkout(profile, history = [], options = {}) {
     exercises: chosen.map((exercise) => prescriptions.get(exercise.id)),
     engine: {
       version: ENGINE_VERSION,
+      rotationBlocks: Object.fromEntries(Object.entries(rotationBlocks).map(([key, block]) => [key, {
+        number: block.number, exerciseIds: block.exerciseIds, exposures: block.exposures,
+      }])),
       weeklyVolumeBeforeWorkout: weeklyLoad.volume,
       weeklyFrequencyBeforeWorkout: weeklyLoad.frequency,
       cycleStimulusBeforeWorkout: cycleLoadBeforeWorkout.volume,
