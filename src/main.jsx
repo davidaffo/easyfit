@@ -402,6 +402,29 @@ function SetupHeader({ step, title, subtitle, onBack }) {
   </>;
 }
 
+function generatePreparedWorkout(profile, history, previous) {
+  let previousProfileDuration = null;
+  try {
+    previousProfileDuration = JSON.parse(previous?.engine?.settingsFingerprint || '{}').duration;
+  } catch {
+    // A legacy preview without valid settings uses the current profile duration.
+  }
+  const duration = Number(previousProfileDuration) === Number(profile.duration)
+    ? previous?.duration || profile.duration
+    : profile.duration;
+  return generateWorkout(profile, history, { duration, variation: Date.now() });
+}
+
+function restoreCurrentWorkout(saved, profile, history) {
+  if (!profile || !isCompatibleWorkout(saved, profile)) return null;
+  const hasRecordedSets = saved.exercises.some((item) => item.sets.some((set) => set.done));
+  const current = hasRecordedSets && !saved.startedAt ? startWorkout(saved, saved.createdAt) : saved;
+  const restored = isWorkoutActive(current)
+    ? migrateWorkoutToCurrentEngine(current, profile, history)
+    : generatePreparedWorkout(profile, history, current);
+  return isCompatibleWorkout(restored, profile) ? restored : null;
+}
+
 function App() {
   const [profile, setProfile] = useState(() => {
     const saved = load('easyfit-profile', null);
@@ -410,10 +433,7 @@ function App() {
   const [history, setHistory] = useState(loadHistory);
   const [workout, setWorkout] = useState(() => {
     const saved = load('easyfit-workout', null);
-    if (!isCompatibleWorkout(saved, profile)) return null;
-    const hasRecordedSets = saved.exercises.some((item) => item.sets?.some((set) => set.done));
-    const activeSaved = hasRecordedSets && !saved.startedAt ? startWorkout(saved, saved.createdAt) : saved;
-    return migrateWorkoutToCurrentEngine(activeSaved, profile, history);
+    return restoreCurrentWorkout(saved, profile, history);
   });
   const [view, setView] = useState('home');
   const [toast, setToast] = useState('');
@@ -450,16 +470,7 @@ function App() {
   }, [toast]);
   useEffect(() => {
     if (!profile || !workout || !isPreparedWorkoutStale(workout, profile, history)) return;
-    let generatedProfileDuration = null;
-    try {
-      generatedProfileDuration = JSON.parse(workout.engine?.settingsFingerprint || '{}').duration;
-    } catch {
-      generatedProfileDuration = null;
-    }
-    const duration = Number(generatedProfileDuration) !== Number(profile.duration)
-      ? profile.duration
-      : workout.duration || profile.duration;
-    const regenerated = generateWorkout(profile, history, { duration, variation: Date.now() });
+    const regenerated = generatePreparedWorkout(profile, history, workout);
     if (!isCompatibleWorkout(regenerated, profile)) {
       setWorkout(null);
       setToast('Workout precedente incompatibile: genera una nuova scheda');
@@ -514,7 +525,7 @@ function App() {
   };
   const openWorkout = () => {
     if (isWorkoutActive(workout)) beginWorkout();
-    else setView('preview');
+    else createWorkout(workout?.duration || profile.duration);
   };
   const showToast = (message) => setToast(message);
   const discardWorkout = () => {
@@ -535,8 +546,7 @@ function App() {
   };
   const restoreBackup = (backup) => {
     const restoredProfile = normalizeProfile(backup.profile);
-    const compatibleWorkout = isCompatibleWorkout(backup.workout, restoredProfile) ? backup.workout : null;
-    const restoredWorkout = migrateWorkoutToCurrentEngine(compatibleWorkout, restoredProfile, backup.history);
+    const restoredWorkout = restoreCurrentWorkout(backup.workout, restoredProfile, backup.history);
     if (!persistAppStateAtomically([
       ['easyfit-profile', restoredProfile],
       ['easyfit-history', backup.history],

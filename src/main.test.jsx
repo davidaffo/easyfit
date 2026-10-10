@@ -75,6 +75,40 @@ beforeEach(() => {
 afterEach(cleanup);
 
 describe('critical workout lifecycle', () => {
+  test.each([ENGINE_VERSION, ENGINE_VERSION - 1])('a saved preview from engine v%s is fully recalculated on reload and reopening', async (version) => {
+    const user = userEvent.setup();
+    const savedAt = Date.now() - 60_000;
+    const preview = generateWorkout(profile, [], { now: savedAt, duration: 30, targets: ['chest'] });
+    preview.engine.version = version;
+    preview.exercises.forEach((item) => item.sets.forEach((set) => {
+      set.targetReps = 99;
+      set.reps = 99;
+    }));
+    saveState({ workout: preview });
+    const { unmount } = render(<App/>);
+    await waitFor(() => expect(JSON.parse(localStorage.getItem('easyfit-workout')).createdAt).toBeGreaterThan(savedAt));
+    const refreshed = JSON.parse(localStorage.getItem('easyfit-workout'));
+    expect(refreshed.engine.version).toBe(ENGINE_VERSION);
+    expect(refreshed.duration).toBe(30);
+    expect(refreshed.startedAt).toBeFalsy();
+    expect(refreshed.exercises.every((item) => item.sets.every((set) => set.targetReps < 99 && set.reps < 99))).toBe(true);
+    expect(refreshed.targetMuscles.some((muscle) => muscle !== 'chest')).toBe(true);
+
+    const reopenedAt = Date.now() + 1000;
+    const nowSpy = vi.spyOn(Date, 'now').mockReturnValue(reopenedAt);
+    await user.click(screen.getByRole('button', { name: 'Anteprima workout' }));
+    const reopened = JSON.parse(localStorage.getItem('easyfit-workout'));
+    expect(reopened.createdAt).toBe(reopenedAt);
+    expect(reopened.duration).toBe(30);
+    expect(reopened.startedAt).toBeFalsy();
+    await user.click(screen.getByRole('button', { name: 'Inizia workout' }));
+    const started = JSON.parse(localStorage.getItem('easyfit-workout'));
+    expect(started.exercises).toEqual(reopened.exercises);
+    expect(started.startedAt).toBe(reopenedAt);
+    unmount();
+    nowSpy.mockRestore();
+  });
+
   test('a bench row offers and accepts a distinct standing dumbbell row', async () => {
     const user = userEvent.setup();
     const workout = readyWorkout();
