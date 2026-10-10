@@ -11,7 +11,7 @@ const CONTINUITY_BREAK_DAYS = 28;
 const RECENT_VARIATION_DAYS = 7;
 const EXERCISE_ROTATION_EXPOSURES = 4;
 export const SESSION_TIME_TOLERANCE_MINUTES = 7;
-export const ENGINE_VERSION = 44;
+export const ENGINE_VERSION = 45;
 
 const muscleBaseImportance = {
   chest: 100,
@@ -1152,6 +1152,7 @@ function prescription(exercise, profile, history, context = {}) {
       primary: exercise.primary,
       equipment: exercise.equipment,
       pattern: exercise.pattern,
+      executionVariant: exercise.executionVariant,
       compound: exercise.compound,
       loadType: exercise.loadType,
       loadUnit: exercise.loadUnit,
@@ -1278,7 +1279,8 @@ export function getEquipmentCoverage(profile) {
 
 export function getExerciseVariantKey(exercise) {
   const equipment = [...(exercise.equipment || [])].sort().join('+');
-  return `variant:${exercise.primary}:${exercise.pattern}:${equipment}:${exercise.loadType}`;
+  const execution = exercise.executionVariant ? `:${exercise.executionVariant}` : '';
+  return `variant:${exercise.primary}:${exercise.pattern}:${equipment}:${exercise.loadType}${execution}`;
 }
 
 function canonicalScore(exercise, profile) {

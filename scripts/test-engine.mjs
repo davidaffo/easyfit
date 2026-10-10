@@ -236,7 +236,7 @@ assert(
 );
 
 const statusNow = Date.now();
-const row = exercises.find((exercise) => exercise.name === 'Bent Over Dumbbell Rows');
+const row = exercises.find((exercise) => exercise.wgerId === 1463);
 assert(row, 'A canonical row must exist for muscle-priority checks');
 const stimulusHistory = [
   {
@@ -583,7 +583,10 @@ const abWheel = exercises.find((exercise) => exercise.wgerId === 1573);
 const bulgarianSquat = exercises.find((exercise) => exercise.wgerId === 1706);
 const barbellShoulderPress = exercises.find((exercise) => exercise.wgerId === 566);
 assert(gluteBridge && isExerciseAllowed(gluteBridge, { ...focusProfile, equipment: ['bodyweight'] }), 'Glute Bridge must be a reviewed bodyweight hip-extension exercise');
-assert.equal(isExerciseAllowed(boxSquat, { ...focusProfile, equipment: ['bodyweight'] }), false, 'Box Squat must not be prescribed without an actual box or bench');
+assert.equal(boxSquat, undefined, 'Box Squat must remain outside the approved catalog');
+for (const id of [977, 397, 1948]) assert(!exercises.some((exercise) => exercise.wgerId === id), 'Box-squat variants must stay excluded');
+const freeSquat = exercises.find((exercise) => exercise.wgerId === 1312);
+assert(freeSquat && isExerciseAllowed(freeSquat, { ...focusProfile, equipment: ['bodyweight'] }), 'Removing box squats must retain an ordinary bodyweight squat');
 assert.equal(isExerciseAllowed(abWheel, { ...focusProfile, equipment: ['bodyweight'] }), false, 'Ab Wheel must not be prescribed unless the wheel is declared');
 assert.equal(isExerciseAllowed(abWheel, { ...focusProfile, equipment: ['bodyweight', 'abwheel'] }), true, 'Declaring an ab wheel must enable the corresponding exercise');
 assert.equal(bulgarianSquat.pattern, 'single-leg', 'Bulgarian Squat must be classified as a unilateral movement');
@@ -592,7 +595,37 @@ assert.equal(isExerciseAllowed(barbellShoulderPress, { ...focusProfile, equipmen
 const gluteGuide = await getExerciseDetails(gluteBridge.wgerId, 'en');
 assert.equal(gluteGuide.image, '/exercise-images/265.webp', 'The bodyweight Glute Bridge guide image must be bundled locally');
 assert.equal(isExerciseAllowed(bodyweightPush, { ...loadedAlternativeProfile, exerciseFilters: { ...loadedAlternativeProfile.exerciseFilters, preferLoadedVariants: false } }), true, 'The user must be able to keep bodyweight alternatives');
-assert.equal(row.equipment.includes('bench'), false, 'Unsupported Bent Over Dumbbell Rows must not require a bench absent from its reviewed execution');
+assert.equal(row.equipment.includes('bench'), false, 'The standing dumbbell row must not require a bench');
+const supportedRow = exercises.find((exercise) => exercise.wgerId === 81);
+const chestSupportedRow = exercises.find((exercise) => exercise.wgerId === 310);
+assert(supportedRow.equipment.includes('bench'), 'A bench-supported row must require its bench');
+assert.equal(supportedRow.loadMultiplier, 1, 'A one-arm bench row must count the single recorded dumbbell, not two dumbbells');
+assert.equal(row.loadMultiplier, 2, 'A bilateral standing row must count both dumbbells');
+assert.notEqual(getExerciseVariantKey(supportedRow), getExerciseVariantKey(chestSupportedRow), 'Single-arm and chest-supported rows must remain distinct useful variants');
+for (const id of [537, 538, 1084, 543, 1463, 310, 1312, 257, 1651, 1700, 487, 272, 204]) {
+  assert(exercises.some((exercise) => exercise.wgerId === id), `Reviewed useful exercise ${id} must remain available`);
+}
+const rowAlternatives = getSimilarExercises({ exercises: [{ exerciseId: supportedRow.id }] }, supportedRow.id, {
+  ...focusProfile, equipment: ['dumbbells', 'bench', 'pullup'], preferences: {}, exerciseFilters: {},
+});
+assert(rowAlternatives.some((exercise) => exercise.id === row.id), 'A bench row must offer the standing dumbbell row as a replacement');
+assert(rowAlternatives.some((exercise) => exercise.id === chestSupportedRow.id), 'A bench row must offer the distinct chest-supported row');
+assert.equal(rowAlternatives[0].pattern, 'horizontal-pull', 'Useful rows must rank ahead of pull-ups and deadlifts');
+for (const [first, second] of [[73, 538], [75, 537], [92, 272], [1801, 257], [184, 1700], [206, 1651]]) {
+  assert.notEqual(getExerciseVariantKey(exercises.find((exercise) => exercise.wgerId === first)),
+    getExerciseVariantKey(exercises.find((exercise) => exercise.wgerId === second)),
+    'Reviewed differences in execution must not be discarded as duplicate equipment variants');
+}
+const curlAlternativesWithStandardCurlUsed = getSimilarExercises({
+  exercises: [{ exerciseId: 'wger-95' }, { exerciseId: 'wger-92' }],
+}, 'wger-95', { ...focusProfile, equipment: ['dumbbells', 'cables'], preferences: {}, exerciseFilters: {} });
+assert(curlAlternativesWithStandardCurlUsed.some((exercise) => exercise.wgerId === 272),
+  'A hammer curl must remain selectable even when an ordinary dumbbell curl is already in the workout');
+const supportedRowGuide = await getExerciseDetails(81, 'en');
+assert(supportedRowGuide.description.includes('bench') && supportedRowGuide.description.includes('one dumbbell'),
+  'Bench-row instructions must agree with its image, support requirement and single-dumbbell load');
+const standingRowGuide = await getExerciseDetails(1463, 'en');
+assert(standingRowGuide.description.includes('pair of dumbbells'), 'The distinct standing row must have its own bilateral guide');
 assert.equal(getEquipmentCoverage({ ...focusProfile, equipment: ['dumbbells'], loadInventory: { dumbbells: [10] }, exerciseFilters: { essentialCatalog: true, preferLoadedVariants: false } }).pull, true, 'Dumbbells alone must provide the reviewed unsupported row and structural pulling coverage');
 
 const allEquipment = [...new Set(exercises.flatMap((exercise) => exercise.equipment))];
@@ -1264,7 +1297,7 @@ assert(failureWorkout.sets.every((set) => set.targetRir === 0), 'Every prescribe
 const continuityNow = Date.now();
 const pullup = exercises.find((exercise) => exercise.wgerId === 475);
 const chinup = exercises.find((exercise) => exercise.wgerId === 152);
-const dumbbellRow = exercises.find((exercise) => exercise.wgerId === 81);
+const dumbbellRow = exercises.find((exercise) => exercise.wgerId === 1463);
 assert.equal(pullup.pattern, 'vertical-pull', 'Pull-ups must be explicitly classified as a vertical pull');
 assert.equal(chinup.pattern, 'vertical-pull', 'Chin-ups must be explicitly classified as a vertical pull rather than a complementary movement');
 assert.equal(dumbbellRow.pattern, 'horizontal-pull', 'Dumbbell rows must be explicitly classified as a horizontal pull');

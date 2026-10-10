@@ -81,7 +81,7 @@
     "81": {
       "uuid": "94a5c406-7bcd-47f3-9687-bdf92a763932",
       "descriptions": {
-        "en": "With dumbbells in hand, bend at the hip until hands hang just below the knees (similar to straight-legged-deadlift starting position). Keep upper body angle constant while contracting your lats to pull you ellbows back pinching the shoulder blades at the top. Try not to stand up with every rep, check hands go below knees on every rep."
+        "en": "Place one knee and the hand on the same side on a stable bench. Keep the other foot on the floor and hold one dumbbell in the free hand. Brace the trunk and keep the back still. Pull the dumbbell toward the hip by driving the elbow backward, without rotating the torso or shrugging. Lower under control to a straight arm. Complete the prescribed repetitions on each side; record the weight of the single dumbbell."
       },
       "image": "/exercise-images/81.webp",
       "imageAttribution": {
@@ -93,7 +93,7 @@
         "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/deed.en"
       },
       "sourceUpdatedAt": "2026-06-19T18:46:18.172373+02:00",
-      "descriptionSource": "wger",
+      "descriptionSource": "easyfit-curated",
       "imageSource": "wger"
     },
     "83": {
@@ -357,6 +357,17 @@
       "descriptionSource": "wger",
       "imageSource": "wger"
     },
+    "204": {
+      "uuid": "43e85cb8-51d0-4892-b1bf-80a3cb111ff6",
+      "descriptions": {
+        "en": "• Setup: Set an adjustable bench to an incline of approximately 45 to 60 degrees.\n• Starting Position: Sit back against the bench with a dumbbell in each hand. Let your arms hang straight down toward the floor with your palms facing forward (supinated grip).\n• The Curl: Keeping your upper arms stationary and shoulders pinned back against the bench, exhale and curl the weights upward toward your shoulders.\n• Peak Contraction: Squeeze your biceps hard at the top of the movement, ensuring your elbows do not swing forward.\n• The Descent: Inhale and slowly lower the dumbbells back to the starting position, maintaining full control and feeling the stretch in the biceps."
+      },
+      "image": null,
+      "imageAttribution": null,
+      "sourceUpdatedAt": "2026-06-19T18:46:35.686758+02:00",
+      "descriptionSource": "wger",
+      "imageSource": null
+    },
     "206": {
       "uuid": "dcc6e237-a8bb-4eca-bbc5-7fb852636f6a",
       "descriptions": {
@@ -428,6 +439,17 @@
       "descriptionSource": "wger",
       "imageSource": "easyfit-curated"
     },
+    "257": {
+      "uuid": "d677de4c-5bd9-412a-91f1-857116a666a2",
+      "descriptions": {
+        "en": "Set the bar on rack supports at shoulder height. Hold it across the front of the shoulders with the elbows raised and the trunk braced. Unrack it and step back into a stable stance. Bend the knees and hips to squat to a comfortable depth while keeping the elbows lifted and the feet planted. Stand back up without rounding the back, then return the bar securely to the rack."
+      },
+      "image": null,
+      "imageAttribution": null,
+      "sourceUpdatedAt": "2026-04-15T22:23:55.585492+02:00",
+      "descriptionSource": "easyfit-curated",
+      "imageSource": null
+    },
     "265": {
       "uuid": "ceb0c2d0-06ac-4a49-89e7-8d7b1c1e5672",
       "descriptions": {
@@ -443,6 +465,29 @@
       "sourceUpdatedAt": "2026-08-27T17:04:27.003100+02:00",
       "descriptionSource": "easyfit-curated",
       "imageSource": "easyfit-curated"
+    },
+    "272": {
+      "uuid": "c0d9fe98-f4fe-49f3-8037-05e1984e7d2d",
+      "descriptions": {
+        "en": "• Start: Hold dumbbells at your sides with palms facing your torso.\n• Curl: Lift the weights toward your shoulders while maintaining the neutral grip (like holding a hammer).\n• Squeeze: Contract the biceps at the top without moving your elbows forward.\n• Lower: Slowly return to the starting position with full control.",
+        "it": "Hummer curl con manubriHummer curl con manubri"
+      },
+      "image": null,
+      "imageAttribution": null,
+      "sourceUpdatedAt": "2026-06-19T18:46:39.253111+02:00",
+      "descriptionSource": "wger",
+      "imageSource": null
+    },
+    "310": {
+      "uuid": "27eb3d4a-8677-4c1f-bf34-251e2b4741cb",
+      "descriptions": {
+        "en": "• Using a neutral grip, lean into an incline bench.\n• Take a dumbbell in each hand with a neutral grip, beginning with the arms straight. This will be your starting position.\n• Retract the shoulder blades and flex the elbows to row the dumbbells to your side.\n• Pause at the top of the motion, and then return to the starting position."
+      },
+      "image": null,
+      "imageAttribution": null,
+      "sourceUpdatedAt": "2026-06-19T18:48:52.840741+02:00",
+      "descriptionSource": "wger",
+      "imageSource": null
     },
     "348": {
       "uuid": "63375f5b-2d81-471c-bea4-fc3d207e96cb",
@@ -592,6 +637,17 @@
       "descriptionSource": "easyfit-curated",
       "imageSource": "wger"
     },
+    "487": {
+      "uuid": "3f93459a-d06e-465c-85db-2137da759440",
+      "descriptions": {
+        "en": "Seated on a bench with the dumbbells on the floor bend over at 45 Degrees and then slowly raise each dumbbell to shoulder height and hold for a couple seconds before lowering to the starting position."
+      },
+      "image": null,
+      "imageAttribution": null,
+      "sourceUpdatedAt": "2026-06-19T18:57:14.553603+02:00",
+      "descriptionSource": "wger",
+      "imageSource": null
+    },
     "512": {
       "uuid": "00fcf603-b0d0-48d2-9b5e-c7f0d510d46c",
       "descriptions": {
@@ -609,6 +665,41 @@
       "sourceUpdatedAt": "2026-06-19T18:46:53.825320+02:00",
       "descriptionSource": "wger",
       "imageSource": "wger"
+    },
+    "537": {
+      "uuid": "57e17672-52b9-43cf-8d0d-4b3f06a0c0d0",
+      "descriptions": {
+        "en": "This is a variation of the flat bench press designed to emphasize the clavicular head of the pectoralis major (the upper portion). By tilting the torso, the angle of the push changes, shifting more tension to the upper chest and shoulders, which helps achieve a more aesthetic, balanced, and three-dimensional development of the torso.\n\n• \nBench Adjustment and Preparation: Set the bench to an incline of between 30 and 45 degrees (an incline greater than 45° will place too much strain on the shoulders and reduce the stimulus to the chest). Sit down with a dumbbell on each thigh.\n\n• \nStarting position: Lean back, resting your back against the bench, while using your knees one after the other to push the dumbbells upward to shoulder height.\n\n• \nAnatomical Stabilization: Plant your feet firmly on the floor. Retract your scapulas (bring your shoulder blades together and press them into the bench) to protect your shoulders and stabilize the load.\n\n• \nEccentric Phase (Lowering): Lower the dumbbells slowly and in a controlled manner toward the upper part of your chest. Your elbows should not splay out to the sides (90°); maintain a safe angle of about 45 to 60 degrees relative to your torso.\n\n• \nConcentric Phase (Lift): Push the dumbbells vertically upward as you exhale. Follow a slightly converging path (without letting them touch at the top). Stop the movement just before locking out your elbows to maintain muscle tension in the upper pectoral.",
+        "it": "• \nLa panca dovrebbe essere inclinata ovunque da 30 a 45 gradi\n\n• \nAssicurati di premere i manubri verso l'alto (perpendicolarmente al pavimento)"
+      },
+      "image": null,
+      "imageAttribution": null,
+      "sourceUpdatedAt": "2026-07-02T16:44:43.088138+02:00",
+      "descriptionSource": "wger",
+      "imageSource": null
+    },
+    "538": {
+      "uuid": "275fb49f-975c-4d6e-9d63-2c86ed740f40",
+      "descriptions": {
+        "en": "Set a bench to a moderate incline inside a rack and position the bar above the upper chest. Set the rack supports and safeties before starting. Lie back with the feet planted and shoulder blades supported. Unrack the bar, lower it under control toward the upper chest, then press upward without lifting the hips or bouncing the bar. Return the bar securely to the rack after the set.",
+        "it": "Distensione Panca Inclinata con BilanciereDistensione Panca Inclinata con Bilanciere"
+      },
+      "image": null,
+      "imageAttribution": null,
+      "sourceUpdatedAt": "2026-04-15T22:23:55.484203+02:00",
+      "descriptionSource": "easyfit-curated",
+      "imageSource": null
+    },
+    "543": {
+      "uuid": "5912d7ed-6a0e-4b4c-b30a-fc9f3f890fc1",
+      "descriptions": {
+        "en": "Adjust the shoulder-press machine seat so the handles start around shoulder height. Sit with the back supported and feet planted. Hold the handles, keep the ribs down, and press upward in a controlled movement without shrugging or arching the back. Lower to the starting position under control. Select the weight on the machine and keep the movement within a comfortable range."
+      },
+      "image": null,
+      "imageAttribution": null,
+      "sourceUpdatedAt": "2026-04-15T22:23:55.116420+02:00",
+      "descriptionSource": "easyfit-curated",
+      "imageSource": null
     },
     "566": {
       "uuid": "8b0a0371-c0a9-42a7-aab7-68d520542fb2",
@@ -717,25 +808,6 @@
       "descriptionSource": "wger",
       "imageSource": "wger"
     },
-    "977": {
-      "uuid": "151434a5-c046-459f-a3a9-c3125075856f",
-      "descriptions": {
-        "en": "• Set up the box: Position the box behind you, about 3 feet from a squat rack if you're using a barbell. Choose a height that allows you to squat down and gently tap your glutes on the box with your back straight.\n• Stand with proper form: Stand with your feet shoulder-width apart, toes pointed slightly outward. Engage your core and keep your back neutral. If using a barbell, rack it at shoulder height.\n• Lower down: Sit back as if going to sit on a chair, bending your knees and lowering your hips towards the box. Keep your core tight and back straight throughout the movement.\n• Controlled descent: Descend in a controlled manner until your glutes gently touch the box. Don't plop down.\n• Pause and press up: Briefly pause at the bottom with your back straight and core engaged. Then, press through your heels to drive yourself back up to the starting position.\n\nImprovements in coordination, balance and endurance, toning of the leg and buttock muscles and an overall increase in bone density eliminating the risk of osteoporosis.",
-        "it": "• Preparare il box: Posizionate il box dietro di voi, a circa un metro e mezzo da un rack per lo squat se utilizzate un bilanciere. Scegliete un'altezza che vi consenta di accovacciarvi e di battere delicatamente i glutei sul box con la schiena dritta.\n• In piedi, con una forma corretta: State in piedi con i piedi alla larghezza delle spalle e le punte dei piedi leggermente rivolte verso l'esterno. Impegnate il core e mantenete la schiena neutra. Se si utilizza un bilanciere, posizionarlo all'altezza delle spalle.\n• Abbassarsi: Sedetevi come se doveste sedervi su una sedia, piegando le ginocchia e abbassando i fianchi verso il box. Mantenete il core teso e la schiena dritta durante tutto il movimento.\n• Discesa controllata: Scendere in modo controllato finché i glutei non toccano delicatamente il box. Non buttatevi a terra.\n• Pausa e rialzo: Fate una breve pausa sul fondo con la schiena dritta e il core impegnato. Quindi, premere sui talloni per risalire alla posizione di partenza.\n\nMigliora la coordinazione, l'equilibrio e la resistenza, tonifica i muscoli delle gambe e dei glutei e aumenta la densità ossea eliminando il rischio di osteoporosi."
-      },
-      "image": "/exercise-images/977.webp",
-      "imageAttribution": {
-        "author": "clafal",
-        "authorUrl": "",
-        "sourceUrl": "https://wger.de/media/exercise-images/977/3124c091-6395-4377-96c5-56048b627ceb.png",
-        "derivativeSourceUrl": "",
-        "licenseName": "CC-BY-SA 4",
-        "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/deed.en"
-      },
-      "sourceUpdatedAt": "2026-07-23T12:08:28.395702+02:00",
-      "descriptionSource": "wger",
-      "imageSource": "wger"
-    },
     "984": {
       "uuid": "3284fd27-5402-4821-9c32-29066d4e2667",
       "descriptions": {
@@ -773,6 +845,17 @@
       "sourceUpdatedAt": "2026-07-23T12:25:06.546463+02:00",
       "descriptionSource": "wger",
       "imageSource": "wger"
+    },
+    "1084": {
+      "uuid": "e4966cb8-9089-4595-9c78-99a27821e6ff",
+      "descriptions": {
+        "en": "Grab your dumbbells and lay flat on your back with your knees bent and your feet flat on the ground (use a bench if you have one). Press the weights up, locking out your elbows (A). Lower them slowly until your upper arms are resting on the floor (B) close to your body. Pause here before explosively pressing back up. Squeeze your chest hard and repeat."
+      },
+      "image": null,
+      "imageAttribution": null,
+      "sourceUpdatedAt": "2026-06-19T18:57:47.486181+02:00",
+      "descriptionSource": "wger",
+      "imageSource": null
     },
     "1112": {
       "uuid": "50037aaf-34f1-4018-b504-206623b77c46",
@@ -846,6 +929,17 @@
       "descriptionSource": "wger",
       "imageSource": "wger"
     },
+    "1312": {
+      "uuid": "edc3f6b7-96b0-4967-90d7-bba9d7d442cb",
+      "descriptions": {
+        "en": "Stand with the feet around shoulder width and keep the whole foot on the floor. Brace the trunk, bend the knees and hips together, and lower into a squat to a comfortable depth while keeping the knees aligned with the feet. Stand back up by pushing through the feet. Use a controlled movement without bouncing; no bench, box or external weight is required."
+      },
+      "image": null,
+      "imageAttribution": null,
+      "sourceUpdatedAt": "2026-06-19T18:52:02.129678+02:00",
+      "descriptionSource": "easyfit-curated",
+      "imageSource": null
+    },
     "1336": {
       "uuid": "19133a0d-e6b2-4d57-8a84-8aac3d962a99",
       "descriptions": {
@@ -881,6 +975,17 @@
       "sourceUpdatedAt": "2026-07-23T12:36:30.445670+02:00",
       "descriptionSource": "wger",
       "imageSource": "wger"
+    },
+    "1463": {
+      "uuid": "1dca10f9-a976-4a09-ab85-b95fafaa1a28",
+      "descriptions": {
+        "en": "The Dumbbell Underhand Dead Row will involve the back, which means you can try a bit heavier weight. The catch is that you need to be able to control the weight for all the reps.\n\n• Start by holding a pair of dumbbells with your feet shoulder-wide apart and your knees slightly bent.\n• Hinge at your hips to lower your torse forward until it's almost parallel to the floor, keeping your back flat and maintaining a slight bend in your knees.\n• Exhale as you row the dumbbells to your sides up to chest height, leading with your elbows until your upper arms are just past parallel to the floor and the dumbbells are at ribcage level.\n• Slowly lower to the starting position and repeat. Keep your back flat all the time."
+      },
+      "image": null,
+      "imageAttribution": null,
+      "sourceUpdatedAt": "2026-06-19T18:52:57.027802+02:00",
+      "descriptionSource": "wger",
+      "imageSource": null
     },
     "1551": {
       "uuid": "f5b84269-18af-4464-a61f-b767cbcd81dc",
@@ -972,6 +1077,17 @@
       "descriptionSource": "wger",
       "imageSource": "wger"
     },
+    "1651": {
+      "uuid": "75e34967-b0ec-40d5-811e-b474b234a7a9",
+      "descriptions": {
+        "en": "This exercise involves holding a dumbbell in each hand and stepping back into a lunge position, then returning to standing. It primarily targets the glutes, hamstrings, and quadriceps."
+      },
+      "image": null,
+      "imageAttribution": null,
+      "sourceUpdatedAt": "2026-06-19T18:49:37.661523+02:00",
+      "descriptionSource": "wger",
+      "imageSource": null
+    },
     "1652": {
       "uuid": "65d12ecf-54b8-466d-a412-e55c396cad69",
       "descriptions": {
@@ -1007,6 +1123,17 @@
       "sourceUpdatedAt": "2026-06-19T19:55:05.772016+02:00",
       "descriptionSource": "wger",
       "imageSource": "wger"
+    },
+    "1700": {
+      "uuid": "72129e4f-df97-4869-9561-33a1ba3c9186",
+      "descriptions": {
+        "en": "Stand holding the barbell in front of the thighs with the knees slightly bent. Brace the trunk and push the hips backward, keeping the bar close to the legs and the back still. Lower only as far as the hip hinge allows without rounding the back. Drive the hips forward to stand tall without leaning backward. Keep the knee angle nearly constant and lower each repetition under control; the bar need not reach the floor."
+      },
+      "image": null,
+      "imageAttribution": null,
+      "sourceUpdatedAt": "2026-07-23T12:08:23.671169+02:00",
+      "descriptionSource": "easyfit-curated",
+      "imageSource": null
     },
     "1706": {
       "uuid": "60d2c34b-43a1-48a3-b43b-160e4c0157f2",

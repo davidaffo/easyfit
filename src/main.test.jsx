@@ -75,6 +75,24 @@ beforeEach(() => {
 afterEach(cleanup);
 
 describe('critical workout lifecycle', () => {
+  test('a bench row offers and accepts a distinct standing dumbbell row', async () => {
+    const user = userEvent.setup();
+    const workout = readyWorkout();
+    const supportedRow = exercises.find((exercise) => exercise.wgerId === 81);
+    workout.exercises = [{
+      ...workout.exercises[0], exerciseId: supportedRow.id, exerciseSnapshot: supportedRow,
+    }];
+    saveState({ workout });
+    render(<App/>);
+    await user.click(screen.getByRole('button', { name: 'Riprendi allenamento' }));
+    await user.click(screen.getByRole('button', { name: `Opzioni per ${supportedRow.name}` }));
+    await user.click(screen.getByRole('button', { name: /Sostituisci con uno simile/ }));
+    const picker = screen.getByRole('dialog', { name: `Sostituisci ${supportedRow.name}` });
+    expect(within(picker).getByRole('button', { name: /Chest-Supported Dumbbell Row/ })).toBeTruthy();
+    await user.click(within(picker).getByRole('button', { name: /Standing Dumbbell Row/ }));
+    expect(JSON.parse(localStorage.getItem('easyfit-workout')).exercises[0].exerciseId).toBe('wger-1463');
+  });
+
   test.each([[[11, 11], '+14%'], [[14, 14], '-11%'], [[13, 12], null]])('completion volume compares actual reps with the previous %s-rep sets', async (previousReps, expectedChange) => {
     const user = userEvent.setup();
     const workout = readyWorkout();

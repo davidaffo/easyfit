@@ -24,6 +24,12 @@ const equipmentMap = {
   'Resistance band': 'bands', 'Gym mat': 'bodyweight', 'Swiss Ball': 'ball',
 };
 const englishGuideOverrides = {
+  81: `Place one knee and the hand on the same side on a stable bench. Keep the other foot on the floor and hold one dumbbell in the free hand. Brace the trunk and keep the back still. Pull the dumbbell toward the hip by driving the elbow backward, without rotating the torso or shrugging. Lower under control to a straight arm. Complete the prescribed repetitions on each side; record the weight of the single dumbbell.`,
+  1312: `Stand with the feet around shoulder width and keep the whole foot on the floor. Brace the trunk, bend the knees and hips together, and lower into a squat to a comfortable depth while keeping the knees aligned with the feet. Stand back up by pushing through the feet. Use a controlled movement without bouncing; no bench, box or external weight is required.`,
+  538: `Set a bench to a moderate incline inside a rack and position the bar above the upper chest. Set the rack supports and safeties before starting. Lie back with the feet planted and shoulder blades supported. Unrack the bar, lower it under control toward the upper chest, then press upward without lifting the hips or bouncing the bar. Return the bar securely to the rack after the set.`,
+  543: `Adjust the shoulder-press machine seat so the handles start around shoulder height. Sit with the back supported and feet planted. Hold the handles, keep the ribs down, and press upward in a controlled movement without shrugging or arching the back. Lower to the starting position under control. Select the weight on the machine and keep the movement within a comfortable range.`,
+  257: `Set the bar on rack supports at shoulder height. Hold it across the front of the shoulders with the elbows raised and the trunk braced. Unrack it and step back into a stable stance. Bend the knees and hips to squat to a comfortable depth while keeping the elbows lifted and the feet planted. Stand back up without rounding the back, then return the bar securely to the rack.`,
+  1700: `Stand holding the barbell in front of the thighs with the knees slightly bent. Brace the trunk and push the hips backward, keeping the bar close to the legs and the back still. Lower only as far as the hip hinge allows without rounding the back. Drive the hips forward to stand tall without leaning backward. Keep the knee angle nearly constant and lower each repetition under control; the bar need not reach the floor.`,
   95: `Stand tall facing a low cable with the handle held at shoulder width. Keep the ribs down, shoulders relaxed, and elbows close to the torso. Curl the handle by bending only the elbows until the forearms approach the upper arms. Pause without letting the elbows drift forward, then lower the load under control to full elbow extension. Avoid swinging or using momentum.`,
   91: `Stand with the feet stable and hold the barbell around shoulder width. Brace the trunk, keep the shoulders down, and hold the elbows close to the sides. Curl the bar by flexing the elbows without leaning back or driving the elbows forward. Stop before the shoulders take over, then lower the bar slowly to full extension while keeping the wrists neutral.`,
   92: `Stand or sit with one dumbbell in each hand, arms extended and palms initially facing inward. Keep the upper arms close to the torso and curl the dumbbells with a controlled motion, rotating the palms upward if comfortable. Pause near the top without moving the elbows forward, then lower slowly until the elbows are fully extended. Do not swing the torso.`,
@@ -40,13 +46,17 @@ const forbiddenGuidePhrases = ['fast movement', 'rapid movement', 'touches your 
 function curatedGuide(id) {
   const guide = details.exercises[String(id)];
   if (!guide) return guide;
+  // Newly reviewed text-only guides must work offline too. Source images are
+  // included only after sync has downloaded them into the app's image folder.
+  const candidateImage = curatedGuideImageOverrides[id] || guide.image;
+  const image = candidateImage?.startsWith('/exercise-images/') ? candidateImage : null;
   return {
     ...guide,
     descriptions: { ...guide.descriptions, ...((registry.guideDescriptions[id] || englishGuideOverrides[id]) ? { en: registry.guideDescriptions[id] || englishGuideOverrides[id] } : {}) },
-    image: curatedGuideImageOverrides[id] || guide.image,
-    imageAttribution: registry.guideImageAttributions[id] || guide.imageAttribution || null,
+    image,
+    imageAttribution: image ? registry.guideImageAttributions[id] || guide.imageAttribution || null : null,
     descriptionSource: registry.guideDescriptions[id] || englishGuideOverrides[id] ? 'easyfit-curated' : 'wger',
-    imageSource: curatedGuideImageOverrides[id] ? 'easyfit-curated' : 'wger',
+    imageSource: image ? curatedGuideImageOverrides[id] ? 'easyfit-curated' : 'wger' : null,
   };
 }
 

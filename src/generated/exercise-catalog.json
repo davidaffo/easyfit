@@ -2,12 +2,12 @@
   "source": "wger",
   "sourceUrl": "https://wger.de",
   "syncedAt": "2026-09-04T18:15:53.577Z",
-  "curatedAt": "2026-09-14T20:37:20.534Z",
+  "curatedAt": "2026-10-10T12:51:55.816Z",
   "schemaVersion": 2,
   "curation": "explicit-wger-id-registry",
   "sourceCount": 822,
-  "count": 60,
-  "eligible": 60,
+  "count": 72,
+  "eligible": 72,
   "exercises": [
     {
       "id": "wger-1573",
@@ -79,6 +79,45 @@
       "effortClass": "high-fatigue-compound",
       "sessionRole": "primary",
       "intensifierEligible": false
+    },
+    {
+      "id": "wger-1700",
+      "wgerId": 1700,
+      "name": "Barbell Romanian Deadlift (RDL)",
+      "translations": {
+        "en": "Barbell Romanian Deadlift (RDL)"
+      },
+      "primary": "hamstrings",
+      "secondary": [
+        "glutes",
+        "back"
+      ],
+      "equipment": [
+        "barbell"
+      ],
+      "muscleContributions": {
+        "hamstrings": 1,
+        "glutes": 0.5,
+        "back": 0.5
+      },
+      "pattern": "hinge",
+      "compound": true,
+      "selectionPriority": 14,
+      "loadType": "external",
+      "minutes": 9,
+      "variationGroup": null,
+      "license": {
+        "name": "CC-BY-SA 4",
+        "url": "https://creativecommons.org/licenses/by-sa/4.0/deed.en",
+        "author": "daiben"
+      },
+      "source": "wger",
+      "generationEligible": true,
+      "loadMultiplier": 1,
+      "effortClass": "high-fatigue-compound",
+      "sessionRole": "primary",
+      "intensifierEligible": false,
+      "executionVariant": "romanian"
     },
     {
       "id": "wger-1830",
@@ -275,9 +314,10 @@
     {
       "id": "wger-81",
       "wgerId": 81,
-      "name": "Bent Over Dumbbell Rows",
+      "name": "One-Arm Dumbbell Row on Bench",
       "translations": {
-        "en": "Bent Over Dumbbell Rows"
+        "en": "One-Arm Dumbbell Row on Bench",
+        "it": "Rematore con un manubrio su panca"
       },
       "primary": "back",
       "secondary": [
@@ -285,7 +325,8 @@
         "shoulders"
       ],
       "equipment": [
-        "dumbbells"
+        "dumbbells",
+        "bench"
       ],
       "muscleContributions": {
         "back": 1,
@@ -305,18 +346,20 @@
       },
       "source": "wger",
       "generationEligible": true,
-      "loadMultiplier": 2,
+      "loadMultiplier": 1,
       "effortClass": "stable-compound",
       "sessionRole": "primary",
-      "intensifierEligible": true
+      "intensifierEligible": true,
+      "executionVariant": "single-arm-supported",
+      "loadUnit": "single-dumbbell"
     },
     {
       "id": "wger-83",
       "wgerId": 83,
       "name": "Bent Over Rowing",
       "translations": {
-        "en": "Bent Over Rowing",
-        "it": "Rematore presa neutra con bilanciere"
+        "en": "Bent-Over Barbell Row",
+        "it": "Rematore con bilanciere, presa prona"
       },
       "primary": "back",
       "secondary": [
@@ -484,20 +527,19 @@
       "intensifierEligible": true
     },
     {
-      "id": "wger-977",
-      "wgerId": 977,
-      "name": "Box squat",
+      "id": "wger-1312",
+      "wgerId": 1312,
+      "name": "Bodyweight Squat",
       "translations": {
-        "en": "Box squat",
-        "it": "Squat box"
+        "en": "Bodyweight Squat",
+        "it": "Squat a corpo libero"
       },
       "primary": "quads",
       "secondary": [
         "glutes"
       ],
       "equipment": [
-        "bodyweight",
-        "bench"
+        "bodyweight"
       ],
       "muscleContributions": {
         "quads": 1,
@@ -512,7 +554,7 @@
       "license": {
         "name": "CC-BY-SA 4",
         "url": "https://creativecommons.org/licenses/by-sa/4.0/deed.en",
-        "author": "clafal"
+        "author": "admin"
       },
       "source": "wger",
       "generationEligible": true,
@@ -957,6 +999,44 @@
       "intensifierEligible": true
     },
     {
+      "id": "wger-1084",
+      "wgerId": 1084,
+      "name": "Dumbbell Floor Press",
+      "translations": {
+        "en": "Dumbbell Floor Press"
+      },
+      "primary": "chest",
+      "secondary": [
+        "shoulders",
+        "triceps"
+      ],
+      "equipment": [
+        "dumbbells"
+      ],
+      "muscleContributions": {
+        "chest": 1,
+        "shoulders": 0.5,
+        "triceps": 0.5
+      },
+      "pattern": "horizontal-push",
+      "compound": true,
+      "selectionPriority": 13,
+      "loadType": "per-dumbbell",
+      "minutes": 9,
+      "variationGroup": null,
+      "license": {
+        "name": "CC-BY-SA 4",
+        "url": "https://creativecommons.org/licenses/by-sa/4.0/deed.en",
+        "author": "admin"
+      },
+      "source": "wger",
+      "generationEligible": true,
+      "loadMultiplier": 2,
+      "effortClass": "stable-compound",
+      "sessionRole": "primary",
+      "intensifierEligible": true
+    },
+    {
       "id": "wger-203",
       "wgerId": 203,
       "name": "Dumbbell Goblet Squat",
@@ -1032,6 +1112,40 @@
       "loadUnit": "single-dumbbell"
     },
     {
+      "id": "wger-204",
+      "wgerId": 204,
+      "name": "Dumbbell Incline Curl",
+      "translations": {
+        "en": "Dumbbell Incline Curl"
+      },
+      "primary": "biceps",
+      "secondary": [],
+      "equipment": [
+        "dumbbells",
+        "bench"
+      ],
+      "muscleContributions": {
+        "biceps": 1
+      },
+      "pattern": "elbow-flexion",
+      "compound": false,
+      "selectionPriority": 13,
+      "loadType": "per-dumbbell",
+      "minutes": 6,
+      "variationGroup": "674f258e-60c5-4c94-8495-cd918aabea77",
+      "license": {
+        "name": "CC-BY-SA 4",
+        "url": "https://creativecommons.org/licenses/by-sa/4.0/deed.en",
+        "author": "ExRx"
+      },
+      "source": "wger",
+      "generationEligible": true,
+      "loadMultiplier": 2,
+      "effortClass": "isolation",
+      "sessionRole": "accessory",
+      "intensifierEligible": true
+    },
+    {
       "id": "wger-206",
       "wgerId": 206,
       "name": "Dumbbell Lunges Walking",
@@ -1068,6 +1182,43 @@
       "intensifierEligible": false
     },
     {
+      "id": "wger-1651",
+      "wgerId": 1651,
+      "name": "Dumbbell Rear Lunge",
+      "translations": {
+        "en": "Dumbbell Rear Lunge"
+      },
+      "primary": "quads",
+      "secondary": [
+        "glutes"
+      ],
+      "equipment": [
+        "dumbbells"
+      ],
+      "muscleContributions": {
+        "quads": 1,
+        "glutes": 0.5
+      },
+      "pattern": "single-leg",
+      "compound": true,
+      "selectionPriority": 13,
+      "loadType": "per-dumbbell",
+      "minutes": 9,
+      "variationGroup": null,
+      "license": {
+        "name": "CC-BY-SA 4",
+        "url": "https://creativecommons.org/licenses/by-sa/4.0/deed.en",
+        "author": "AlucardEvil40"
+      },
+      "source": "wger",
+      "generationEligible": true,
+      "loadMultiplier": 2,
+      "effortClass": "high-fatigue-compound",
+      "sessionRole": "primary",
+      "intensifierEligible": false,
+      "executionVariant": "reverse-lunge"
+    },
+    {
       "id": "wger-1652",
       "wgerId": 1652,
       "name": "Dumbbell Romanian Deadlift",
@@ -1097,6 +1248,45 @@
         "name": "CC-BY-SA 4",
         "url": "https://creativecommons.org/licenses/by-sa/4.0/deed.en",
         "author": "AlucardEvil40"
+      },
+      "source": "wger",
+      "generationEligible": true,
+      "loadMultiplier": 2,
+      "effortClass": "high-fatigue-compound",
+      "sessionRole": "primary",
+      "intensifierEligible": false
+    },
+    {
+      "id": "wger-1463",
+      "wgerId": 1463,
+      "name": "Standing Dumbbell Row (Underhand)",
+      "translations": {
+        "en": "Standing Dumbbell Row (Underhand)",
+        "it": "Rematore in piedi con manubri, presa supina"
+      },
+      "primary": "back",
+      "secondary": [
+        "biceps",
+        "shoulders"
+      ],
+      "equipment": [
+        "dumbbells"
+      ],
+      "muscleContributions": {
+        "back": 1,
+        "biceps": 0.5,
+        "shoulders": 0.25
+      },
+      "pattern": "horizontal-pull",
+      "compound": true,
+      "selectionPriority": 15,
+      "loadType": "per-dumbbell",
+      "minutes": 9,
+      "variationGroup": null,
+      "license": {
+        "name": "CC-BY-SA 4",
+        "url": "https://creativecommons.org/licenses/by-sa/4.0/deed.en",
+        "author": "Moffi"
       },
       "source": "wger",
       "generationEligible": true,
@@ -1174,6 +1364,44 @@
       "intensifierEligible": true
     },
     {
+      "id": "wger-257",
+      "wgerId": 257,
+      "name": "Front Squats",
+      "translations": {
+        "en": "Front Squats"
+      },
+      "primary": "quads",
+      "secondary": [
+        "glutes"
+      ],
+      "equipment": [
+        "barbell",
+        "rack"
+      ],
+      "muscleContributions": {
+        "quads": 1,
+        "glutes": 0.5
+      },
+      "pattern": "squat",
+      "compound": true,
+      "selectionPriority": 14,
+      "loadType": "external",
+      "minutes": 9,
+      "variationGroup": "ba010720-728a-4baf-ba8c-e1a37370625b",
+      "license": {
+        "name": "CC-BY-SA 3",
+        "url": "https://creativecommons.org/licenses/by-sa/3.0/deed.en",
+        "author": "sistab2"
+      },
+      "source": "wger",
+      "generationEligible": true,
+      "loadMultiplier": 1,
+      "effortClass": "high-fatigue-compound",
+      "sessionRole": "primary",
+      "intensifierEligible": false,
+      "executionVariant": "front"
+    },
+    {
       "id": "wger-265",
       "wgerId": 265,
       "name": "Glute Bridge",
@@ -1208,6 +1436,41 @@
       "effortClass": "stable-compound",
       "sessionRole": "primary",
       "intensifierEligible": true
+    },
+    {
+      "id": "wger-272",
+      "wgerId": 272,
+      "name": "Hammer Curls",
+      "translations": {
+        "en": "Hammer Curls",
+        "it": "Hammer curl con manubri"
+      },
+      "primary": "biceps",
+      "secondary": [],
+      "equipment": [
+        "dumbbells"
+      ],
+      "muscleContributions": {
+        "biceps": 1
+      },
+      "pattern": "elbow-flexion",
+      "compound": false,
+      "selectionPriority": 14,
+      "loadType": "per-dumbbell",
+      "minutes": 6,
+      "variationGroup": "674f258e-60c5-4c94-8495-cd918aabea77",
+      "license": {
+        "name": "CC-BY-SA 3",
+        "url": "https://creativecommons.org/licenses/by-sa/3.0/deed.en",
+        "author": "wger.de"
+      },
+      "source": "wger",
+      "generationEligible": true,
+      "loadMultiplier": 2,
+      "effortClass": "isolation",
+      "sessionRole": "accessory",
+      "intensifierEligible": true,
+      "executionVariant": "hammer"
     },
     {
       "id": "wger-1831",
@@ -1279,6 +1542,130 @@
       "effortClass": "isolation",
       "sessionRole": "accessory",
       "intensifierEligible": true
+    },
+    {
+      "id": "wger-538",
+      "wgerId": 538,
+      "name": "Incline Bench Press - Barbell",
+      "translations": {
+        "en": "Incline Bench Press - Barbell",
+        "it": "Distensione Panca Inclinata Bilanciere"
+      },
+      "primary": "chest",
+      "secondary": [
+        "shoulders",
+        "triceps"
+      ],
+      "equipment": [
+        "barbell",
+        "bench",
+        "rack"
+      ],
+      "muscleContributions": {
+        "chest": 1,
+        "shoulders": 0.5,
+        "triceps": 0.5
+      },
+      "pattern": "horizontal-push",
+      "compound": true,
+      "selectionPriority": 14,
+      "loadType": "external",
+      "minutes": 9,
+      "variationGroup": "f45f135e-4cd3-4023-a82a-83fca2078656",
+      "license": {
+        "name": "CC-BY-SA 3",
+        "url": "https://creativecommons.org/licenses/by-sa/3.0/deed.en",
+        "author": "wger.de"
+      },
+      "source": "wger",
+      "generationEligible": true,
+      "loadMultiplier": 1,
+      "effortClass": "high-fatigue-compound",
+      "sessionRole": "primary",
+      "intensifierEligible": false,
+      "executionVariant": "incline"
+    },
+    {
+      "id": "wger-537",
+      "wgerId": 537,
+      "name": "Incline Bench Press - Dumbbell",
+      "translations": {
+        "en": "Incline Bench Press - Dumbbell",
+        "it": "Panca inclinata con manubri"
+      },
+      "primary": "chest",
+      "secondary": [
+        "shoulders",
+        "triceps"
+      ],
+      "equipment": [
+        "dumbbells",
+        "bench"
+      ],
+      "muscleContributions": {
+        "chest": 1,
+        "shoulders": 0.5,
+        "triceps": 0.5
+      },
+      "pattern": "horizontal-push",
+      "compound": true,
+      "selectionPriority": 14,
+      "loadType": "per-dumbbell",
+      "minutes": 9,
+      "variationGroup": "f45f135e-4cd3-4023-a82a-83fca2078656",
+      "license": {
+        "name": "CC-BY-SA 3",
+        "url": "https://creativecommons.org/licenses/by-sa/3.0/deed.en",
+        "author": "wger.de"
+      },
+      "source": "wger",
+      "generationEligible": true,
+      "loadMultiplier": 2,
+      "effortClass": "stable-compound",
+      "sessionRole": "primary",
+      "intensifierEligible": true,
+      "executionVariant": "incline"
+    },
+    {
+      "id": "wger-310",
+      "wgerId": 310,
+      "name": "Incline Dumbbell Row",
+      "translations": {
+        "en": "Chest-Supported Dumbbell Row",
+        "it": "Rematore con manubri e petto su panca"
+      },
+      "primary": "back",
+      "secondary": [
+        "biceps",
+        "shoulders"
+      ],
+      "equipment": [
+        "dumbbells",
+        "bench"
+      ],
+      "muscleContributions": {
+        "back": 1,
+        "biceps": 0.5,
+        "shoulders": 0.25
+      },
+      "pattern": "horizontal-pull",
+      "compound": true,
+      "selectionPriority": 14,
+      "loadType": "per-dumbbell",
+      "minutes": 9,
+      "variationGroup": "e87bd3db-75b1-44ec-8962-df2f97274109",
+      "license": {
+        "name": "CC-BY-SA 4",
+        "url": "https://creativecommons.org/licenses/by-sa/4.0/deed.en",
+        "author": "cal.zabel"
+      },
+      "source": "wger",
+      "generationEligible": true,
+      "loadMultiplier": 2,
+      "effortClass": "stable-compound",
+      "sessionRole": "primary",
+      "intensifierEligible": true,
+      "executionVariant": "chest-supported"
     },
     {
       "id": "wger-1003",
@@ -1789,6 +2176,43 @@
       "intensifierEligible": true
     },
     {
+      "id": "wger-487",
+      "wgerId": 487,
+      "name": "Rear Delt Raises",
+      "translations": {
+        "en": "Rear Delt Raises"
+      },
+      "primary": "shoulders",
+      "secondary": [
+        "back"
+      ],
+      "equipment": [
+        "dumbbells",
+        "bench"
+      ],
+      "muscleContributions": {
+        "shoulders": 1,
+        "back": 0.25
+      },
+      "pattern": "rear-delt",
+      "compound": false,
+      "selectionPriority": 13,
+      "loadType": "per-dumbbell",
+      "minutes": 6,
+      "variationGroup": "b40d438a-c545-4507-8447-10bbb5e30bdd",
+      "license": {
+        "name": "CC-BY-SA 3",
+        "url": "https://creativecommons.org/licenses/by-sa/3.0/deed.en",
+        "author": "YYCfit"
+      },
+      "source": "wger",
+      "generationEligible": true,
+      "loadMultiplier": 2,
+      "effortClass": "isolation",
+      "sessionRole": "accessory",
+      "intensifierEligible": true
+    },
+    {
       "id": "wger-512",
       "wgerId": 512,
       "name": "Rowing seated, narrow grip",
@@ -1933,6 +2357,44 @@
       "source": "wger",
       "generationEligible": true,
       "loadMultiplier": 2,
+      "effortClass": "stable-compound",
+      "sessionRole": "primary",
+      "intensifierEligible": true
+    },
+    {
+      "id": "wger-543",
+      "wgerId": 543,
+      "name": "Shoulder Press, on Machine",
+      "translations": {
+        "en": "Shoulder Press, on Machine"
+      },
+      "primary": "shoulders",
+      "secondary": [
+        "triceps",
+        "chest"
+      ],
+      "equipment": [
+        "machines"
+      ],
+      "muscleContributions": {
+        "shoulders": 1,
+        "triceps": 0.5,
+        "chest": 0.25
+      },
+      "pattern": "vertical-push",
+      "compound": true,
+      "selectionPriority": 13,
+      "loadType": "external",
+      "minutes": 9,
+      "variationGroup": "e3388987-305b-43b8-9e90-c3bce376b203",
+      "license": {
+        "name": "CC-BY-SA 3",
+        "url": "https://creativecommons.org/licenses/by-sa/3.0/deed.en",
+        "author": "wger.de"
+      },
+      "source": "wger",
+      "generationEligible": true,
+      "loadMultiplier": 1,
       "effortClass": "stable-compound",
       "sessionRole": "primary",
       "intensifierEligible": true

@@ -53,6 +53,9 @@ export const curatedExercises = {
   // Spinta orizzontale
   73: item('hp', ['barbell', 'bench', 'rack'], 16, { effortClass: 'high-fatigue-compound' }),
   75: item('hp', ['dumbbells', 'bench'], 15),
+  537: item('hp', ['dumbbells', 'bench'], 14, { executionVariant: 'incline' }),
+  538: item('hp', ['barbell', 'bench', 'rack'], 14, { executionVariant: 'incline', effortClass: 'high-fatigue-compound' }),
+  1084: item('hp', ['dumbbells'], 13),
   129: item('hp', ['machines'], 13),
   1831: item('hp', ['machines'], 12),
   1551: item('hp', ['bodyweight'], 14),
@@ -65,12 +68,23 @@ export const curatedExercises = {
 
   // Spinta verticale
   567: item('vp', ['dumbbells'], 15),
+  543: item('vp', ['machines'], 13),
   566: item('vp', ['barbell', 'rack'], 16, { effortClass: 'high-fatigue-compound' }),
   454: item('vp', ['bodyweight'], 10, { muscleContributions: { shoulders: 1, triceps: .5, chest: .25, core: .25 } }),
 
   // Tirata orizzontale
-  83: item('hr', ['barbell'], 16, { effortClass: 'high-fatigue-compound' }),
-  81: item('hr', ['dumbbells'], 15),
+  83: item('hr', ['barbell'], 16, { effortClass: 'high-fatigue-compound', translations: { en: 'Bent-Over Barbell Row', it: 'Rematore con bilanciere, presa prona' } }),
+  81: item('hr', ['dumbbells', 'bench'], 15, {
+    name: 'One-Arm Dumbbell Row on Bench',
+    translations: { en: 'One-Arm Dumbbell Row on Bench', it: 'Rematore con un manubrio su panca' },
+    executionVariant: 'single-arm-supported', loadMultiplier: 1, loadUnit: 'single-dumbbell',
+  }),
+  1463: item('hr', ['dumbbells'], 15, {
+    name: 'Standing Dumbbell Row (Underhand)',
+    translations: { en: 'Standing Dumbbell Row (Underhand)', it: 'Rematore in piedi con manubri, presa supina' },
+    effortClass: 'high-fatigue-compound',
+  }),
+  310: item('hr', ['dumbbells', 'bench'], 14, { executionVariant: 'chest-supported', translations: { en: 'Chest-Supported Dumbbell Row', it: 'Rematore con manubri e petto su panca' } }),
   394: item('hr', ['cables'], 14),
   512: item('hr', ['machines'], 13),
 
@@ -81,18 +95,23 @@ export const curatedExercises = {
   1136: item('vr', ['cables'], 15),
 
   // Accosciata e lavoro unilaterale
+  // Box squats (977, 397, 1948) are deliberately omitted. Keep an ordinary
+  // bodyweight squat instead of requiring a box for the basic squat option.
   1801: item('sq', ['barbell', 'rack'], 16, { effortClass: 'high-fatigue-compound' }),
   371: item('sq', ['machines'], 15),
-  977: item('sq', ['bodyweight', 'bench'], 13),
+  1312: item('sq', ['bodyweight'], 13, { name: 'Bodyweight Squat', translations: { en: 'Bodyweight Squat', it: 'Squat a corpo libero' } }),
+  257: item('sq', ['barbell', 'rack'], 14, { executionVariant: 'front', effortClass: 'high-fatigue-compound' }),
   1706: item('sl', ['dumbbells', 'bench'], 13, { effortClass: 'high-fatigue-compound' }),
   203: item('sq', ['dumbbells'], 15, { loadType: 'external', loadMultiplier: 1, loadUnit: 'single-dumbbell' }),
   1830: item('sl', ['barbell', 'rack'], 12, { effortClass: 'high-fatigue-compound' }),
   206: item('sl', ['dumbbells'], 14, { effortClass: 'high-fatigue-compound' }),
+  1651: item('sl', ['dumbbells'], 13, { executionVariant: 'reverse-lunge', effortClass: 'high-fatigue-compound' }),
   984: item('sl', ['bodyweight'], 12),
 
   // Hinge ed estensione d'anca
   1652: item('hi', ['dumbbells'], 15, { effortClass: 'high-fatigue-compound' }),
   184: item('hi', ['barbell'], 13, { effortClass: 'high-fatigue-compound' }),
+  1700: item('hi', ['barbell'], 14, { executionVariant: 'romanian', effortClass: 'high-fatigue-compound' }),
   1003: item('hi', ['kettlebell'], 13, { effortClass: 'high-fatigue-compound' }),
   1642: item('he', ['dumbbells', 'bench'], 13, { loadType: 'external', loadMultiplier: 1, loadUnit: 'single-dumbbell' }),
   265: item('he', ['bodyweight'], 15),
@@ -105,10 +124,13 @@ export const curatedExercises = {
   1378: item('sr', ['cables'], 13),
   1654: item('sr', ['machines'], 13),
   822: item('rd', ['cables'], 14),
+  487: item('rd', ['dumbbells', 'bench'], 13),
   1726: item('sp', ['cables'], 14),
   161: item('sp', ['dumbbells', 'bench'], 11, { loadType: 'external', loadMultiplier: 1, loadUnit: 'single-dumbbell', muscleContributions: { back: 1, chest: .5 } }),
   91: item('ef', ['barbell'], 13),
   92: item('ef', ['dumbbells'], 15),
+  272: item('ef', ['dumbbells'], 14, { executionVariant: 'hammer', translations: { en: 'Hammer Curls', it: 'Hammer curl con manubri' } }),
+  204: item('ef', ['dumbbells', 'bench'], 13),
   94: item('ef', ['ezbar'], 14),
   95: item('ef', ['cables'], 14),
   50: item('ee', ['barbell'], 12),
