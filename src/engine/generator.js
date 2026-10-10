@@ -690,6 +690,8 @@ export function getWorkoutCompletionInsights(workout, history = []) {
       maximumChange,
       currentVolume: current.volume,
       previousVolume: previous?.volume ?? null,
+      currentReps: current.completedSets.map((set) => Number(set.reps)),
+      previousReps: previous?.completedSets.map((set) => Number(set.reps)) ?? null,
       volumeChange,
       weighted: current.weighted,
       isRecord: previousBest != null && current.bestMark > previousBest * 1.005,

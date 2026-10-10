@@ -13,6 +13,12 @@ export function calculateProgression({ sets = [], recentSessions = [], decision,
   const completed = sets.filter((set) => set.done);
   const targets = sets.map((set) => Number(set.targetReps)).filter(positive);
   const baseline = bounded(targets.length ? Math.min(...targets) : limits.minReps, 1, limits.maxReps);
+  const hold = (weight, reason) => ({
+    ...result(weight, baseline, 'hold', reason),
+    targetReps: Array.from({ length: count }, (_, index) => bounded(
+      Number(sets[index]?.targetReps) || baseline, 1, limits.maxReps,
+    )),
+  });
   if (!completed.length) return result(usesWeight ? null : 0, limits.minReps, 'start', 'no-history');
 
   const available = [...new Set(loads.filter(positive).map(Number))].sort((a, b) => a - b);
@@ -23,9 +29,7 @@ export function calculateProgression({ sets = [], recentSessions = [], decision,
   const relevant = usesWeight ? completed.filter((set) => same(set.weight, weight)) : completed;
   const prescribedWeight = sets.map((set) => Number(set.targetWeight ?? set.weight)).find(positive);
   if (decision === 'maintain-prescription' && (!usesWeight || available.some((load) => same(load, prescribedWeight)))) {
-    const held = result(usesWeight ? prescribedWeight : 0, baseline, 'hold', 'maintain-requested');
-    if (targets.length === count) held.targetReps = targets.map((reps) => bounded(reps, 1, limits.maxReps));
-    return held;
+    return hold(usesWeight ? prescribedWeight : 0, 'maintain-requested');
   }
   if (usesWeight && !available.some((load) => same(load, weight))) {
     const lower = available.filter((load) => load < weight).at(-1);
@@ -101,16 +105,26 @@ export function calculateProgression({ sets = [], recentSessions = [], decision,
     && rirOf(set) >= Number(set.targetRir ?? 2)
     && (!usesWeight || same(set.weight, weight)))
     && sets.some((set) => set.rir != null && set.rir !== '' && Number.isFinite(Number(set.rir)));
-  if (!allMet) return result(weight, baseline, 'hold', 'target-not-completed');
-  if (count > sets.length) return result(weight, baseline, 'hold', 'sets-added');
+  if (!allMet) return hold(weight, 'target-not-completed');
+  if (count > sets.length) return hold(weight, 'sets-added');
 
-  const atTop = sets.every((set) => Number(set.targetReps) >= limits.maxReps && Number(set.reps) >= limits.maxReps);
+  const atTop = sets.every((set) => Number(set.reps) >= limits.maxReps);
   if (atTop && usesWeight) {
     const next = available.find((load) => load > weight + .001);
     if (next && (next - weight) / weight <= .1 && supportedAt(next) >= limits.minReps) {
       return result(next, limits.minReps, 'load', 'range-completed');
     }
   }
-  return result(weight, bounded(baseline + 1, 1, limits.maxReps), baseline >= limits.maxReps ? 'top' : 'reps',
-    baseline >= limits.maxReps ? 'range-completed' : 'all-sets-completed');
+  // Progress from each completed set, preserving uneven extra repetitions.
+  // Advancing the old targets can prescribe less work than was just performed.
+  const targetReps = sets.slice(0, count).map((set) => bounded(Number(set.reps) + 1, 1, limits.maxReps));
+  const completedVolume = sets.slice(0, count).reduce((sum, set) => sum + Number(set.reps), 0);
+  const nextVolume = targetReps.reduce((sum, reps) => sum + reps, 0);
+  const increased = nextVolume > completedVolume
+    && targetReps.every((reps, index) => reps >= Number(sets[index].reps));
+  return {
+    ...result(weight, targetReps[0], increased ? 'reps' : 'top',
+      increased ? 'all-sets-completed' : 'range-completed'),
+    targetReps,
+  };
 }

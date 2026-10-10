@@ -4,7 +4,7 @@ import { cleanup, render, screen, waitFor, within } from '@testing-library/react
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 import { App, applyExercisePrescriptionLimits } from './main.jsx';
-import { ENGINE_VERSION, generateWorkout, startWorkout } from './engine/generator.js';
+import { ENGINE_VERSION, generateWorkout, getWorkoutCompletionInsights, startWorkout } from './engine/generator.js';
 import { exercises } from './data/exercises.js';
 
 const profile = {
@@ -75,6 +75,37 @@ beforeEach(() => {
 afterEach(cleanup);
 
 describe('critical workout lifecycle', () => {
+  test.each([[[11, 11], '+14%'], [[14, 14], '-11%'], [[13, 12], null]])('completion volume compares actual reps with the previous %s-rep sets', async (previousReps, expectedChange) => {
+    const user = userEvent.setup();
+    const workout = readyWorkout();
+    const exercise = workout.exercises.find((item) => item.exerciseSnapshot.loadType === 'external');
+    const completedSet = (reps) => ({
+      ...exercise.sets[0], targetReps: 11, reps, targetWeight: 60, weight: 60,
+      targetRir: 2, rir: 2, done: true,
+    });
+    workout.exercises = [{ ...exercise, sets: [completedSet(13), completedSet(12)] }];
+    saveState({ workout, history: [{
+      id: 'previous-actual-volume', completedAt: Date.now() - 864e5,
+      exercises: [{ ...exercise, sets: previousReps.map(completedSet) }],
+    }] });
+    render(<App/>);
+    await user.click(screen.getByRole('button', { name: 'Riprendi allenamento' }));
+    await user.click(screen.getByRole('button', { name: 'Termina workout' }));
+    const summary = screen.getByRole('dialog', { name: 'Riepilogo workout completato' });
+    if (expectedChange) {
+      expect(within(summary).getByText(new RegExp(`volume ${expectedChange.replace('+', '\\+')}`))).toBeTruthy();
+    } else {
+      expect(within(summary).queryByText(/ · volume /)).toBeNull();
+    }
+    expect(within(summary).getByText(`Reps effettive: 13 + 12 · precedenti: ${previousReps.join(' + ')}`)).toBeTruthy();
+    const savedHistory = JSON.parse(localStorage.getItem('easyfit-history'));
+    expect(savedHistory.at(-1).exercises[0].sets.map((set) => set.reps)).toEqual([13, 12]);
+    const insight = getWorkoutCompletionInsights(savedHistory.at(-1), savedHistory.slice(0, -1)).items[0];
+    expect(insight.currentVolume).toBe(25 * 60);
+    expect(insight.previousVolume).toBe(previousReps.reduce((sum, reps) => sum + reps, 0) * 60);
+    if (!expectedChange) expect(insight.volumeChange).toBe(0);
+  });
+
   test.each([0, 1])('a small volume shortfall does not ask for recalibration (extra reps: %s)', async (extraReps) => {
     const user = userEvent.setup();
     const workout = readyWorkout();

@@ -1457,7 +1457,7 @@ function WorkoutComplete({ workout, history, language, onClose }) {
       <header><strong>Andamento esercizi</strong><span>rispetto all’ultima volta</span></header>
       {insights.items.map((item) => <article className={item.status} key={item.exerciseId}>
         <span className="completion-trend-symbol">{item.status === 'improved' ? '↑' : item.status === 'declined' ? '↓' : item.status === 'baseline' ? '◆' : '→'}</span>
-        <div><strong>{getExerciseName(item.exercise, language)}</strong><small>{insightLabel(item)}{item.volumeChange != null && Math.abs(item.volumeChange) >= .01 ? ` · volume ${signedPercent(item.volumeChange)}` : ''}</small></div>
+        <div><strong>{getExerciseName(item.exercise, language)}</strong><small>{insightLabel(item)}{item.volumeChange != null && Math.abs(item.volumeChange) >= .01 ? ` · volume ${signedPercent(item.volumeChange)}` : ''}</small><small>Reps effettive: {item.currentReps.join(' + ')}{item.previousReps ? ` · precedenti: ${item.previousReps.join(' + ')}` : ''}</small></div>
         <aside><strong>{maximumLabel(item)}</strong><small>{item.weighted ? 'e1RM' : 'capacità'}{item.isRecord ? ' · RECORD' : ''}</small></aside>
       </article>)}
     </section>

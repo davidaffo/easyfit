@@ -64,13 +64,31 @@ describe('prescription decisions', () => {
       expect(next.targetReps).toEqual([6, 6]);
     }
   });
-  it('advances prescribed repetitions once regardless of uneven extra reps', () => {
+  it('advances from actual repetitions on each successful set', () => {
     for (let first = 8; first <= 20; first++) {
       for (let second = 8; second <= 20; second++) {
-        const next = calculate({ sets: [set({ reps: first }), set({ reps: second })] });
-        expect(next.targetReps).toEqual([9, 9]);
+        const next = calculate({ sets: [set({ reps: first }), set({ reps: second })], loads: [60], limits: { minReps: 8, maxReps: 20 } });
+        expect(next.targetReps).toEqual([Math.min(first + 1, 20), Math.min(second + 1, 20)]);
         expect(next.weight).toBe(60);
       }
+    }
+  });
+  it('uses 13 and 12 completed reps instead of the two prescribed sets of 11', () => {
+    const next = calculate({ sets: [set({ targetReps: 11, reps: 13, targetRir: 1, rir: 1 }), set({ targetReps: 11, reps: 12, targetRir: 0, rir: 1 })], targetRirs: [1, 0], limits: { minReps: 8, maxReps: 15 } });
+    expect(next.targetReps).toEqual([14, 13]);
+    expect(next.weight).toBe(60);
+    expect(next.step).toBe('reps');
+  });
+  it('does not advertise extra reps when the range cap reduces completed volume', () => {
+    const next = calculate({ sets: [set({ targetReps: 11, reps: 13 }), set({ targetReps: 11, reps: 12 })], loads: [60] });
+    expect(next.targetReps).toEqual([12, 12]);
+    expect(next.step).toBe('top');
+  });
+  it('holds uneven targets when a set misses reps or effort', () => {
+    for (const failed of [{ reps: 11 }, { rir: 1 }]) {
+      const next = calculate({ sets: [set({ targetReps: 11, reps: 11 }), set({ targetReps: 12, reps: 12, ...failed })] });
+      expect(next.targetReps).toEqual([11, 12]);
+      expect(next.step).toBe('hold');
     }
   });
   it('does not allow another set to compensate for missed reps or effort', () => {
@@ -87,8 +105,8 @@ describe('prescription decisions', () => {
   it('does not increase reps while adding sets', () => {
     expect(calculate({ targetRirs: [2, 2, 2] }).targetReps).toEqual([8, 8, 8]);
   });
-  it('increases load only after prescribed top-range completion', () => {
-    expect(calculate({ sets: [set({ reps: 12 }), set({ reps: 12 })] }).weight).toBe(60);
+  it('increases load after actual top-range completion even above the prescription', () => {
+    expect(calculate({ sets: [set({ reps: 12 }), set({ reps: 12 })] }).weight).toBe(61);
     const next = calculate({ sets: [set({ reps: 12, targetReps: 12 }), set({ reps: 12, targetReps: 12 })] });
     expect(next.weight).toBe(61);
     expect(next.targetReps).toEqual([8, 8]);
