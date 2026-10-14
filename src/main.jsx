@@ -31,6 +31,7 @@ import {
   getAddableExercises,
   getTrackedExerciseIds,
   getSimilarExercises,
+  getSimilarLoadReference,
   getWorkoutExercise,
   getWorkoutCompletionInsights,
   isExerciseAllowed,
@@ -49,6 +50,7 @@ import {
   trainingStyles,
   willCompleteExercise,
 } from './engine/generator.js';
+import { setSuperset, nextSupersetExercise } from './engine/supersets.js';
 import './styles.css';
 
 const defaultProfile = {
@@ -750,6 +752,7 @@ function WorkoutView({ workout, setWorkout, profile, setProfile, history, showTo
   const [excludeReplacementId, setExcludeReplacementId] = useState(null);
   const [prescriptionExerciseId, setPrescriptionExerciseId] = useState(null);
   const [addExerciseOpen, setAddExerciseOpen] = useState(false);
+  const [supersetExerciseId, setSupersetExerciseId] = useState(null);
   const [refreshSeed, setRefreshSeed] = useState(null);
   const [startedAt] = useState(() => Number(workout.startedAt) || Date.now());
   const [sessionNow, setSessionNow] = useState(Date.now());
@@ -915,6 +918,14 @@ function WorkoutView({ workout, setWorkout, profile, setProfile, history, showTo
         : item),
     }));
   };
+  const recoverAfterSet = (item) => {
+    const next = nextSupersetExercise(workout, item);
+    if (next) {
+      clearRest();
+      showToast(`Superserie: passa a ${getExerciseName(getWorkoutExercise(next), profile.exerciseLanguage)}`);
+      document.getElementById(`exercise-${next.exerciseId}`)?.scrollIntoView?.({ behavior: 'smooth', block: 'start' });
+    } else beginRest(item.rest);
+  };
   const toggleSet = (exerciseIndex, setIndex, item) => {
     const set = item.sets[setIndex];
     if (set.done) {
@@ -932,7 +943,7 @@ function WorkoutView({ workout, setWorkout, profile, setProfile, history, showTo
         ...(belowTarget ? { underperformanceDecision: 'pending' } : {}),
         sets: entry.sets.map((currentSet, currentIndex) => currentIndex === setIndex ? { ...currentSet, done: true } : currentSet),
       }) }));
-      beginRest(item.rest);
+      recoverAfterSet(item);
       return;
     }
     const completesExercise = willCompleteExercise(item.sets, setIndex);
@@ -941,7 +952,7 @@ function WorkoutView({ workout, setWorkout, profile, setProfile, history, showTo
       return;
     }
     updateSet(exerciseIndex, setIndex, { done: true });
-    beginRest(item.rest);
+    recoverAfterSet(item);
   };
   const chooseRir = (rir) => {
     if (!pendingSet) return;
@@ -951,7 +962,7 @@ function WorkoutView({ workout, setWorkout, profile, setProfile, history, showTo
       ...(belowTarget && !item.underperformanceDecision ? { underperformanceDecision: 'pending' } : {}),
       sets: item.sets.map((set, index) => index === pendingSet.setIndex ? { ...set, done: true, rir } : set),
     }) }));
-    if (!pendingSet.wasDone) beginRest(pendingSet.item.rest);
+    if (!pendingSet.wasDone) recoverAfterSet(pendingSet.item);
     setPendingSet(null);
   };
   const resolveUnderperformance = (decision) => {
@@ -1058,7 +1069,7 @@ function WorkoutView({ workout, setWorkout, profile, setProfile, history, showTo
     <div className="workout-progress"><i style={{ width: `${totalSets ? (doneSets / totalSets) * 100 : 0}%` }}/></div>
     <section className="workout-title"><span className="eyebrow">{workout.engine?.returningFromBreak ? 'RIENTRO GRADUALE · VOLUME RIDOTTO' : workout.engine?.maintenanceMode ? 'TARGET COPERTI · MANTENIMENTO' : 'CREATO SUL TUO RECUPERO'}</span><h1>{workout.targetMuscles.slice(0, 2).map((item) => muscles[item]).join(' + ')}</h1><p>{doneSets} di {totalSets} serie completate</p></section>
     <div className="exercise-list">
-      {workout.exercises.map((item, exerciseIndex) => <ExerciseCard key={item.exerciseId} item={item} exerciseIndex={exerciseIndex} language={profile.exerciseLanguage} updateSet={updateSet} recordAvailableLoad={recordAvailableLoad} setInitialLoad={setInitialLoad} setInitialReps={setInitialReps} changeSetCount={changeSetCount} toggleSet={toggleSet} onRir={(setIndex) => setPendingSet({ exerciseIndex, setIndex, item, wasDone: item.sets[setIndex].done })} onGuide={() => setGuideExerciseId(item.exerciseId)} onHistory={() => setHistoryExerciseId(item.exerciseId)} onOptions={() => setOptionsExerciseId(item.exerciseId)}/>)}
+      {workout.exercises.map((item, exerciseIndex) => <ExerciseCard key={item.exerciseId} item={item} history={history} supersetPartners={workout.exercises.filter((entry) => item.supersetId && entry.supersetId === item.supersetId && entry.exerciseId !== item.exerciseId)} exerciseIndex={exerciseIndex} language={profile.exerciseLanguage} updateSet={updateSet} recordAvailableLoad={recordAvailableLoad} setInitialLoad={setInitialLoad} setInitialReps={setInitialReps} changeSetCount={changeSetCount} toggleSet={toggleSet} onRir={(setIndex) => setPendingSet({ exerciseIndex, setIndex, item, wasDone: item.sets[setIndex].done })} onGuide={() => setGuideExerciseId(item.exerciseId)} onHistory={() => setHistoryExerciseId(item.exerciseId)} onOptions={() => setOptionsExerciseId(item.exerciseId)}/>)}
     </div>
     <div className="workout-edit-actions"><button onClick={() => setAddExerciseOpen(true)}><Icon name="plus" size={17}/> Aggiungi esercizio</button><span>Per sostituire o rimuovere usa <Icon name="more" size={16}/> sulla scheda.</span></div>
     <div className="finish-panel"><div><span>{totalSets ? Math.round(doneSets / totalSets * 100) : 0}%</span><small>completato</small></div><button className="button acid" disabled={!doneSets || !totalSets} onClick={complete}><Icon name="trophy"/>Termina workout</button></div>
@@ -1067,7 +1078,11 @@ function WorkoutView({ workout, setWorkout, profile, setProfile, history, showTo
     {pendingVolumeDecision && <UnderperformanceSheet item={pendingVolumeDecision} language={profile.exerciseLanguage} onChoose={resolveUnderperformance}/>}
     {guideExerciseId && <ExerciseGuideSheet exerciseId={guideExerciseId} language={profile.exerciseLanguage} onClose={() => setGuideExerciseId(null)}/>}
     {historyExerciseId && <ExerciseHistorySheet exerciseId={historyExerciseId} history={history} language={profile.exerciseLanguage} onClose={() => setHistoryExerciseId(null)}/>}
-    {optionsExerciseId && <ExerciseActionsSheet exerciseId={optionsExerciseId} profile={profile} language={profile.exerciseLanguage} onPrescription={() => openPrescriptionEditor(optionsExerciseId)} onReplace={() => openReplacementPicker(optionsExerciseId)} onRemove={() => removeCurrentExercise(optionsExerciseId)} onExclude={() => excludeExercise(optionsExerciseId)} onClose={() => setOptionsExerciseId(null)}/>}
+    {optionsExerciseId && <ExerciseActionsSheet exerciseId={optionsExerciseId} profile={profile} language={profile.exerciseLanguage} onSuperset={() => { setSupersetExerciseId(optionsExerciseId); setOptionsExerciseId(null); }} onPrescription={() => openPrescriptionEditor(optionsExerciseId)} onReplace={() => openReplacementPicker(optionsExerciseId)} onRemove={() => removeCurrentExercise(optionsExerciseId)} onExclude={() => excludeExercise(optionsExerciseId)} onClose={() => setOptionsExerciseId(null)}/>}
+    {supersetExerciseId && <SupersetSheet workout={workout} exerciseId={supersetExerciseId} language={profile.exerciseLanguage} onChoose={(partnerId) => {
+      setWorkout((current) => setSuperset(current, supersetExerciseId, partnerId));
+      setSupersetExerciseId(null);
+    }} onClose={() => setSupersetExerciseId(null)}/>}
     {replacementExerciseId && <SimilarExerciseSheet
       workout={workout}
       exerciseId={replacementExerciseId}
@@ -1130,7 +1145,7 @@ function SetNumberInput({ value, min, max, step, inputMode, label, onCommit }) {
   />;
 }
 
-function ExerciseCard({ item, exerciseIndex, language, updateSet, recordAvailableLoad, setInitialLoad, setInitialReps, changeSetCount, toggleSet, onRir, onGuide, onHistory, onOptions }) {
+function ExerciseCard({ item, history, supersetPartners = [], exerciseIndex, language, updateSet, recordAvailableLoad, setInitialLoad, setInitialReps, changeSetCount, toggleSet, onRir, onGuide, onHistory, onOptions }) {
   const exercise = getWorkoutExercise(item);
   const currentCatalogExercise = exercises.some((candidate) => candidate.id === item.exerciseId);
   const details = useExerciseDetails(currentCatalogExercise ? exercise.wgerId : null, 'en');
@@ -1142,6 +1157,7 @@ function ExerciseCard({ item, exerciseIndex, language, updateSet, recordAvailabl
     ? `${item.sets.length} × ${targetRepSequence[0]}`
     : `${item.sets.length} serie · ${targetRepSequence.join('/')}`;
   const needsInitialLoad = usesWeight && item.sets.every((set) => set.weight == null);
+  const loadReference = needsInitialLoad ? getSimilarLoadReference(item.exerciseId, history) : null;
   const submitInitialLoad = (event) => {
     event.preventDefault();
     const weight = Number(initialLoad);
@@ -1153,12 +1169,14 @@ function ExerciseCard({ item, exerciseIndex, language, updateSet, recordAvailabl
     if (repetitions > 0) setInitialReps(exerciseIndex, repetitions);
   };
 
-  return <article className="exercise-card">
+  return <article className="exercise-card" id={`exercise-${item.exerciseId}`}>
     <header><span className="exercise-index">{String(exerciseIndex + 1).padStart(2, '0')}</span><div><div className="exercise-name-row"><h2>{getExerciseName(exercise, language)}</h2>{item.progressionStep === 'max-increase' && <span className="progression-badge">MASSIMALE +{Math.max(.1, Number(item.performanceEvidence?.maximumChange || 0) * 100).toFixed(1)}%</span>}{item.progressionStep === 'max-decrease' && <span className="progression-badge">RICALIBRATO</span>}{item.progressionStep === 'reps' && <span className="progression-badge">+ REPS</span>}{item.progressionStep === 'load' && <span className="progression-badge load">+ CARICO</span>}</div><p>{muscles[exercise.primary] || 'Esercizio salvato'} · {targetRepSummary}{item.calibrationBelowRange ? ' · range adattato alla capacità' : item.repRange ? ` · range ${item.repRange.min}–${item.repRange.max}` : ''} · RIR {item.targetRir}</p></div>{currentCatalogExercise && <button className="icon-button" onClick={onOptions} aria-label={`Opzioni per ${getExerciseName(exercise, language)}`}><Icon name="more" size={20}/></button>}</header>
+    {supersetPartners.length > 0 && <p className="superset-note"><strong>Superserie</strong> con {supersetPartners.map((entry) => getExerciseName(getWorkoutExercise(entry), language)).join(' + ')}. Alterna le serie; recupera a fine giro.</p>}
     {item.rotation && <p className="exercise-rotation">Blocco {item.rotation.block} · esecuzione {Math.min(item.rotation.completedExposures + 1, item.rotation.targetExposures)} di {item.rotation.targetExposures}</p>}
     {currentCatalogExercise && <ExercisePreview source={details?.image} name={getExerciseName(exercise, language)} onOpen={onGuide}/>}
     {needsInitialLoad ? <form className="initial-load" onSubmit={submitInitialLoad}>
       <div><span>PRIMA VOLTA</span><strong>Che carico vuoi usare?</strong><small>Scegli un peso con cui pensi di chiudere le serie a RIR {item.targetRir}.</small></div>
+      {loadReference && <p className="load-reference">Riferimento: <strong>{getExerciseName(loadReference.exercise, language)} · {loadReference.weight} kg{exercise.loadType === 'per-dumbbell' ? ' per manubrio' : ''}</strong>. Il carico può cambiare tra esercizi: scegli quello adatto qui.</p>}
       <label><input autoFocus inputMode="decimal" type="number" min="0.5" max="1000" step="0.5" placeholder="0" value={initialLoad} onChange={(event) => setInitialLoadValue(event.target.value)}/><span>kg {exercise.loadType === 'per-dumbbell' ? 'per manubrio' : exercise.loadUnit === 'single-dumbbell' ? 'del manubrio' : ''}</span></label>
       <button className="button dark" disabled={Number(initialLoad) <= 0}>Imposta carico</button>
     </form> : item.needsInitialReps ? <form className="initial-load bodyweight-calibration" onSubmit={submitInitialReps}>
@@ -1248,7 +1266,7 @@ function UnderperformanceSheet({ item, language, onChoose }) {
   </div>;
 }
 
-function ExerciseActionsSheet({ exerciseId, profile, language, onPrescription, onReplace, onRemove, onExclude, onClose }) {
+function ExerciseActionsSheet({ exerciseId, profile, language, onPrescription, onSuperset, onReplace, onRemove, onExclude, onClose }) {
   const exercise = exercises.find((candidate) => candidate.id === exerciseId);
   const limits = getExercisePrescription(profile, exercise);
   return <div className="sheet-backdrop" onMouseDown={(event) => event.target === event.currentTarget && onClose()}>
@@ -1259,10 +1277,24 @@ function ExerciseActionsSheet({ exerciseId, profile, language, onPrescription, o
       <p>La sostituzione mantiene lo stesso movimento quando possibile.</p>
       <div className="exercise-option-list">
         <button onClick={onPrescription}><span><Icon name="settings"/></span><div><strong>Personalizzazione avanzata</strong><small>Max {limits.maxSets} serie · {limits.minReps}–{limits.maxReps} reps · RIR {limits.targetRirs.join(' → ')}</small></div><Icon name="chevron" size={18}/></button>
+        <button onClick={onSuperset}><span><Icon name="plus"/></span><div><strong>Superserie</strong><small>Scegli gli esercizi da alternare in questo workout</small></div><Icon name="chevron" size={18}/></button>
         <button onClick={onReplace}><span><Icon name="swap"/></span><div><strong>Sostituisci con uno simile</strong><small>Stesso pattern muscolare e attrezzatura disponibile</small></div><Icon name="chevron" size={18}/></button>
         <button onClick={onRemove}><span><Icon name="trash"/></span><div><strong>Rimuovi da questo workout</strong><small>Potrà ricomparire nei prossimi allenamenti</small></div><Icon name="chevron" size={18}/></button>
         <button className="danger" onClick={onExclude}><span><Icon name="ban"/></span><div><strong>Non proporre più</strong><small>Lo esclude anche dai workout futuri</small></div><Icon name="chevron" size={18}/></button>
       </div>
+    </section>
+  </div>;
+}
+
+function SupersetSheet({ workout, exerciseId, language, onChoose, onClose }) {
+  const item = workout.exercises.find((entry) => entry.exerciseId === exerciseId);
+  return <div className="sheet-backdrop" onMouseDown={(event) => event.target === event.currentTarget && onClose()}>
+    <section className="similar-sheet" role="dialog" aria-modal="true" aria-label="Configura superserie">
+      <button className="sheet-close" onClick={onClose} aria-label="Chiudi"><Icon name="close"/></button>
+      <span className="eyebrow">SUPERSERIE MANUALE</span><h2>Quali esercizi vuoi alternare?</h2>
+      <p>{getExerciseName(getWorkoutExercise(item), language)} · recupero alla fine di ogni giro.</p>
+      <div className="similar-list">{workout.exercises.filter((entry) => entry.exerciseId !== exerciseId).map((entry) => <button key={entry.exerciseId} onClick={() => onChoose(entry.exerciseId)}><div><strong>{getExerciseName(getWorkoutExercise(entry), language)}</strong><small>{item.supersetId && item.supersetId === entry.supersetId ? 'Già nella superserie' : 'Aggiungi alla superserie'}</small></div><Icon name="plus"/></button>)}</div>
+      {item.supersetId && <button className="button light wide" onClick={() => onChoose(null)}>Rimuovi dalla superserie</button>}
     </section>
   </div>;
 }
@@ -1423,6 +1455,22 @@ function ExerciseHistorySheet({ exerciseId, history, language, onClose }) {
   </div>;
 }
 
+function WorkoutLogSheet({ workout, language, onClose }) {
+  return <div className="sheet-backdrop" onMouseDown={(event) => event.target === event.currentTarget && onClose()}>
+    <section className="history-sheet" role="dialog" aria-modal="true" aria-label="Registro workout">
+      <button className="sheet-close" onClick={onClose} aria-label="Chiudi"><Icon name="close"/></button>
+      <span className="eyebrow">REGISTRO WORKOUT</span><h2>{new Date(workout.completedAt).toLocaleDateString('it-IT')}</h2>
+      <p>{formatClock(workoutSessionSeconds(workout))} · {workout.exercises.length} esercizi</p>
+      {workout.exercises.map((item) => <section key={item.exerciseId} className="workout-log-exercise"><h3>{getExerciseName(getWorkoutExercise(item), language)}</h3>{item.supersetId && <small>Superserie con {workout.exercises.filter((entry) => entry.supersetId === item.supersetId && entry.exerciseId !== item.exerciseId).map((entry) => getExerciseName(getWorkoutExercise(entry), language)).join(' + ')}</small>}
+        <div className="exercise-set-history" role="table" aria-label={`Serie ${getExerciseName(getWorkoutExercise(item), language)}`}>
+          <div className="exercise-set-history-head" role="row"><span>Serie</span><span>Peso</span><span>Reps</span><span>RIR</span></div>
+          {item.sets.map((set, index) => <div className="exercise-set-history-row" role="row" key={index}><span>{index + 1}{!set.done ? ' · saltata' : ''}</span><span>{set.weight > 0 ? `${set.weight} kg` : 'Corpo'}</span><span>{set.done ? set.reps : '—'}</span><span>{set.done && set.rir != null ? set.rir : '—'}</span></div>)}
+        </div>
+      </section>)}
+    </section>
+  </div>;
+}
+
 function WorkoutComplete({ workout, history, language, onClose }) {
   const insights = useMemo(() => getWorkoutCompletionInsights(workout, history), [workout, history]);
   const { counts } = insights;
@@ -1436,15 +1484,15 @@ function WorkoutComplete({ workout, history, language, onClose }) {
           ? 'Nuovi riferimenti salvati.'
           : 'Prestazione consolidata.';
   const signedPercent = (value) => {
-    if (!Number.isFinite(Number(value))) return '—';
+    if (value == null || !Number.isFinite(Number(value))) return '—';
     const percent = Number(value) * 100;
     return `${percent > 0 ? '+' : ''}${percent.toFixed(Math.abs(percent) >= 10 ? 0 : 1)}%`;
   };
   const insightLabel = (item) => {
     if (item.decision === 'maintain-prescription') return 'Mantenuto: stanchezza occasionale';
-    if (item.decision === 'recalibrate-down') return `Ricalibrato ${signedPercent(item.maximumChange)}`;
-    if (item.status === 'improved') return `Forza stimata ${signedPercent(item.maximumChange)}`;
-    if (item.status === 'declined') return `Capacità stimata ${signedPercent(item.maximumChange)}`;
+    if (item.decision === 'recalibrate-down' && item.status !== 'improved') return `Prescrizione ricalibrata · lavoro per serie ${signedPercent(item.maximumChange)}`;
+    if (item.status === 'improved') return `Lavoro per serie ${signedPercent(item.maximumChange)}`;
+    if (item.status === 'declined') return `Lavoro per serie ${signedPercent(item.maximumChange)}`;
     if (item.status === 'baseline') return 'Primo riferimento salvato';
     return 'Prestazione confermata';
   };
@@ -1458,12 +1506,12 @@ function WorkoutComplete({ workout, history, language, onClose }) {
     <h2>{headline}</h2>
     <p>{formatClock(workout.sessionDurationSeconds)} di allenamento · confronto con le tue prestazioni precedenti</p>
     <section className="completion-stats">
-      <div><strong>{signedPercent(insights.averageChange)}</strong><span>capacità media</span></div>
+      <div><strong>{signedPercent(insights.averageChange)}</strong><span>lavoro medio per serie</span></div>
       <div><strong>{counts.records}</strong><span>record personali</span></div>
       <div className="positive"><strong>↑ {counts.improved}</strong><span>in miglioramento</span></div>
-      <div className={counts.declined ? 'negative' : ''}><strong>↓ {counts.declined}</strong><span>ricalibrati</span></div>
+      <div className={counts.declined ? 'negative' : ''}><strong>↓ {counts.declined}</strong><span>in calo</span></div>
     </section>
-    {insights.bestImprovement && <div className="completion-highlight"><Icon name="trophy"/><span><strong>Miglior progresso: {getExerciseName(insights.bestImprovement.exercise, language)}</strong><small>{signedPercent(insights.bestImprovement.maximumChange)} di capacità stimata rispetto alla volta precedente</small></span></div>}
+    {insights.bestImprovement && <div className="completion-highlight"><Icon name="trophy"/><span><strong>Miglior progresso: {getExerciseName(insights.bestImprovement.exercise, language)}</strong><small>{signedPercent(insights.bestImprovement.maximumChange)} di lavoro per serie rispetto alla volta precedente</small></span></div>}
     <section className="completion-exercises">
       <header><strong>Andamento esercizi</strong><span>rispetto all’ultima volta</span></header>
       {insights.items.map((item) => <article className={item.status} key={item.exerciseId}>
@@ -1507,6 +1555,7 @@ function formatVolume(value) {
 
 function History({ history, profile }) {
   const [tab, setTab] = useState('summary');
+  const [selectedWorkout, setSelectedWorkout] = useState(null);
   const [historyExerciseId, setHistoryExerciseId] = useState(null);
   const trackedIds = useMemo(() => getTrackedExerciseIds(history), [history]);
   const analytics = useMemo(() => getExerciseAnalytics(history, trackedIds), [history, trackedIds.join('|')]);
@@ -1576,8 +1625,9 @@ function History({ history, profile }) {
 
     {tab === 'activity' && <>
       <section className="stats-grid"><div><strong>{validHistory.length}</strong><span>Workout</span></div><div><strong>{totalSets}</strong><span>Serie totali</span></div><div><strong>{validHistory.reduce((sum, item) => sum + Math.max(1, Math.round(workoutSessionSeconds(item) / 60)), 0)}</strong><span>Minuti</span></div></section>
-      <section className="history-list"><h2>Allenamenti recenti</h2>{validHistory.length === 0 ? <div className="history-empty"><Icon name="history" size={30}/><strong>Qui vedrai i tuoi progressi</strong><p>Completa il primo workout per iniziare lo storico.</p></div> : [...validHistory].reverse().map((workout) => <article key={workout.id + workout.completedAt}><div className="history-date"><strong>{new Intl.DateTimeFormat('it-IT', { day: '2-digit' }).format(workout.completedAt)}</strong><span>{new Intl.DateTimeFormat('it-IT', { month: 'short' }).format(workout.completedAt)}</span></div><div><strong>{workout.targetMuscles.slice(0, 3).map((item) => muscles[item]).join(' · ')}</strong><span>{formatClock(workoutSessionSeconds(workout))} · {workout.exercises.length} esercizi</span></div><Icon name="chevron"/></article>)}</section>
+      <section className="history-list"><h2>Allenamenti recenti</h2>{validHistory.length === 0 ? <div className="history-empty"><Icon name="history" size={30}/><strong>Qui vedrai i tuoi progressi</strong><p>Completa il primo workout per iniziare lo storico.</p></div> : [...validHistory].reverse().map((workout) => <article key={workout.id + workout.completedAt} role="button" tabIndex={0} aria-label={`Apri registro allenamento ${new Date(workout.completedAt).toLocaleDateString('it-IT')}`} onClick={() => setSelectedWorkout(workout)} onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); setSelectedWorkout(workout); } }}><div className="history-date"><strong>{new Intl.DateTimeFormat('it-IT', { day: '2-digit' }).format(workout.completedAt)}</strong><span>{new Intl.DateTimeFormat('it-IT', { month: 'short' }).format(workout.completedAt)}</span></div><div><strong>{workout.targetMuscles.slice(0, 3).map((item) => muscles[item]).join(' · ')}</strong><span>{formatClock(workoutSessionSeconds(workout))} · {workout.exercises.length} esercizi</span></div><Icon name="chevron"/></article>)}</section>
     </>}
+    {selectedWorkout && <WorkoutLogSheet workout={selectedWorkout} language={profile.exerciseLanguage} onClose={() => setSelectedWorkout(null)}/>}
     {historyExerciseId && <ExerciseHistorySheet
       exerciseId={historyExerciseId}
       history={history}

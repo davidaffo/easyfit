@@ -11,6 +11,13 @@ const calculate = (overrides = {}) => calculateProgression({
 });
 
 describe('prescription decisions', () => {
+  it.each([[[8, 9], [9, 9]], [[12, 12, 13], [13, 13, 13]]])('keeps common targets after %s completed reps', (actual, expected) => {
+    const next = calculate({
+      sets: actual.map((reps) => set({ reps, targetReps: actual[0] })),
+      targetRirs: actual.map(() => 2), loads: [60], limits: { minReps: 8, maxReps: 15 },
+    });
+    expect(next.targetReps).toEqual(expected);
+  });
   it('reduces reps at the same load before considering a lower load', () => {
     for (const reps of [8, 9, 10, 11]) {
       const next = calculate({ sets: [set({ targetReps: 12, reps }), set({ targetReps: 12, reps })], decision: 'recalibrate-down' });
@@ -64,18 +71,18 @@ describe('prescription decisions', () => {
       expect(next.targetReps).toEqual([6, 6]);
     }
   });
-  it('advances from actual repetitions on each successful set', () => {
+  it('advances a uniform target from the weakest successful set', () => {
     for (let first = 8; first <= 20; first++) {
       for (let second = 8; second <= 20; second++) {
         const next = calculate({ sets: [set({ reps: first }), set({ reps: second })], loads: [60], limits: { minReps: 8, maxReps: 20 } });
-        expect(next.targetReps).toEqual([Math.min(first + 1, 20), Math.min(second + 1, 20)]);
+        expect(next.targetReps).toEqual(Array(2).fill(Math.min(Math.min(first, second) + 1, 20)));
         expect(next.weight).toBe(60);
       }
     }
   });
   it('uses 13 and 12 completed reps instead of the two prescribed sets of 11', () => {
     const next = calculate({ sets: [set({ targetReps: 11, reps: 13, targetRir: 1, rir: 1 }), set({ targetReps: 11, reps: 12, targetRir: 0, rir: 1 })], targetRirs: [1, 0], limits: { minReps: 8, maxReps: 15 } });
-    expect(next.targetReps).toEqual([14, 13]);
+    expect(next.targetReps).toEqual([13, 13]);
     expect(next.weight).toBe(60);
     expect(next.step).toBe('reps');
   });
@@ -84,10 +91,10 @@ describe('prescription decisions', () => {
     expect(next.targetReps).toEqual([12, 12]);
     expect(next.step).toBe('top');
   });
-  it('holds uneven targets when a set misses reps or effort', () => {
+  it('normalizes legacy uneven targets when holding', () => {
     for (const failed of [{ reps: 11 }, { rir: 1 }]) {
       const next = calculate({ sets: [set({ targetReps: 11, reps: 11 }), set({ targetReps: 12, reps: 12, ...failed })] });
-      expect(next.targetReps).toEqual([11, 12]);
+      expect(next.targetReps).toEqual([11, 11]);
       expect(next.step).toBe('hold');
     }
   });
@@ -115,7 +122,7 @@ describe('prescription decisions', () => {
   it('honors an explicit hold even after load and rep shortfalls', () => {
     const next = calculate({ sets: [set({ reps: 5, weight: 50 }), set({ targetReps: 9, reps: 6, weight: 50 })], workingWeight: 50, decision: 'maintain-prescription' });
     expect(next.weight).toBe(60);
-    expect(next.targetReps).toEqual([8, 9]);
+    expect(next.targetReps).toEqual([8, 8]);
   });
   it('recalibrates from the weakest comparable set, without saved maxima', () => {
     const next = calculate({ sets: [set({ reps: 5, rir: 0 }), set({ reps: 20 })], decision: 'recalibrate-down' });

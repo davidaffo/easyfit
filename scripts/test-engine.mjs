@@ -976,9 +976,9 @@ assert.equal(withoutRecentBaseline.sets[0].weight, 60, 'Six repetitions should r
 assert(withoutRecentBaseline.sets.every((set) => set.targetReps === 6), 'Expired evidence must not prevent recalibration');
 assert.equal(withoutRecentBaseline.calibrationBelowRange, true, 'Below-range repetitions must be marked in the prescription');
 const improvedCompletionInsights = getWorkoutCompletionInsights(improvedMaximumWorkout, [exactMaximumWorkout]);
-assert.equal(improvedCompletionInsights.counts.improved, 1, 'The completion summary must recognize an improved exercise');
+assert.equal(improvedCompletionInsights.counts.maintained, 1, 'Extra RIR alone leaves observed work unchanged');
 assert.equal(improvedCompletionInsights.counts.records, 1, 'The completion summary must recognize a new personal record');
-assert(improvedCompletionInsights.bestImprovement?.maximumChange > 0, 'The completion summary must identify the strongest improvement');
+assert.equal(improvedCompletionInsights.bestImprovement, null, 'Work improvement must reflect actual load and reps');
 const maintainedCompletionInsights = getWorkoutCompletionInsights(tiredButMaintainedWorkout, [exactMaximumWorkout]);
 assert.equal(maintainedCompletionInsights.counts.maintained, 1, 'A temporary-fatigue choice must be shown as maintained, not as a regression');
 assert.equal(maintainedCompletionInsights.items[0].decision, 'maintain-prescription', 'The completion insight must explain why an underperforming result was held');
@@ -1007,7 +1007,7 @@ const reportedExtraRepHistory = [{
 const actualRepProgress = generateWorkout({
   ...profile, exerciseOverrides: { [bench.id]: { minReps: 8, maxReps: 15 } },
 }, reportedExtraRepHistory, { targets: ['chest'], duration: 25 }).exercises[0];
-assert.deepEqual(actualRepProgress.sets.map((set) => set.targetReps), [14, 13], '11/11 prescribed and 13/12 completed must progress from the actual per-set repetitions');
+assert.deepEqual(actualRepProgress.sets.map((set) => set.targetReps), [13, 13], '11/11 prescribed and 13/12 completed must progress to a uniform target');
 assert(actualRepProgress.sets.every((set) => set.weight === 60), 'Actual-repetition progression must retain the performed load below the range ceiling');
 assert.equal(actualRepProgress.progressionStep, 'reps');
 
@@ -1019,7 +1019,7 @@ const unevenOverPerformedHistory = [{
 }];
 const unevenOverPerformedProgress = generateWorkout(profile, unevenOverPerformedHistory, { targets: ['chest'], duration: 25 }).exercises[0];
 assert.equal(unevenOverPerformedProgress.sets[0].weight, 60);
-assert.deepEqual(unevenOverPerformedProgress.sets.map((set) => set.reps), [11, 12], 'Uneven completed repetitions must be preserved within the repetition range');
+assert.deepEqual(unevenOverPerformedProgress.sets.map((set) => set.reps), [11, 11], 'Targets must be uniform after uneven actual repetitions');
 
 const slightlyUnderPerformedHistory = [{
   id: 'slightly-under-performed-reps',
@@ -1128,10 +1128,10 @@ const unevenElevenRepHistory = [{
   })) }],
 }];
 const gradualElevenRepProgress = generateWorkout(manualCurlProfile, unevenElevenRepHistory, { targets: ['biceps'], duration: 30 }).exercises[0];
-assert.deepEqual(gradualElevenRepProgress.sets.map((set) => set.targetReps), [12, 12, 11], 'Completing 11/11/10 must advance each actual set within the repetition range');
+assert.deepEqual(gradualElevenRepProgress.sets.map((set) => set.targetReps), [11, 11, 11], 'Completing 11/11/10 must advance the common target from the weakest set');
 assert.equal(
   gradualElevenRepProgress.sets.reduce((sum, set) => sum + set.targetReps, 0),
-  11 + 11 + 10 + 3,
+  11 * 3,
   'Successful sets must each progress from their completed repetitions',
 );
 const failedElevenRepTarget = [{
@@ -1490,7 +1490,7 @@ const uncalibratedBodyWorkout = generateWorkout({ ...profile, equipment: ['bodyw
 assert.equal(uncalibratedBodyWorkout.exercises[0].needsInitialReps, true, 'A first-time bodyweight exercise must request a repetition calibration');
 const calibratedBodyweight = calibrateBodyweightPrescription(uncalibratedBodyWorkout.exercises[0], 20);
 assert.equal(calibratedBodyweight.needsInitialReps, false, 'Submitting maximum repetitions must complete bodyweight calibration');
-assert.equal(calibratedBodyweight.sets[0].reps, Math.min(18, calibratedBodyweight.repRange.max), 'Calibration must subtract target RIR and respect the exercise repetition cap');
+assert.equal(calibratedBodyweight.sets[0].reps, Math.min(20 - Math.max(...calibratedBodyweight.targetRirs.map((rir, index) => rir + index)), calibratedBodyweight.repRange.max), 'Calibration must subtract target RIR and respect the exercise repetition cap');
 assert(calibratedBodyweight.sets.every((set, index, sets) => index === 0 || set.reps <= sets[index - 1].reps), 'Bodyweight calibration must account for fatigue across sets');
 const styleCalibratedBodyweight = calibrateBodyweightPrescription({
   ...uncalibratedBodyWorkout.exercises[0],
@@ -1498,9 +1498,9 @@ const styleCalibratedBodyweight = calibrateBodyweightPrescription({
   targetRirs: [2, 2, 1],
   sets: Array.from({ length: 3 }, (_, index) => ({ ...uncalibratedBodyWorkout.exercises[0].sets[0], targetRir: [2, 2, 1][index] })),
 }, 20);
-assert.deepEqual(styleCalibratedBodyweight.sets.map((set) => set.reps), [18, 17, 17].map((reps) => Math.min(reps, styleCalibratedBodyweight.repRange.max)), 'Bodyweight calibration must combine each set’s own style RIR with conservative inter-set fatigue');
+assert.deepEqual(styleCalibratedBodyweight.sets.map((set) => set.reps), [17, 17, 17].map((reps) => Math.min(reps, styleCalibratedBodyweight.repRange.max)), 'Bodyweight calibration must combine each set’s own style RIR with conservative inter-set fatigue');
 const weakBodyweightCalibration = calibrateBodyweightPrescription(uncalibratedBodyWorkout.exercises[0], 5);
-assert.equal(weakBodyweightCalibration.sets[0].reps, 3, 'Bodyweight calibration must never prescribe more than tested maximum minus target RIR');
+assert.equal(weakBodyweightCalibration.sets[0].reps, 2, 'Bodyweight calibration must never prescribe more than tested maximum minus target RIR');
 assert.equal(weakBodyweightCalibration.calibrationBelowRange, true, 'A capacity below the nominal range must remain visible without falsifying the prescription');
 const weakCalibrationHistory = [{
   id: 'weak-bodyweight-calibration',
@@ -1508,7 +1508,7 @@ const weakCalibrationHistory = [{
   exercises: [{ ...weakBodyweightCalibration, sets: weakBodyweightCalibration.sets.map((set) => ({ ...set, rir: 2, done: true })) }],
 }];
 const weakNextWorkout = generateWorkout({ ...profile, equipment: ['bodyweight'], preferences: bodyPreferences }, weakCalibrationHistory, { targets: ['quads'], duration: 25 });
-assert.deepEqual(weakNextWorkout.exercises[0].sets.map((set) => set.reps), weakBodyweightCalibration.sets.map((set) => set.reps + 1), 'A low bodyweight calibration must progress from each completed set without jumping to the nominal minimum');
+assert.deepEqual(weakNextWorkout.exercises[0].sets.map((set) => set.reps), Array(weakBodyweightCalibration.sets.length).fill(Math.min(...weakBodyweightCalibration.sets.map((set) => set.reps)) + 1), 'A low bodyweight calibration must progress from each completed set without jumping to the nominal minimum');
 assert(Number.isInteger(weakNextWorkout.exercises[0].sets[0].reps), 'Bodyweight progression must always prescribe an integer repetition target');
 const bodyWorkout = generateWorkout({ ...profile, equipment: ['bodyweight'], preferences: bodyPreferences }, bodyweightHistory, { targets: ['quads'], duration: 25 });
 assert.equal(bodyWorkout.exercises[0].sets[0].reps, 8, 'Bodyweight extra reps below prescribed RIR must not advance the target');

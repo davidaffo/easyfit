@@ -551,3 +551,37 @@ test('reducing max sets preserves completed evidence but removes future excess s
   const updated = applyExercisePrescriptionLimits(item, { minReps: 8, maxReps: 12, maxSets: 1, targetRir: 2 });
   expect(updated.sets).toEqual([item.sets[0]]);
 });
+
+test('activity opens the complete workout register', async () => {
+  const user = userEvent.setup();
+  const workout = readyWorkout();
+  workout.id = 'archived-register';
+  workout.completedAt = Date.now() - 864e5;
+  workout.exercises[0].sets[0] = { ...workout.exercises[0].sets[0], reps: 9, weight: 20, done: true, rir: 1 };
+  saveState({ history: [workout] });
+  render(<App/>);
+  await user.click(screen.getByRole('button', { name: 'Progressi' }));
+  await user.click(screen.getByRole('button', { name: 'Attività' }));
+  await user.click(screen.getByRole('button', { name: /Apri registro allenamento/ }));
+  const dialog = screen.getByRole('dialog', { name: 'Registro workout' });
+  expect(within(dialog).getAllByRole('table').length).toBe(workout.exercises.length);
+  expect(within(dialog).getAllByText('20 kg').length).toBeGreaterThan(0);
+});
+
+test('manual supersets persist and skip rest between partners', async () => {
+  const user = userEvent.setup();
+  const workout = readyWorkout();
+  saveState({ workout });
+  render(<App/>);
+  await user.click(screen.getByRole('button', { name: 'Riprendi allenamento' }));
+  await user.click(screen.getAllByRole('button', { name: /Opzioni per/ })[0]);
+  await user.click(screen.getByRole('button', { name: /Superserie/ }));
+  const sheet = screen.getByRole('dialog', { name: 'Configura superserie' });
+  await user.click(within(sheet).getAllByRole('button').find((button) => button.textContent.includes('Aggiungi alla superserie')));
+  const saved = JSON.parse(localStorage.getItem('easyfit-workout'));
+  expect(saved.exercises[0].supersetId).toBe(saved.exercises[1].supersetId);
+  const firstCard = screen.getAllByRole('article')[0];
+  await user.click(within(firstCard).getAllByRole('button').find((button) => button.classList.contains('set-check')));
+  expect(document.querySelector('.rest-timer')).toBeNull();
+  expect(JSON.parse(localStorage.getItem('easyfit-workout')).exercises[0].sets[0].done).toBe(true);
+});

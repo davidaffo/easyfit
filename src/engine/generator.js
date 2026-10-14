@@ -11,7 +11,7 @@ const CONTINUITY_BREAK_DAYS = 28;
 const RECENT_VARIATION_DAYS = 7;
 const EXERCISE_ROTATION_EXPOSURES = 4;
 export const SESSION_TIME_TOLERANCE_MINUTES = 7;
-export const ENGINE_VERSION = 47;
+export const ENGINE_VERSION = 48;
 
 const muscleBaseImportance = {
   chest: 100,
@@ -656,7 +656,8 @@ export function getWorkoutCompletionInsights(workout, history = []) {
     const current = completedExercisePerformance(item);
     if (!current.completedSets.length || !current.exercise) return null;
     const previousSessions = history
-      .filter((entry) => validCompletedWorkout(entry, Number(workout?.completedAt) || Date.now()))
+      .filter((entry) => entry.id !== workout.id && Number(entry.completedAt) < Number(workout.completedAt)
+        && validCompletedWorkout(entry, Number(workout?.completedAt) || Date.now()))
       .map((entry) => ({
         completedAt: Number(entry.completedAt),
         item: entry.exercises?.find((candidate) => candidate.exerciseId === item.exerciseId),
@@ -668,18 +669,20 @@ export function getWorkoutCompletionInsights(workout, history = []) {
     const previous = previousSessions.at(-1);
     const previousBest = Math.max(0, ...previousSessions.map((session) => session.bestMark || 0)) || null;
     const calibration = item.performanceCalibration || {};
-    const currentMaximum = Number(calibration.estimatedMaximum) || current.bestMark;
-    const previousMaximum = Number(calibration.previousMaximum) || null;
-    const maximumChange = Number.isFinite(Number(calibration.change))
-      ? Number(calibration.change)
-      : currentMaximum && previousMaximum ? (currentMaximum - previousMaximum) / previousMaximum : null;
-    const status = !previousSessions.length || !previousMaximum
+    const currentMaximum = current.bestMark;
+    const previousMaximum = previous?.bestMark ?? null;
+    // Compare observed work per set, independently of RIR and calibration.
+    // A changed set count must not masquerade as improved strength.
+    const performance = current.volume / current.completedSets.length;
+    const previousPerformance = previous ? previous.volume / previous.completedSets.length : null;
+    const maximumChange = previousPerformance > 0 ? (performance - previousPerformance) / previousPerformance : null;
+    const status = !previous
       ? 'baseline'
       : maximumChange > .005
         ? 'improved'
-        : maximumChange < -.005
-          ? 'declined'
-          : 'maintained';
+        : calibration.decision === 'maintain-prescription' || maximumChange >= -.005
+          ? 'maintained'
+          : 'declined';
     const volumeChange = previous?.volume > 0 ? (current.volume - previous.volume) / previous.volume : null;
     return {
       exerciseId: item.exerciseId,
@@ -1119,6 +1122,21 @@ function prescribedSetCount(exercise, profile, context, limits) {
   return clamp(distributedSets, Math.min(minimum, maximum), maximum);
 }
 
+export function getSimilarLoadReference(exerciseId, history = [], now = Date.now()) {
+  const exercise = exercises.find((candidate) => candidate.id === exerciseId);
+  if (!exercise || !['external', 'per-dumbbell'].includes(exercise.loadType)) return null;
+  const candidates = exercises.filter((candidate) => candidate.id !== exerciseId
+    && candidate.primary === exercise.primary && candidate.pattern === exercise.pattern
+    && candidate.loadType === exercise.loadType && candidate.loadUnit === exercise.loadUnit)
+    .map((candidate) => ({ exercise: candidate, progress: getExerciseProgress(history, candidate.id, now) }))
+    .map((reference) => ({ ...reference, weight: Number(reference.progress.latestSets.filter((set) => set.done && Number(set.weight) > 0).at(-1)?.weight) }))
+    .filter(({ weight }) => weight > 0)
+    .sort((a, b) => Number(b.exercise.equipment.join() === exercise.equipment.join())
+      - Number(a.exercise.equipment.join() === exercise.equipment.join()));
+  const reference = candidates[0];
+  return reference ? { exercise: reference.exercise, weight: reference.weight } : null;
+}
+
 function prescription(exercise, profile, history, context = {}) {
   const targetMinutes = context.targetMinutes || profile.duration || 45;
   const enrichedContext = { ...context, targetMinutes };
@@ -1212,6 +1230,7 @@ export function calibrateBodyweightPrescription(item, maximumReps) {
     item.targetRirs?.length ? item.targetRirs : [item.targetRir || 0],
     item.sets.length,
   );
+  const commonReps = Math.min(...targetRirs.map((rir, index) => clamp(testedMaximum - rir - index, 1, maximum)));
   return {
     ...item,
     needsInitialReps: false,
@@ -1221,8 +1240,8 @@ export function calibrateBodyweightPrescription(item, maximumReps) {
     sets: item.sets.map((set, index) => ({
       ...set,
       targetRir: targetRirs[index],
-      targetReps: clamp(testedMaximum - targetRirs[index] - index, 1, maximum),
-      reps: clamp(testedMaximum - targetRirs[index] - index, 1, maximum),
+      targetReps: commonReps,
+      reps: commonReps,
       weight: 0,
       targetWeight: 0,
     })),
@@ -2274,7 +2293,7 @@ export function addWorkoutSet(item, profile = null, exercise = null) {
   const nextSet = {
     ...source,
     targetRir,
-    reps: Number(source.reps ?? source.targetReps) || 0,
+    reps: Number(source.targetReps ?? source.reps) || 0,
     weight: source.weight ?? source.targetWeight ?? null,
     rir: null,
     done: false,

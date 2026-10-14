@@ -13,12 +13,7 @@ export function calculateProgression({ sets = [], recentSessions = [], decision,
   const completed = sets.filter((set) => set.done);
   const targets = sets.map((set) => Number(set.targetReps)).filter(positive);
   const baseline = bounded(targets.length ? Math.min(...targets) : limits.minReps, 1, limits.maxReps);
-  const hold = (weight, reason) => ({
-    ...result(weight, baseline, 'hold', reason),
-    targetReps: Array.from({ length: count }, (_, index) => bounded(
-      Number(sets[index]?.targetReps) || baseline, 1, limits.maxReps,
-    )),
-  });
+  const hold = (weight, reason) => result(weight, baseline, 'hold', reason);
   if (!completed.length) return result(usesWeight ? null : 0, limits.minReps, 'start', 'no-history');
 
   const available = [...new Set(loads.filter(positive).map(Number))].sort((a, b) => a - b);
@@ -115,16 +110,10 @@ export function calculateProgression({ sets = [], recentSessions = [], decision,
       return result(next, limits.minReps, 'load', 'range-completed');
     }
   }
-  // Progress from each completed set, preserving uneven extra repetitions.
-  // Advancing the old targets can prescribe less work than was just performed.
-  const targetReps = sets.slice(0, count).map((set) => bounded(Number(set.reps) + 1, 1, limits.maxReps));
-  const completedVolume = sets.slice(0, count).reduce((sum, set) => sum + Number(set.reps), 0);
-  const nextVolume = targetReps.reduce((sum, reps) => sum + reps, 0);
-  const increased = nextVolume > completedVolume
-    && targetReps.every((reps, index) => reps >= Number(sets[index].reps));
-  return {
-    ...result(weight, targetReps[0], increased ? 'reps' : 'top',
-      increased ? 'all-sets-completed' : 'range-completed'),
-    targetReps,
-  };
+  // A single common target advances from the weakest successful set.
+  // Extra reps on the final set remain recorded performance, not a new split.
+  const reps = bounded(Math.min(...sets.slice(0, count).map((set) => Number(set.reps))) + 1, 1, limits.maxReps);
+  const increased = reps > Math.min(...sets.slice(0, count).map((set) => Number(set.reps)));
+  return result(weight, reps, increased ? 'reps' : 'top',
+    increased ? 'all-sets-completed' : 'range-completed');
 }
