@@ -11,7 +11,7 @@ const CONTINUITY_BREAK_DAYS = 28;
 const RECENT_VARIATION_DAYS = 7;
 const EXERCISE_ROTATION_EXPOSURES = 4;
 export const SESSION_TIME_TOLERANCE_MINUTES = 7;
-export const ENGINE_VERSION = 48;
+export const ENGINE_VERSION = 50;
 
 const muscleBaseImportance = {
   chest: 100,
@@ -1025,7 +1025,7 @@ function targetMuscles() {
   return [...allMuscles];
 }
 
-const loadEquipmentOrder = ['dumbbells', 'kettlebell', 'barbell', 'ezbar', 'machines', 'cables'];
+const loadEquipmentOrder = ['addedweight', 'dumbbells', 'kettlebell', 'barbell', 'ezbar', 'machines', 'cables'];
 
 function loadEquipment(exercise) {
   return loadEquipmentOrder.find((equipment) => exercise.equipment.includes(equipment)) || null;
@@ -1059,7 +1059,9 @@ export function getExercisePrescription(profile, exercise) {
     : styleEnabled
       ? targetRirsForSetCount(styleRule.targetRirs, maxSets)
       : Array.from({ length: maxSets }, () => clamp(profile.targetRir ?? goal.targetRir, 0, 4));
-  const requestedMaxReps = Number(override.maxReps) || rule.maxReps;
+  // Bodyweight exercises progress through reps because there is no external
+  // load to increase at the goal's usual rep ceiling. Keep explicit caps.
+  const requestedMaxReps = Number(override.maxReps) || (exercise.loadType === 'bodyweight' ? 50 : rule.maxReps);
   // Long lower-body compound sets taken to failure have a disproportionate
   // systemic/cardiorespiratory cost. Keep the automatic prescription at ten
   // reps when its final set targets 0 RIR. An explicit exercise override still
@@ -1276,6 +1278,7 @@ export function hasAvailableEquipment(exercise, profile) {
 function hasLoadedEquivalent(exercise, profile) {
   if (exercise.loadType !== 'bodyweight') return false;
   return exercises.some((candidate) => candidate.id !== exercise.id
+    && !candidate.bodyweightExerciseId
     && candidate.primary === exercise.primary
     && candidate.pattern === exercise.pattern
     && ['external', 'per-dumbbell'].includes(candidate.loadType)
@@ -1286,11 +1289,34 @@ function hasLoadedEquivalent(exercise, profile) {
 export function isExerciseAllowed(exercise, profile) {
   if (!exercise?.generationEligible || !hasAvailableEquipment(exercise, profile)) return false;
   if (profile.preferences?.[exercise.id] === 'exclude') return false;
+  if (exercise.bodyweightExerciseId && !getAvailableLoads(exercise, profile).length) return false;
   const filters = profile.exerciseFilters || {};
   if (filters.excludeDirectCore && exercise.primary === 'core') return false;
   if (filters.excludeCalves && exercise.primary === 'calves') return false;
   if (filters.preferLoadedVariants && hasLoadedEquivalent(exercise, profile)) return false;
   return true;
+}
+
+function shouldUseWeightedVariant(weighted, profile, history, now) {
+  if (!isExerciseAllowed(weighted, profile)) return false;
+  if (getExerciseProgress(history, weighted.id, now).sessions > 0) return true;
+  const base = exercises.find((exercise) => exercise.id === weighted.bodyweightExerciseId);
+  if (!base || profile.preferences?.[base.id] === 'exclude') return false;
+  const sets = getExerciseProgress(history, base.id, now).latestSets;
+  const goal = trainingRules[profile.goal] || trainingRules.muscle;
+  const ceiling = Number(profile.exerciseOverrides?.[base.id]?.maxReps)
+    || (base.compound ? goal.compound : goal.accessory).maxReps;
+  const finalRir = sets.at(-1)?.rir;
+  return sets.length > 0 && finalRir != null && finalRir !== '' && Number(finalRir) > 0
+    && sets.every((set) => set.done && Number(set.reps) >= ceiling
+      && recordedRir(set) >= Number(set.targetRir ?? 2));
+}
+
+function isAutomaticExerciseAllowed(exercise, profile, history, now) {
+  if (!isExerciseAllowed(exercise, profile)) return false;
+  if (exercise.bodyweightExerciseId) return shouldUseWeightedVariant(exercise, profile, history, now);
+  const weighted = exercises.find((candidate) => candidate.bodyweightExerciseId === exercise.id);
+  return !weighted || !shouldUseWeightedVariant(weighted, profile, history, now);
 }
 
 export function getEquipmentCoverage(profile) {
@@ -1366,7 +1392,7 @@ const rotationKey = (exercise) => `${exercise.primary}:${exercise.pattern}:${exe
 // not advance rotation. Each movement keeps up to two compatible exercises.
 export function getExerciseRotationBlocks(history = [], profile, now = Date.now()) {
   const pools = new Map();
-  exercises.filter((exercise) => isExerciseAllowed(exercise, profile)).forEach((exercise) => {
+  exercises.filter((exercise) => isAutomaticExerciseAllowed(exercise, profile, history, now)).forEach((exercise) => {
     const key = rotationKey(exercise);
     pools.set(key, [...(pools.get(key) || []), exercise]);
   });
@@ -1787,7 +1813,7 @@ export function generateWorkout(profile, history = [], options = {}) {
   const rankCandidates = (patterns = null, scoringTargets = targets) => {
     const compatible = exercises
     .filter((exercise) => profile.preferences?.[exercise.id] !== 'exclude' && !chosen.some((item) => item.id === exercise.id))
-    .filter((exercise) => isExerciseAllowed(exercise, profile))
+    .filter((exercise) => isAutomaticExerciseAllowed(exercise, profile, history, now))
     .filter((exercise) => isEssentialExercise(exercise, profile))
     .filter((exercise) => !avoidIds.has(exercise.id))
     .filter((exercise) => {
@@ -1864,7 +1890,7 @@ export function generateWorkout(profile, history = [], options = {}) {
           || family.primaryMuscles.includes(exercise.primary))
         && family.patterns.includes(exercise.pattern)
         && targets.includes(exercise.primary)
-        && isExerciseAllowed(exercise, profile)
+        && isAutomaticExerciseAllowed(exercise, profile, history, now)
         && isEssentialExercise(exercise, profile));
       if (!hasCompatibleExercise) unavailableMovementFamilies.push(family.id);
       return;
@@ -1946,7 +1972,7 @@ export function generateWorkout(profile, history = [], options = {}) {
 
   if (!chosen.length) {
     const fallbackPool = exercises
-      .filter((exercise) => isExerciseAllowed(exercise, profile) && isEssentialExercise(exercise, profile))
+      .filter((exercise) => isAutomaticExerciseAllowed(exercise, profile, history, now) && isEssentialExercise(exercise, profile))
       .filter((exercise) => targets.includes(exercise.primary));
     const preferredFallbacks = fallbackPool.filter((exercise) => targets.includes(exercise.primary));
     const fallback = (preferredFallbacks.length ? preferredFallbacks : fallbackPool)

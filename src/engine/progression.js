@@ -103,6 +103,13 @@ export function calculateProgression({ sets = [], recentSessions = [], decision,
   if (!allMet) return hold(weight, 'target-not-completed');
   if (count > sets.length) return hold(weight, 'sets-added');
 
+  // Completing a bodyweight prescription at failure proves the performed
+  // reps, but provides no reserve for an additional rep next time.
+  if (!usesWeight && rirOf(completed.at(-1)) <= 0) {
+    return result(weight, bounded(Math.min(...sets.map((set) => Number(set.reps))), 1, limits.maxReps),
+      'hold', 'no-reps-in-reserve');
+  }
+
   const atTop = sets.every((set) => Number(set.reps) >= limits.maxReps);
   if (atTop && usesWeight) {
     const next = available.find((load) => load > weight + .001);

@@ -57,7 +57,7 @@ const defaultProfile = {
   goal: 'muscle',
   level: 'intermediate',
   equipment: ['bodyweight', 'dumbbells', 'bench'],
-  loadInventory: { dumbbells: [], kettlebell: [], barbell: [], ezbar: [], machines: [], cables: [] },
+  loadInventory: { dumbbells: [], kettlebell: [], barbell: [], ezbar: [], machines: [], cables: [], addedweight: [] },
   exerciseLoadInventory: {},
   trainingAdaptation: {},
   duration: 45,
@@ -384,7 +384,7 @@ function WeightInventoryEditor({ profile, setProfile }) {
     setCustom({ ...custom, [exerciseId]: '' });
   };
   return <div className="load-inventory"><div><strong>Carichi disponibili</strong><small>La progressione userà soltanto i pesi che inserisci.</small></div>{visible.map((equipment) => <section key={equipment}>
-    <label>{equipmentLabels[equipment]} · kg {equipment === 'dumbbells' ? 'per manubrio' : 'totali'}</label>
+    <label>{equipmentLabels[equipment]} · kg {equipment === 'dumbbells' ? 'per manubrio' : equipment === 'addedweight' ? 'aggiunti al peso corporeo' : 'totali'}</label>
     <form className="custom-load" onSubmit={(event) => { event.preventDefault(); addCustom(equipment); }}><input aria-label={`Peso disponibile per ${equipmentLabels[equipment]}`} inputMode="decimal" type="number" min="0.5" max="1000" step="0.5" placeholder={equipment === 'dumbbells' ? 'Es. 10 kg per manubrio' : 'Es. 20 kg'} value={custom[equipment] || ''} onChange={(event) => setCustom({ ...custom, [equipment]: event.target.value })}/><button type="submit" disabled={!Number.isFinite(Number(custom[equipment])) || Number(custom[equipment]) <= 0}>Aggiungi</button></form>
     {(profile.loadInventory?.[equipment] || []).length
       ? <div className="load-chip-list saved-loads" aria-label={`Pesi salvati per ${equipmentLabels[equipment]}`}>{profile.loadInventory[equipment].map((load) => <button type="button" key={load} onClick={() => remove(equipment, load)} aria-label={`Rimuovi ${load} kg`}><strong>{load} kg</strong><span aria-hidden="true">×</span></button>)}</div>
@@ -870,7 +870,7 @@ function WorkoutView({ workout, setWorkout, profile, setProfile, history, showTo
     const value = Number(weight);
     if (!Number.isFinite(value) || value <= 0) return;
     const exercise = exercises.find((candidate) => candidate.id === workout.exercises[exerciseIndex]?.exerciseId);
-    const equipment = ['dumbbells', 'kettlebell', 'barbell', 'ezbar', 'machines', 'cables']
+    const equipment = ['addedweight', 'dumbbells', 'kettlebell', 'barbell', 'ezbar', 'machines', 'cables']
       .find((id) => exercise?.equipment.includes(id));
     if (!exercise || !equipment) return;
     setProfile((current) => {
@@ -1172,12 +1172,13 @@ function ExerciseCard({ item, history, supersetPartners = [], exerciseIndex, lan
   return <article className="exercise-card" id={`exercise-${item.exerciseId}`}>
     <header><span className="exercise-index">{String(exerciseIndex + 1).padStart(2, '0')}</span><div><div className="exercise-name-row"><h2>{getExerciseName(exercise, language)}</h2>{item.progressionStep === 'max-increase' && <span className="progression-badge">MASSIMALE +{Math.max(.1, Number(item.performanceEvidence?.maximumChange || 0) * 100).toFixed(1)}%</span>}{item.progressionStep === 'max-decrease' && <span className="progression-badge">RICALIBRATO</span>}{item.progressionStep === 'reps' && <span className="progression-badge">+ REPS</span>}{item.progressionStep === 'load' && <span className="progression-badge load">+ CARICO</span>}</div><p>{muscles[exercise.primary] || 'Esercizio salvato'} · {targetRepSummary}{item.calibrationBelowRange ? ' · range adattato alla capacità' : item.repRange ? ` · range ${item.repRange.min}–${item.repRange.max}` : ''} · RIR {item.targetRir}</p></div>{currentCatalogExercise && <button className="icon-button" onClick={onOptions} aria-label={`Opzioni per ${getExerciseName(exercise, language)}`}><Icon name="more" size={20}/></button>}</header>
     {supersetPartners.length > 0 && <p className="superset-note"><strong>Superserie</strong> con {supersetPartners.map((entry) => getExerciseName(getWorkoutExercise(entry), language)).join(' + ')}. Alterna le serie; recupera a fine giro.</p>}
+    {exercise.loadUnit === 'added-weight' && <p className="load-reference">I kg indicano solo la zavorra aggiunta al peso corporeo.</p>}
     {item.rotation && <p className="exercise-rotation">Blocco {item.rotation.block} · esecuzione {Math.min(item.rotation.completedExposures + 1, item.rotation.targetExposures)} di {item.rotation.targetExposures}</p>}
     {currentCatalogExercise && <ExercisePreview source={details?.image} name={getExerciseName(exercise, language)} onOpen={onGuide}/>}
     {needsInitialLoad ? <form className="initial-load" onSubmit={submitInitialLoad}>
       <div><span>PRIMA VOLTA</span><strong>Che carico vuoi usare?</strong><small>Scegli un peso con cui pensi di chiudere le serie a RIR {item.targetRir}.</small></div>
       {loadReference && <p className="load-reference">Riferimento: <strong>{getExerciseName(loadReference.exercise, language)} · {loadReference.weight} kg{exercise.loadType === 'per-dumbbell' ? ' per manubrio' : ''}</strong>. Il carico può cambiare tra esercizi: scegli quello adatto qui.</p>}
-      <label><input autoFocus inputMode="decimal" type="number" min="0.5" max="1000" step="0.5" placeholder="0" value={initialLoad} onChange={(event) => setInitialLoadValue(event.target.value)}/><span>kg {exercise.loadType === 'per-dumbbell' ? 'per manubrio' : exercise.loadUnit === 'single-dumbbell' ? 'del manubrio' : ''}</span></label>
+      <label><input autoFocus inputMode="decimal" type="number" min="0.5" max="1000" step="0.5" placeholder="0" value={initialLoad} onChange={(event) => setInitialLoadValue(event.target.value)}/><span>kg {exercise.loadType === 'per-dumbbell' ? 'per manubrio' : exercise.loadUnit === 'single-dumbbell' ? 'del manubrio' : exercise.loadUnit === 'added-weight' ? 'di zavorra' : ''}</span></label>
       <button className="button dark" disabled={Number(initialLoad) <= 0}>Imposta carico</button>
     </form> : item.needsInitialReps ? <form className="initial-load bodyweight-calibration" onSubmit={submitInitialReps}>
       <div><span>CALIBRAZIONE INIZIALE</span><strong>Quante ripetizioni massime?</strong><small>Inserisci quante ripetizioni pulite riusciresti a fare arrivando a cedimento. Easyfit sottrae il RIR target e rispetta il limite dell’esercizio.</small></div>
