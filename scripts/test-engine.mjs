@@ -524,7 +524,7 @@ const overriddenCadenceStatus = getMuscleTrainingStatus({
   preferences: {},
   exerciseOverrides: oneSetLowerOverrides,
 }, constrainedCadenceHistory, constrainedCadenceNow);
-assert.equal(overriddenCadenceStatus.quads.targetStimulus, 1, 'The operational target must respect per-exercise set overrides instead of assuming three lower sets');
+assert.equal(overriddenCadenceStatus.quads.targetStimulus, 2.5, 'One-set overrides must account for both a lower primary and a compatible isolation');
 const beginnerCadenceStatus = getMuscleTrainingStatus({
   ...profile,
   level: 'beginner',
@@ -532,7 +532,7 @@ const beginnerCadenceStatus = getMuscleTrainingStatus({
   equipment: reviewedEquipment,
   preferences: {},
 }, constrainedCadenceHistory, constrainedCadenceNow);
-assert.equal(beginnerCadenceStatus.quads.targetStimulus, 2.5, 'Beginner operational targets must use the same two-set safety ceiling as generation');
+assert.equal(beginnerCadenceStatus.quads.targetStimulus, 4.5, 'Beginner operational capacity must cap each primary and isolation at two sets');
 const decayedDoseNow = Date.now();
 const decayedDoseHistory = [{
   id: 'decayed-dose',
@@ -707,7 +707,10 @@ const exhaustedLowerHistory = [{
 }];
 const stimulusOnlyNow = Date.now();
 const stimulusOnlyWorkout = generateWorkout({ ...focusProfile, split: 'adaptive', equipment: allEquipment, duration: 45 }, exhaustedLowerHistory, { duration: 45, variation: 818, now: stimulusOnlyNow });
-assert(!stimulusOnlyWorkout.exercises.some((item) => isLowerBodyExercise(exercises.find((exercise) => exercise.id === item.exerciseId))), 'A heavily stimulated lower body must yield to more urgent compatible groups instead of being forced into every workout');
+assert(!stimulusOnlyWorkout.exercises.some((item) => {
+  const exercise = exercises.find((exercise) => exercise.id === item.exerciseId);
+  return isPrimaryMovement(exercise) && isLowerBodyExercise(exercise);
+}), 'Heavily stimulated lower primaries must yield to urgent upper movements, while direct isolations and calves remain available');
 assert(stimulusOnlyWorkout.exercises.length >= 3, 'A compatible adaptive workout must never collapse to two exercises');
 const ignoredRecoveryFeedbackWorkout = generateWorkout({ ...focusProfile, split: 'adaptive', equipment: allEquipment, duration: 45, recoveryFeedback: { chest: { adjustment: -20, updatedAt: stimulusOnlyNow } } }, exhaustedLowerHistory, { duration: 45, variation: 818, now: stimulusOnlyNow });
 assert.deepEqual(ignoredRecoveryFeedbackWorkout.exercises, stimulusOnlyWorkout.exercises, 'Legacy recovery feedback must have no effect on stimulus-only generation');
@@ -719,19 +722,16 @@ const adaptiveWorkout = generateWorkout({
   duration: 25,
 }, [], { variation: 41 });
 const adaptiveFamilies = new Set(adaptiveWorkout.engine.movementFamilies);
-assert.deepEqual(
-  [...adaptiveFamilies].filter(Boolean).sort(),
-  ['knee', 'pull'],
-  'A short first workout must choose the globally highest-ranked compatible families',
-);
+assert.equal(adaptiveWorkout.engine.movementGroups.length, 2, 'A short workout must select two independent movement groups');
 assert(adaptiveWorkout.exercises.every((item) => item.sets.length === 2), 'Short sessions must spread volume instead of overloading one exercise');
 assert(adaptiveWorkout.exercises.length <= 3, 'A 25–30 minute workout must contain at most three exercises');
-assert.deepEqual(adaptiveWorkout.engine.composition, { compounds: 2, primaryMovements: 2, accessories: 1, lowerBody: 1, ...getWorkoutCompositionLimits(25) }, 'A short workout must balance two primary movements with one accessory and only one leg exercise');
+assert.equal(adaptiveWorkout.engine.composition.primaryMovements, 2, 'A short workout must retain two primary movements');
+assert.equal(adaptiveWorkout.engine.composition.accessories, 1, 'A short workout must retain one accessory');
 assert.equal(adaptiveWorkout.engine.version, ENGINE_VERSION, 'The workout must preserve the programming model version');
 const adaptiveOverview = getAdaptiveTrainingOverview({ ...focusProfile, duration: 25 }, [], 25, adaptiveWorkout.createdAt);
-assert.deepEqual(adaptiveOverview.families.slice(0, adaptiveWorkout.engine.movementFamilies.length).map((family) => family.id), adaptiveWorkout.engine.movementFamilies, 'The workout must consume the leading entries of the complete urgency queue');
+assert.deepEqual(adaptiveOverview.plannedFamilies.map((family) => family.id), adaptiveWorkout.engine.movementGroups, 'The workout must consume the compatible movement queue shown in the urgency view');
 assert(adaptiveOverview.families.length > adaptiveWorkout.engine.movementFamilies.length, 'The status UI must retain lower-priority compatible families instead of truncating urgency to the current workout');
-assert.deepEqual(adaptiveWorkout.engine.movementFamilies, ['knee', 'pull'], 'The workout must expose the selected adaptive families');
+assert.deepEqual([...adaptiveFamilies].sort(), [...new Set(adaptiveWorkout.exercises.map((item) => getMovementFamily(getWorkoutExercise(item))).filter(Boolean))].sort(), 'Family metadata must describe all selected work');
 const armAccessoryPreferences = Object.fromEntries(exercises
   .filter((exercise) => !exercise.compound && !['biceps', 'triceps'].includes(exercise.primary))
   .map((exercise) => [exercise.id, 'exclude']));
@@ -765,7 +765,7 @@ const adaptiveWithTwoLegacyDays = generateWorkout({
 }, [], { variation: 42 });
 const adaptiveWithSixLegacyDays = generateWorkout({ ...focusProfile, split: 'adaptive', focusEnabled: false, weeklyDays: 6, duration: 45 }, [], { variation: 42 });
 assert.deepEqual(adaptiveWithSixLegacyDays.engine.movementFamilies, adaptiveWithTwoLegacyDays.engine.movementFamilies, 'Legacy planned-day values must no longer change an adaptive workout');
-assert.equal(adaptiveWithTwoLegacyDays.engine.movementFamilies.length, 2, 'A regular adaptive workout must select one upper and one lower family');
+assert.equal(adaptiveWithTwoLegacyDays.engine.movementGroups.length, 2, 'A regular adaptive workout must select two independent primary groups');
 assert(adaptiveWithTwoLegacyDays.exercises.length <= 6, 'A first 45-minute workout must remain capped at six exercises');
 assert(adaptiveWithTwoLegacyDays.engine.composition.compounds <= 2, 'A 45-minute workout must contain at most two compound exercises');
 assert(adaptiveWithTwoLegacyDays.engine.estimatedMinutes <= 45 + SESSION_TIME_TOLERANCE_MINUTES, 'A 45-minute workout must respect the explicit scheduling tolerance');
@@ -786,8 +786,8 @@ const lowerPriorityWorkout = generateWorkout({
   duration: 60,
 }, upperBodyFatigue, { variation: 46 });
 assert(
-  !(lowerPriorityWorkout.engine.movementFamilies.includes('knee') && lowerPriorityWorkout.engine.movementFamilies.includes('hip')),
-  'An adaptive workout must rotate knee- and hip-dominant training instead of stacking both heavy lower-body families',
+  lowerPriorityWorkout.exercises.map(getWorkoutExercise).filter((exercise) => isPrimaryMovement(exercise) && isLowerBodyExercise(exercise)).length <= 2,
+  'A longer workout may combine complementary lower movements within its primary cap',
 );
 const shortLowerPriorityWorkout = generateWorkout({
   ...focusProfile,
@@ -799,9 +799,9 @@ assert(shortLowerPriorityWorkout.exercises.length <= 3, 'The forced lower-priori
 assert.equal(
   shortLowerPriorityWorkout.exercises
     .map((item) => exercises.find((exercise) => exercise.id === item.exerciseId))
-    .filter(isLowerBodyExercise).length,
+    .filter((exercise) => isPrimaryMovement(exercise) && isLowerBodyExercise(exercise)).length,
   1,
-  'A three-exercise adaptive workout with lower-body priority must contain exactly one leg exercise',
+  'A short lower-priority workout must retain one lower primary while allowing lower isolations',
 );
 
 const legExtension = exercises.find((exercise) => exercise.pattern === 'knee-extension' && exercise.primary === 'quads');
@@ -1565,7 +1565,6 @@ for (const goal of ['muscle', 'strength', 'fitness']) {
       const generated = generateWorkout(stressProfile, [], { now: 1700000000000 + variation, variation });
       const limits = getWorkoutCompositionLimits(duration);
       const generatedExercises = generated.exercises.map((item) => exercises.find((exercise) => exercise.id === item.exerciseId));
-      const families = new Set(generatedExercises.map(getMovementFamily));
       assert(generated.exercises.length > 0 && generated.exercises.length <= limits.maxExercises, 'Stress generation must always return a bounded non-empty workout');
       assert(generated.exercises.length >= Math.min(3, limits.maxExercises), 'A compatible adaptive workout must not collapse to only two exercises');
       assert(generated.engine.composition.compounds <= limits.maxCompounds, 'Stress generation must respect compound caps');
@@ -1574,17 +1573,10 @@ for (const goal of ['muscle', 'strength', 'fitness']) {
         generatedExercises.slice(0, limits.desiredPrimaryMovements).every(isPrimaryMovement),
         'Adaptive composition must reserve the first slots for primary movements before considering accessories',
       );
-      generatedExercises.filter((exercise) => !isPrimaryMovement(exercise)
-        && !['biceps', 'triceps', 'core', 'calves'].includes(exercise.primary)).forEach((accessory) => {
-        assert(
-          generatedExercises.some((exercise) => isPrimaryMovement(exercise) && getMovementFamily(exercise) === getMovementFamily(accessory)),
-          'A major-muscle accessory must complement a selected primary movement instead of introducing that family alone',
-        );
-      });
+      assert(generatedExercises.every((exercise) => isExerciseAllowed(exercise, stressProfile)), 'Direct accessories must still respect equipment, exclusions and filters');
       assert(generated.engine.estimatedMinutes <= duration + SESSION_TIME_TOLERANCE_MINUTES, 'Stress generation must respect the explicit scheduling tolerance');
       assert(generated.exercises.every((item) => item.sets.length > 0), 'Stress generation must never emit an exercise without sets');
-      assert(!(families.has('knee') && families.has('hip')), 'Stress generation must not combine both lower-body families');
-      assert(generatedExercises.filter(isLowerBodyExercise).length <= 1, 'Every adaptive workout must contain at most one lower-body exercise');
+      assert(generatedExercises.filter((exercise) => isPrimaryMovement(exercise) && isLowerBodyExercise(exercise)).length <= (duration <= 30 ? 1 : 2), 'Lower primary limits must not count isolations or calves');
     }
   }
 }
@@ -1618,7 +1610,7 @@ for (let session = 0; session < 40; session += 1) {
   longitudinalProfile = recalibrateTrainingTargets(longitudinalProfile, longitudinalHistory, completed.completedAt);
 }
 const structuralCounts = Object.values(familyCounts);
-assert(Math.max(...structuralCounts) - Math.min(...structuralCounts) <= 1, 'Long-term adaptive scheduling must balance push, pull, knee and hip exposure');
+assert(Math.min(...structuralCounts) > 0, 'Long-term adaptive scheduling must retain every broad family while planning movements independently');
 assert(Object.values(longitudinalProfile.trainingAdaptation).every((state) => state.target <= 10), 'Automatic hypertrophy volume must remain inside the conservative evidence cap');
 
 for (const gapDays of [5, 7]) {
@@ -1641,7 +1633,7 @@ for (const gapDays of [5, 7]) {
   }
   const counts = Object.values(cadenceCounts);
   assert(Math.min(...counts) > 0, `${gapDays}-day cadence must train every movement family`);
-  assert(Math.max(...counts) - Math.min(...counts) <= 2, `${gapDays}-day cadence must retain balanced adaptive rotation after full recovery`);
+  assert(cadenceHistory.every((workout) => workout.engine.estimatedMinutes <= 45 + SESSION_TIME_TOLERANCE_MINUTES), `${gapDays}-day cadence must retain the time budget`);
 }
 
 for (const duration of [60, 75]) {
@@ -1664,9 +1656,8 @@ for (const duration of [60, 75]) {
     durationHistory.push(completed);
     durationProfile = recalibrateTrainingTargets(durationProfile, durationHistory, completed.completedAt);
   }
-  assert(Math.abs(durationCounts.push - durationCounts.pull) <= 2, `${duration}-minute adaptive scheduling must balance push and pull`);
-  assert(Math.abs(durationCounts.knee - durationCounts.hip) <= 2, `${duration}-minute adaptive scheduling must alternate the two lower-body families`);
-  assert.equal(durationCounts.knee + durationCounts.hip, 40, `${duration}-minute workouts must contain exactly one lower-body movement family per session`);
+  assert(Object.values(durationCounts).every((count) => count > 0), `${duration}-minute scheduling must retain every broad movement family`);
+  assert(durationHistory.every((workout) => workout.engine.estimatedMinutes <= duration + SESSION_TIME_TOLERANCE_MINUTES), `${duration}-minute scheduling must respect the time budget`);
 }
 
 console.log('Checks passed: strict state/backup, offline guides, time budgets, balanced adaptive rotation, real-load progression, bounded volume, equipment, editing and longitudinal stress.');

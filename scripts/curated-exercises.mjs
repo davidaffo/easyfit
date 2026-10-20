@@ -68,6 +68,11 @@ export const curatedExercises = {
 
   // Spinta verticale
   567: item('vp', ['dumbbells'], 15),
+  478: item('vp', ['dumbbells'], 13, {
+    effortClass: 'high-fatigue-compound', executionVariant: 'push-press',
+    translations: { en: 'Push Press', it: 'Push press con manubri' },
+    muscleContributions: { shoulders: 1, triceps: .5, quads: .25, glutes: .25, core: .25 },
+  }),
   543: item('vp', ['machines'], 13),
   566: item('vp', ['barbell', 'rack'], 16, { effortClass: 'high-fatigue-compound' }),
   454: item('vp', ['bodyweight'], 10, { muscleContributions: { shoulders: 1, triceps: .5, chest: .25, core: .25 } }),

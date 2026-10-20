@@ -2,12 +2,12 @@
   "source": "wger",
   "sourceUrl": "https://wger.de",
   "syncedAt": "2026-09-04T18:15:53.577Z",
-  "curatedAt": "2026-10-10T12:51:55.816Z",
+  "curatedAt": "2026-10-20T14:10:21.363Z",
   "schemaVersion": 2,
   "curation": "explicit-wger-id-registry",
   "sourceCount": 822,
-  "count": 72,
-  "eligible": 72,
+  "count": 73,
+  "eligible": 73,
   "exercises": [
     {
       "id": "wger-1573",
@@ -2097,6 +2097,50 @@
       "effortClass": "stable-compound",
       "sessionRole": "primary",
       "intensifierEligible": true
+    },
+    {
+      "id": "wger-478",
+      "wgerId": 478,
+      "name": "Push Press",
+      "translations": {
+        "en": "Push Press",
+        "it": "Push press con manubri"
+      },
+      "primary": "shoulders",
+      "secondary": [
+        "triceps",
+        "quads",
+        "glutes",
+        "core"
+      ],
+      "equipment": [
+        "dumbbells"
+      ],
+      "muscleContributions": {
+        "shoulders": 1,
+        "triceps": 0.5,
+        "quads": 0.25,
+        "glutes": 0.25,
+        "core": 0.25
+      },
+      "pattern": "vertical-push",
+      "compound": true,
+      "selectionPriority": 13,
+      "loadType": "per-dumbbell",
+      "minutes": 9,
+      "variationGroup": "e3388987-305b-43b8-9e90-c3bce376b203",
+      "license": {
+        "name": "CC-BY-SA 3",
+        "url": "https://creativecommons.org/licenses/by-sa/3.0/deed.en",
+        "author": "sistab2"
+      },
+      "source": "wger",
+      "generationEligible": true,
+      "loadMultiplier": 2,
+      "effortClass": "high-fatigue-compound",
+      "sessionRole": "primary",
+      "intensifierEligible": false,
+      "executionVariant": "push-press"
     },
     {
       "id": "wger-1551",

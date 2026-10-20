@@ -11,7 +11,7 @@ const CONTINUITY_BREAK_DAYS = 28;
 const RECENT_VARIATION_DAYS = 7;
 const EXERCISE_ROTATION_EXPOSURES = 4;
 export const SESSION_TIME_TOLERANCE_MINUTES = 7;
-export const ENGINE_VERSION = 50;
+export const ENGINE_VERSION = 51;
 
 const muscleBaseImportance = {
   chest: 100,
@@ -162,6 +162,29 @@ export const movementFamilies = [
   { id: 'knee', patterns: ['squat', 'single-leg', 'knee-extension'], muscles: ['quads'], primaryMuscles: ['quads'] },
   { id: 'hip', patterns: ['hinge', 'hip-extension', 'knee-flexion'], muscles: ['hamstrings', 'glutes'], primaryMuscles: ['hamstrings', 'glutes'] },
 ];
+
+// Families describe shared musculature; they are not interchangeable training
+// slots. Plan complementary movements independently, including their history.
+export const movementGroups = [
+  { id: 'horizontal-push', family: 'push', patterns: ['horizontal-push', 'chest-isolation', 'elbow-extension'], primaryPatterns: ['horizontal-push'], muscles: ['chest', 'triceps'], primaryMuscles: ['chest'] },
+  { id: 'vertical-push', family: 'push', patterns: ['vertical-push', 'shoulder-isolation'], primaryPatterns: ['vertical-push'], muscles: ['shoulders', 'triceps'], primaryMuscles: ['shoulders'] },
+  { id: 'horizontal-pull', family: 'pull', patterns: ['horizontal-pull', 'rear-delt'], primaryPatterns: ['horizontal-pull'], muscles: ['back', 'biceps'], primaryMuscles: ['back'] },
+  { id: 'vertical-pull', family: 'pull', patterns: ['vertical-pull', 'straight-arm-pull'], primaryPatterns: ['vertical-pull'], muscles: ['back', 'biceps'], primaryMuscles: ['back'] },
+  { id: 'knee', family: 'knee', patterns: ['squat', 'single-leg', 'knee-extension'], primaryPatterns: ['squat', 'single-leg'], muscles: ['quads'], primaryMuscles: ['quads'] },
+  { id: 'hip', family: 'hip', patterns: ['hinge', 'knee-flexion'], primaryPatterns: ['hinge'], muscles: ['hamstrings', 'glutes'], primaryMuscles: ['hamstrings'] },
+  { id: 'glutes', family: 'hip', patterns: ['hip-extension'], primaryPatterns: ['hip-extension'], muscles: ['glutes', 'hamstrings'], primaryMuscles: ['glutes'] },
+];
+
+const isLowerPrimary = (exercise) => isPrimaryMovement(exercise) && isLowerBodyExercise(exercise);
+const primaryGroupIds = (selected) => [...new Set(selected.filter(isPrimaryMovement)
+  .map((exercise) => movementGroups.find((group) => group.primaryPatterns.includes(exercise.pattern))?.id).filter(Boolean))];
+
+function canCombineExercise(exercise, chosen, targetMinutes) {
+  if (!isLowerPrimary(exercise)) return true;
+  // Short sessions retain one lower primary, but isolations and calves never
+  // consume that slot. Longer sessions can contain complementary lower work.
+  return chosen.filter(isLowerPrimary).length < (Number(targetMinutes) <= 30 ? 1 : 2);
+}
 
 export function getMovementFamily(exercise) {
   return movementFamilies.find((family) => family.patterns.includes(exercise?.pattern))?.id || null;
@@ -329,10 +352,6 @@ function muscleSessionCapacity(muscle, profile, history, now) {
     exercise,
     capacity: exerciseSetCapacity(exercise, muscle, profile, history, now),
   }));
-  if (['quads', 'hamstrings', 'glutes'].includes(muscle)) {
-    // The session-wide lower-body guard permits only one lower exercise.
-    return Math.max(0, ...capacities.filter(({ exercise }) => isLowerBodyExercise(exercise)).map(({ capacity }) => capacity));
-  }
   const compound = Math.max(0, ...capacities.filter(({ exercise }) => exercise.compound).map(({ capacity }) => capacity));
   const accessory = Math.max(0, ...capacities.filter(({ exercise }) => !exercise.compound).map(({ capacity }) => capacity));
   return compound + accessory;
@@ -863,6 +882,33 @@ export function getWeeklyMovementFrequency(history = [], now = Date.now()) {
     covered.forEach((family) => { frequency[family] += windowWeight; });
   });
   return frequency;
+}
+
+export function getMovementPatternLoad(history = [], now = Date.now()) {
+  const load = {};
+  history.filter((workout) => validCompletedWorkout(workout, now)).forEach((workout) => {
+    if (now - workout.completedAt > CONTINUITY_HISTORY_DAYS * DAY) return;
+    const weight = stimulusWindowWeight(workout.completedAt, now);
+    const sessionVolume = {};
+    workout.exercises.forEach((item) => {
+      const exercise = resolveRecordedExercise(item);
+      if (!exercise?.pattern) return;
+      if (!(item.sets || []).some((set) => set.done && setStimulusQuality(set) >= .7)) return;
+      const volume = (item.sets || []).filter((set) => set.done)
+        .reduce((sum, set) => sum + setStimulusQuality(set), 0);
+      sessionVolume[exercise.pattern] = (sessionVolume[exercise.pattern] || 0) + volume;
+    });
+    Object.entries(sessionVolume).forEach(([pattern, volume]) => {
+      if (volume < .75) return;
+      const previous = load[pattern] || { volume: 0, frequency: 0, lastPerformedAt: 0 };
+      load[pattern] = {
+        volume: previous.volume + volume * weight,
+        frequency: previous.frequency + weight,
+        lastPerformedAt: Math.max(previous.lastPerformedAt, Number(workout.completedAt)),
+      };
+    });
+  });
+  return load;
 }
 
 function exerciseSessionMetric(item, exercise) {
@@ -1600,43 +1646,50 @@ function auxiliaryTarget(profile, muscleStatus) {
     .sort((a, b) => muscleStatus[b].priority - muscleStatus[a].priority)[0] || null;
 }
 
-function movementFamilyNeed(family, profile, weeklyLoad, movementFrequency, muscleStatus) {
+function movementGroupNeed(family, profile, weeklyLoad, patternLoad, muscleStatus, now) {
   const weeklyTargets = getWeeklyTargets(profile);
   // Direct arm work is ranked later as complementary work. It must not dilute
   // the need of the large muscle that makes a movement family selectable.
   const relevantMuscles = (family.primaryMuscles || family.muscles).filter((muscle) => allMuscles.includes(muscle));
   const highest = (selector) => Math.max(0, ...relevantMuscles.map(selector));
+  const patterns = family.coveragePatterns || family.primaryPatterns;
+  const directFrequency = patterns.reduce((sum, pattern) => sum + (patternLoad[pattern]?.frequency || 0), 0);
+  const lastPerformedAt = Math.max(0, ...patterns.map((pattern) => patternLoad[pattern]?.lastPerformedAt || 0));
   const need = {
     // Match the anatomical urgency shown in the UI. A well-trained glute must
     // not dilute an untrained hamstring merely because they share a family.
     urgentPriority: highest((muscle) => muscleStatus[muscle]?.excluded ? 0 : Number(muscleStatus[muscle]?.priority) || 0),
     priority: highest((muscle) => getMuscleSelectionPriority(muscle, muscleStatus[muscle]) / 100),
-    frequencyGap: Math.max(0, weeklyTargets.frequency - movementFrequency[family.id]),
+    frequencyGap: Math.max(0, weeklyTargets.frequency - directFrequency),
+    directCoverageNeed: 1 / (1 + directFrequency),
+    movementRecencyNeed: lastPerformedAt ? clamp((now - lastPerformedAt) / (14 * DAY), 0, 1) : 1,
     volumeGap: highest((muscle) => muscleStatus[muscle]?.volumeNeed
       ?? clamp((weeklyTargets.sets - weeklyLoad.volume[muscle]) / weeklyTargets.sets, 0, 1)),
   };
   return {
     ...need,
-    score: need.priority * .6 + need.volumeGap * .25
-      + need.frequencyGap / Math.max(1, weeklyTargets.frequency) * .15,
+    // Most of the scheduling priority belongs to direct movement coverage.
+    // Pectoral/arm work cannot silently satisfy an overhead-press exposure.
+    score: need.priority * .2 + need.volumeGap * .15
+      + need.directCoverageNeed * .5 + need.movementRecencyNeed * .15,
   };
 }
 
-function compareMovementFamilyNeed(a, b, profile, weeklyLoad, movementFrequency, muscleStatus) {
-  const needA = movementFamilyNeed(a, profile, weeklyLoad, movementFrequency, muscleStatus);
-  const needB = movementFamilyNeed(b, profile, weeklyLoad, movementFrequency, muscleStatus);
-  return needB.urgentPriority - needA.urgentPriority || needB.score - needA.score || a.id.localeCompare(b.id);
+function compareMovementGroupNeed(a, b, profile, weeklyLoad, patternLoad, muscleStatus, now) {
+  const needA = movementGroupNeed(a, profile, weeklyLoad, patternLoad, muscleStatus, now);
+  const needB = movementGroupNeed(b, profile, weeklyLoad, patternLoad, muscleStatus, now);
+  return needB.score - needA.score || needB.urgentPriority - needA.urgentPriority || a.id.localeCompare(b.id);
 }
 
-function getAvailableAdaptiveFamilies(profile, weeklyLoad, movementFrequency, muscleStatus, targetMinutes, avoidIds = new Set()) {
-  const ranked = [...movementFamilies]
-    .sort((a, b) => compareMovementFamilyNeed(a, b, profile, weeklyLoad, movementFrequency, muscleStatus));
-  const available = ranked.filter((family) => exercises.some((exercise) => (isPrimaryMovement(exercise)
-      || family.primaryMuscles.includes(exercise.primary))
-    && !avoidIds.has(exercise.id)
-    && family.patterns.includes(exercise.pattern)
-    && isExerciseAllowed(exercise, profile)
-    && isEssentialExercise(exercise, profile)));
+function getAvailableAdaptiveGroups(profile, weeklyLoad, patternLoad, muscleStatus, avoidIds, now) {
+  const compatible = exercises.filter((exercise) => !avoidIds.has(exercise.id) && isExerciseAllowed(exercise, profile));
+  const available = movementGroups.flatMap((group) => {
+    const candidates = compatible.filter((exercise) => group.patterns.includes(exercise.pattern)
+      && (isPrimaryMovement(exercise) || group.primaryMuscles.includes(exercise.primary)));
+    if (!candidates.length) return [];
+    const primaries = candidates.filter(isPrimaryMovement);
+    return [{ ...group, coveragePatterns: [...new Set((primaries.length ? primaries : candidates).map((exercise) => exercise.pattern))] }];
+  }).sort((a, b) => compareMovementGroupNeed(a, b, profile, weeklyLoad, patternLoad, muscleStatus, now));
   // Keep the complete urgency queue. Session composition decides how many
   // entries fit; truncating it here used to strand otherwise valid third
   // exercises and made the UI falsely report only two urgent families.
@@ -1647,8 +1700,9 @@ function plannedFamiliesFromUrgencyQueue(families, targetMinutes) {
   const limit = getWorkoutCompositionLimits(targetMinutes).desiredPrimaryMovements;
   const selected = [];
   for (const family of families) {
-    const lower = ['knee', 'hip'].includes(family.id);
-    if (lower && selected.some((item) => ['knee', 'hip'].includes(item.id))) continue;
+    const lower = ['knee', 'hip'].includes(family.family);
+    const lowerLimit = Number(targetMinutes) <= 30 ? 1 : 2;
+    if (lower && selected.filter((item) => ['knee', 'hip'].includes(item.family)).length >= lowerLimit) continue;
     selected.push(family);
     if (selected.length >= limit) break;
   }
@@ -1661,9 +1715,9 @@ export function getAdaptiveTrainingOverview(profile, history = [], targetMinutes
     volume: Object.fromEntries(allMuscles.map((muscle) => [muscle, muscleStatus[muscle].doseStimulus])),
     frequency: Object.fromEntries(allMuscles.map((muscle) => [muscle, muscleStatus[muscle].doseExposures])),
   };
-  const movementFrequency = getWeeklyMovementFrequency(history, now);
-  const families = getAvailableAdaptiveFamilies(profile, doseLoad, movementFrequency, muscleStatus, targetMinutes)
-    .map((family) => ({ ...family, need: movementFamilyNeed(family, profile, doseLoad, movementFrequency, muscleStatus) }));
+  const patternLoad = getMovementPatternLoad(history, now);
+  const families = getAvailableAdaptiveGroups(profile, doseLoad, patternLoad, muscleStatus, new Set(), now)
+    .map((family) => ({ ...family, need: movementGroupNeed(family, profile, doseLoad, patternLoad, muscleStatus, now) }));
   return { muscleStatus, families, plannedFamilies: plannedFamiliesFromUrgencyQueue(families, targetMinutes) };
 }
 
@@ -1746,6 +1800,7 @@ export function generateWorkout(profile, history = [], options = {}) {
     frequency: { ...doseLoad.frequency },
   };
   const doseMovementFrequency = getWeeklyMovementFrequency(history, now);
+  const patternLoad = getMovementPatternLoad(history, now);
   let targets = options.targets || targetMuscles();
   const continuity = getExerciseContinuity(history, now);
   const rotationBlocks = getExerciseRotationBlocks(history, profile, now);
@@ -1761,15 +1816,16 @@ export function generateWorkout(profile, history = [], options = {}) {
     now,
     targetMuscles: targets,
   };
-  let requiredFamilies = movementFamilies.filter((family) => family.muscles.some((muscle) => targets.includes(muscle)));
+  let requiredFamilies = movementGroups.filter((group) => group.primaryMuscles.some((muscle) => targets.includes(muscle))
+    || exercises.some((exercise) => isPrimaryMovement(exercise) && group.primaryPatterns.includes(exercise.pattern) && targets.includes(exercise.primary)));
   if (!options.targets) {
-    requiredFamilies = getAvailableAdaptiveFamilies(profile, doseLoad, doseMovementFrequency, muscleStatus, targetMinutes, avoidIds);
+    requiredFamilies = getAvailableAdaptiveGroups(profile, doseLoad, patternLoad, muscleStatus, avoidIds, now);
     targets = [...new Set(requiredFamilies.flatMap((family) => family.muscles))];
     const auxiliary = targetMinutes >= 40 ? auxiliaryTarget(profile, muscleStatus) : null;
     if (auxiliary) targets.push(auxiliary);
   }
   prescriptionContext.targetMuscles = targets;
-  const accessoryTargets = [...new Set([...targets, 'biceps', 'triceps'])]
+  const accessoryTargets = [...new Set([...targets, 'biceps', 'triceps', ...(!options.targets ? ['core', 'calves'] : [])])]
     .filter((muscle) => !muscleStatus[muscle]?.excluded);
   const chosen = [];
   const prescriptions = new Map();
@@ -1781,21 +1837,23 @@ export function generateWorkout(profile, history = [], options = {}) {
   const unavailableMovementFamilies = [];
   let usedMinutes = 7;
   let maintenanceMode = false;
+  const needsDirectCoverage = (exercise) => !patternLoad[exercise.pattern]?.lastPerformedAt
+    || now - patternLoad[exercise.pattern].lastPerformedAt >= RECENT_VARIATION_DAYS * DAY;
 
-  const addExercise = (exercise, allowMaintenance = false, exerciseTargets = targets, guaranteeMinimum = false) => {
+  const addExercise = (exercise, allowMaintenance = false, exerciseTargets = targets) => {
+    if (!canCombineExercise(exercise, chosen, targetMinutes)) return false;
+    if (isPrimaryMovement(exercise) && chosen.filter(isPrimaryMovement).length >= maxCompounds) return false;
     const prescribed = prescription(exercise, profile, history, {
       ...prescriptionContext,
-      allowMaintenance,
+      allowMaintenance: allowMaintenance || needsDirectCoverage(exercise),
       targetMuscles: exerciseTargets,
     });
     if (!prescribed.sets.length) return false;
-    const item = guaranteeMinimum
-      ? prescribed
-      : fitPrescriptionToMinutes(
-        exercise,
-        prescribed,
-        targetMinutes + SESSION_TIME_TOLERANCE_MINUTES - usedMinutes,
-      );
+    const item = fitPrescriptionToMinutes(
+      exercise,
+      prescribed,
+      targetMinutes + SESSION_TIME_TOLERANCE_MINUTES - usedMinutes,
+    );
     if (!item) return false;
     chosen.push(exercise);
     prescriptions.set(exercise.id, item);
@@ -1816,11 +1874,7 @@ export function generateWorkout(profile, history = [], options = {}) {
     .filter((exercise) => isAutomaticExerciseAllowed(exercise, profile, history, now))
     .filter((exercise) => isEssentialExercise(exercise, profile))
     .filter((exercise) => !avoidIds.has(exercise.id))
-    .filter((exercise) => {
-      if (!isLowerBodyExercise(exercise)) return true;
-      const currentLowerBodyCount = chosen.filter(isLowerBodyExercise).length;
-      return currentLowerBodyCount < 1;
-    })
+    .filter((exercise) => canCombineExercise(exercise, chosen, targetMinutes))
     .filter((exercise) => !patterns || patterns.includes(exercise.pattern));
     const eligible = compatible.filter((exercise) => {
       const key = rotationKey(exercise);
@@ -1865,11 +1919,10 @@ export function generateWorkout(profile, history = [], options = {}) {
   const rankAccessoryCandidates = () => {
     const ranked = rankCandidates(null, accessoryTargets)
       .filter(({ exercise }) => !isPrimaryMovement(exercise))
-      .filter(({ exercise }) => {
-        if (['biceps', 'triceps', 'core', 'calves'].includes(exercise.primary)) return true;
-        const family = getMovementFamily(exercise);
-        return !family || chosen.some((selected) => isPrimaryMovement(selected) && getMovementFamily(selected) === family);
-      });
+      .map((candidate) => ({ ...candidate,
+        score: candidate.score + 45 / (1 + (patternLoad[candidate.exercise.pattern]?.frequency || 0)),
+      }))
+      .sort((a, b) => b.score - a.score);
     const fresh = ranked.filter(({ exercise }) => !wasUsedRecently(exercise));
     // An exact accessory is not repeated in the same seven-day window merely
     // because its pattern has no near-identical substitute. Rotate to another
@@ -1880,7 +1933,7 @@ export function generateWorkout(profile, history = [], options = {}) {
   requiredFamilies.forEach((family) => {
     if (plannedFamilies.length >= Math.min(maxCompounds, desiredPrimaryMovements)) return;
     if (chosen.filter(isPrimaryMovement).length >= Math.min(maxCompounds, desiredPrimaryMovements)) return;
-    if (chosen.some((exercise) => getMovementFamily(exercise) === family.id)) return;
+    if (chosen.some((exercise) => family.primaryPatterns.includes(exercise.pattern))) return;
     const candidates = rankCandidates(family.patterns).map(({ exercise }) => exercise);
     const compatibleCompounds = candidates.filter(isPrimaryMovement);
     const familyCandidates = compatibleCompounds.length ? compatibleCompounds
@@ -1905,7 +1958,7 @@ export function generateWorkout(profile, history = [], options = {}) {
   // maintenance dose for the next urgent compatible family instead of
   // returning an accessory-only workout.
   const isolationFamilies = plannedFamilies.filter((family) => !chosen.some((exercise) =>
-    isPrimaryMovement(exercise) && getMovementFamily(exercise) === family.id)).length;
+    isPrimaryMovement(exercise) && family.primaryPatterns.includes(exercise.pattern))).length;
   const minimumPrimaryMovements = Math.max(0, Math.min(desiredPrimaryMovements, maxExercises) - isolationFamilies);
   while (chosen.filter(isPrimaryMovement).length < minimumPrimaryMovements) {
     const primaryFallbacks = requiredFamilies
@@ -1927,7 +1980,7 @@ export function generateWorkout(profile, history = [], options = {}) {
     const ranked = rankAccessoryCandidates();
     if (!ranked.length) break;
     const next = ranked[0].exercise;
-    const nextItem = prescription(next, profile, history, { ...prescriptionContext, targetMuscles: accessoryTargets });
+    const nextItem = prescription(next, profile, history, { ...prescriptionContext, targetMuscles: accessoryTargets, allowMaintenance: needsDirectCoverage(next) });
     if (!nextItem.sets.length) {
       avoidIds.add(next.id);
       continue;
@@ -1942,7 +1995,7 @@ export function generateWorkout(profile, history = [], options = {}) {
     const ranked = rankAccessoryCandidates();
     if (!ranked.length) break;
     const next = ranked[0].exercise;
-    const nextItem = prescription(next, profile, history, { ...prescriptionContext, targetMuscles: accessoryTargets });
+    const nextItem = prescription(next, profile, history, { ...prescriptionContext, targetMuscles: accessoryTargets, allowMaintenance: needsDirectCoverage(next) });
     if (!nextItem.sets.length) {
       avoidIds.add(next.id);
       continue;
@@ -1963,7 +2016,7 @@ export function generateWorkout(profile, history = [], options = {}) {
     const next = (ranked[0] || fallbackPrimaries[0])?.exercise;
     if (!next) break;
     const wasEmpty = chosen.length === 0;
-    if (!addExercise(next, true, accessoryTargets, true)) {
+    if (!addExercise(next, true, accessoryTargets)) {
       avoidIds.add(next.id);
       continue;
     }
@@ -1979,7 +2032,7 @@ export function generateWorkout(profile, history = [], options = {}) {
       .sort((a, b) => Number(isPrimaryMovement(b)) - Number(isPrimaryMovement(a)) || b.selectionPriority - a.selectionPriority)[0];
     if (fallback) {
       maintenanceMode = addExercise(fallback, true);
-      const family = movementFamilies.find((candidate) => candidate.id === getMovementFamily(fallback));
+      const family = movementGroups.find((candidate) => candidate.primaryPatterns.includes(fallback.pattern));
       if (family) plannedFamilies.push(family);
     }
   }
@@ -2007,9 +2060,11 @@ export function generateWorkout(profile, history = [], options = {}) {
       doseStimulusBeforeWorkout: doseLoadBeforeWorkout.volume,
       doseFrequencyBeforeWorkout: doseLoadBeforeWorkout.frequency,
       weeklyMovementFrequencyBeforeWorkout: doseMovementFrequency,
+      patternLoadBeforeWorkout: patternLoad,
       weeklyTargets,
       muscleStatusAtGeneration: muscleStatus,
-      movementFamilies: plannedFamilies.map((family) => family.id),
+      movementFamilies: [...new Set(chosen.map(getMovementFamily).filter(Boolean))],
+      movementGroups: primaryGroupIds(chosen),
       composition: {
         compounds: compoundCount,
         primaryMovements: primaryMovementCount,
@@ -2019,11 +2074,13 @@ export function generateWorkout(profile, history = [], options = {}) {
       },
       settingsFingerprint: getWorkoutSettingsFingerprint(profile),
       returningFromBreak,
-      unavailableMovementFamilies: [...new Set(unavailableMovementFamilies.filter((family) => !coveredMovementFamilies.includes(family)))],
+      unavailableMovementGroups: [...new Set(unavailableMovementFamilies.filter((group) => !primaryGroupIds(chosen).includes(group)))],
+      unavailableMovementFamilies: [...new Set(unavailableMovementFamilies.map((id) => movementGroups.find((group) => group.id === id)?.family)
+        .filter((family) => family && !coveredMovementFamilies.includes(family)))],
       maintenanceMode,
       estimatedMinutes: Math.round(usedMinutes),
       timeToleranceMinutes: SESSION_TIME_TOLERANCE_MINUTES,
-      evidenceProfile: 'V39-PRIMARY-FIRST-COMPOSITION',
+      evidenceProfile: 'V51-DIRECT-MOVEMENT-COVERAGE',
     },
   };
 }
@@ -2127,7 +2184,7 @@ export function generateWorkoutAlternatives(profile, history, workout, { seed = 
   const currentEstimatedMinutes = Number(workout.engine?.estimatedMinutes || requestedMinutes);
   const minimumEstimatedMinutes = Math.min(requestedMinutes * .75, currentEstimatedMinutes * .85);
   const reference = generateWorkout(profile, history, { duration: workout.duration, variation: seed, now });
-  const requiredFamilySignature = [...(reference.engine?.movementFamilies || [])].sort().join('|');
+  const requiredGroupSignature = [...(reference.engine?.movementGroups || [])].sort().join('|');
   const alternatives = [];
   const signatures = new Set([oldSignature]);
   for (let attempt = 0; attempt < 18 && alternatives.length < limit; attempt += 1) {
@@ -2142,7 +2199,7 @@ export function generateWorkoutAlternatives(profile, history, workout, { seed = 
       || candidate.exercises.length < minimumExerciseCount
       || Number(candidate.engine?.estimatedMinutes || 0) < minimumEstimatedMinutes
       || candidate.engine?.unavailableMovementFamilies?.length
-      || [...(candidate.engine?.movementFamilies || [])].sort().join('|') !== requiredFamilySignature) continue;
+      || [...(candidate.engine?.movementGroups || [])].sort().join('|') !== requiredGroupSignature) continue;
     const signature = candidate.exercises.map((item) => item.exerciseId).sort().join('|');
     if (signatures.has(signature)) continue;
     signatures.add(signature);
@@ -2168,6 +2225,7 @@ export function rebuildWorkoutMetadata(workout) {
     engine: {
       ...(workout.engine || {}),
       movementFamilies: movementFamilyIds,
+      movementGroups: primaryGroupIds(selected),
       composition: {
         compounds: selected.filter((exercise) => exercise.compound).length,
         primaryMovements: selected.filter(isPrimaryMovement).length,
@@ -2256,12 +2314,13 @@ export function removeExercise(workout, exerciseId) {
 export function getAddableExercises(workout, profile) {
   if (!workout?.exercises || workout.exercises.length >= 8) return [];
   const used = workout.exercises.map(resolveRecordedExercise).filter(Boolean);
-  const hasLower = used.some(isLowerBodyExercise);
   return exercises
     .filter((exercise) => profile.preferences?.[exercise.id] !== 'exclude')
     .filter((exercise) => isExerciseAllowed(exercise, profile) && isEssentialExercise(exercise, profile))
     .filter((exercise) => !used.some((item) => item.id === exercise.id || getExerciseVariantKey(item) === getExerciseVariantKey(exercise)))
-    .filter((exercise) => !hasLower || !isLowerBodyExercise(exercise))
+    .filter((exercise) => canCombineExercise(exercise, used, workout.duration || profile.duration || 45))
+    .filter((exercise) => !isPrimaryMovement(exercise)
+      || used.filter(isPrimaryMovement).length < getWorkoutCompositionLimits(workout.duration || profile.duration || 45).maxCompounds)
     .sort((a, b) => Number(workout.targetMuscles?.includes(b.primary)) - Number(workout.targetMuscles?.includes(a.primary))
       || Number(isPrimaryMovement(b)) - Number(isPrimaryMovement(a))
       || b.selectionPriority - a.selectionPriority
