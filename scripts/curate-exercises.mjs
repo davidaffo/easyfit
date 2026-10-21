@@ -1,5 +1,6 @@
 import { readFile, readdir, unlink, writeFile } from 'node:fs/promises';
-import { loadCatalogRegistry } from './curated-exercises.mjs';
+import { loadCatalogRegistry, curatedExerciseVariants } from './curated-exercises.mjs';
+import { catalogGuideFixes } from './catalog-guide-fixes.mjs';
 
 const sourcePath = new URL('../src/generated/wger-exercises.json', import.meta.url);
 const detailsPath = new URL('../src/generated/wger-exercise-details.json', import.meta.url);
@@ -24,7 +25,8 @@ const equipmentMap = {
   'Resistance band': 'bands', 'Gym mat': 'bodyweight', 'Swiss Ball': 'ball',
 };
 const englishGuideOverrides = {
-  478: `Hold a dumbbell at each shoulder with the palms facing inward. Stand with the feet planted and brace the trunk. Bend the knees slightly, then extend the legs to help press both dumbbells overhead. Finish with the arms extended without leaning backward. Lower the dumbbells under control to shoulder height and reset before the next repetition. Record the weight of one dumbbell.`,
+  508: `Stand holding a pair of dumbbells with the palms facing each other in a neutral grip. Keep the knees slightly bent and hinge at the hips until the torso is inclined forward. Brace the trunk and keep the back still. Pull both dumbbells toward the hips by driving the elbows backward without shrugging, swinging or standing up. Lower under control until the arms are extended, keeping the torso angle constant. No bench is required. Record the weight of one dumbbell; both dumbbells are used together.`,
+  1463: `Stand holding a pair of dumbbells with an underhand grip, palms facing forward. Keep the knees slightly bent and hinge at the hips until the torso is inclined forward. Brace the trunk and keep the back still. Pull the dumbbells toward the hips with the elbows close to the torso, maintaining the underhand grip. Lower under control until the arms are extended without swinging or standing up. No bench is required. Record the weight of one dumbbell; both dumbbells are used together.`,
   81: `Place one knee and the hand on the same side on a stable bench. Keep the other foot on the floor and hold one dumbbell in the free hand. Brace the trunk and keep the back still. Pull the dumbbell toward the hip by driving the elbow backward, without rotating the torso or shrugging. Lower under control to a straight arm. Complete the prescribed repetitions on each side; record the weight of the single dumbbell.`,
   1312: `Stand with the feet around shoulder width and keep the whole foot on the floor. Brace the trunk, bend the knees and hips together, and lower into a squat to a comfortable depth while keeping the knees aligned with the feet. Stand back up by pushing through the feet. Use a controlled movement without bouncing; no bench, box or external weight is required.`,
   538: `Set a bench to a moderate incline inside a rack and position the bar above the upper chest. Set the rack supports and safeties before starting. Lie back with the feet planted and shoulder blades supported. Unrack the bar, lower it under control toward the upper chest, then press upward without lifting the hips or bouncing the bar. Return the bar securely to the rack after the set.`,
@@ -41,6 +43,7 @@ const englishGuideOverrides = {
   394: `Sit at the low-row station with the feet braced and knees slightly bent. Hold the handle, lengthen the spine, and keep the ribs stacked over the pelvis. Initiate the pull by drawing the shoulder blades back, then bring the handle toward the lower ribs without leaning backward. Pause briefly and return under control until the arms are extended without rounding the lower back.`,
   454: `Start in a pike position with the hips high, hands slightly wider than shoulder width, and head between the arms. Bend the elbows and lower the crown of the head toward the floor while keeping the hips elevated. Press the floor away until the elbows are straight again. Elevating the feet increases the load, but keep the range controlled and avoid collapsing through the lower back.`,
   475: `Hang from the bar with an overhand grip slightly wider than shoulder width. Brace the trunk and begin by drawing the shoulder blades down, then pull until the chin clears the bar while keeping the chest lifted. Avoid kicking, swinging, or forcing the head forward. Lower under control to straight arms and a stable shoulder position before starting the next repetition.`,
+  ...catalogGuideFixes,
 };
 const forbiddenGuidePhrases = ['fast movement', 'rapid movement', 'touches your neck', 'hands are behind your head'];
 
@@ -104,6 +107,18 @@ const catalog = source.exercises
     };
   });
 
+const variantGuides = {};
+for (const { baseWgerId, descriptionEn, ...variant } of curatedExerciseVariants) {
+  const base = catalog.find((exercise) => exercise.wgerId === baseWgerId && exercise.generationEligible);
+  if (!base) continue; // An editor exclusion of the base excludes derived variants too.
+  if (descriptionEn.length < 100) throw new Error(`Incomplete guide for ${variant.id}`);
+  catalog.push({ ...base, ...variant, guideId: variant.id });
+  variantGuides[variant.id] = {
+    descriptions: { en: descriptionEn }, image: null, imageAttribution: null,
+    descriptionSource: 'easyfit-curated', imageSource: null,
+  };
+}
+
 const missing = Object.keys(curatedExercises).filter((id) => !catalog.some((item) => item.wgerId === Number(id)));
 if (missing.length) throw new Error(`Curated Wger IDs missing from source: ${missing.join(', ')}`);
 const plainGuideText = (value) => String(value || '').replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
@@ -129,9 +144,9 @@ const eligibleIds = new Set(eligibleCatalog.map((item) => String(item.wgerId)));
 const appDetails = {
   source: details.source,
   syncedAt: details.syncedAt,
-  exercises: Object.fromEntries(Object.entries(details.exercises)
+  exercises: { ...Object.fromEntries(Object.entries(details.exercises)
     .filter(([id]) => eligibleIds.has(id))
-    .map(([id]) => [id, curatedGuide(id)])),
+    .map(([id]) => [id, curatedGuide(id)])), ...variantGuides },
 };
 const output = {
   source: source.source,
@@ -140,7 +155,7 @@ const output = {
   curatedAt: new Date().toISOString(),
   schemaVersion: 2,
   curation: 'explicit-wger-id-registry',
-  sourceCount: catalog.length,
+  sourceCount: catalog.filter((exercise) => !exercise.guideId).length,
   count: eligibleCatalog.length,
   eligible: eligibleCatalog.length,
   exercises: eligibleCatalog,

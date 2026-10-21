@@ -1,4 +1,4 @@
-import { exercises, muscles } from '../data/exercises.js';
+import { exercises, historicalExercises, muscles } from '../data/exercises.js';
 import { calculateProgression } from './progression.js';
 
 const allMuscles = Object.keys(muscles);
@@ -11,7 +11,7 @@ const CONTINUITY_BREAK_DAYS = 28;
 const RECENT_VARIATION_DAYS = 7;
 const EXERCISE_ROTATION_EXPOSURES = 4;
 export const SESSION_TIME_TOLERANCE_MINUTES = 7;
-export const ENGINE_VERSION = 51;
+export const ENGINE_VERSION = 53;
 
 const muscleBaseImportance = {
   chest: 100,
@@ -60,7 +60,7 @@ export const trainingRules = {
 export const trainingStyles = {
   intense: {
     label: 'Essenziale intenso',
-    description: 'Due serie sui multiarticolari e tre sugli accessori, molto vicine al limite.',
+    description: 'Poche serie vicine al limite, adattate al volume necessario e al tempo disponibile.',
     classes: {
       'high-fatigue-compound': { targetRirs: [1, 0], rest: 150 },
       'stable-compound': { targetRirs: [1, 0], rest: 120 },
@@ -236,7 +236,7 @@ function resolveRecordedExercise(item) {
     && typeof snapshot.primary === 'string'
     && Array.isArray(snapshot.equipment)
     ? snapshot
-    : null;
+    : historicalExercises[item?.exerciseId] || null;
 }
 
 export function getWorkoutExercise(item) {
@@ -1152,8 +1152,8 @@ function prescribedSetCount(exercise, profile, context, limits) {
   }));
   const remainingExposures = Math.max(1, Math.min(frequencyGap || 1, context.expectedUpcomingExposures || 1));
   const distributedSets = volumeGap > 0.25 ? Math.ceil(volumeGap / remainingExposures) : frequencyGap > 0 ? 1 : 0;
-  const intenseStyleSets = profile.trainingStyle === 'intense' && !context.returningFromBreak
-    ? Math.min(limits.maxSets, exercise.compound ? 2 : 3)
+  const intenseStyleSets = profile.trainingStyle === 'intense' && exercise.compound && !context.returningFromBreak
+    ? Math.min(limits.maxSets, 2)
     : null;
   if (intenseStyleSets && distributedSets > 0) return intenseStyleSets;
   let maximum = context.targetMinutes <= 30 ? 2 : context.targetMinutes <= 45 ? 3 : exercise.compound ? 3 : 4;
@@ -1219,6 +1219,7 @@ function prescription(exercise, profile, history, context = {}) {
     exerciseSnapshot: {
       id: exercise.id,
       wgerId: exercise.wgerId,
+      guideId: exercise.guideId,
       name: exercise.name,
       translations: exercise.translations,
       primary: exercise.primary,
@@ -1252,9 +1253,7 @@ function prescription(exercise, profile, history, context = {}) {
       positiveEvidence: progress.latestPositiveEvidence,
       negativeEvidence: progress.latestNegativeEvidence,
     } : null,
-    minimumTimeFitSets: profile.trainingStyle === 'intense'
-      ? Math.min(sets, exercise.compound ? 2 : 3)
-      : exercise.compound ? Math.min(sets, 2) : 1,
+    minimumTimeFitSets: exercise.compound ? Math.min(sets, 2) : 1,
     estimatedOneRepMax: progress.latestE1rm,
     needsInitialLoad: ['external', 'per-dumbbell'].includes(exercise.loadType) && progression.weight == null,
     needsInitialReps: exercise.loadType === 'bodyweight' && progress.sessions === 0,
@@ -1662,7 +1661,9 @@ function movementGroupNeed(family, profile, weeklyLoad, patternLoad, muscleStatu
     priority: highest((muscle) => getMuscleSelectionPriority(muscle, muscleStatus[muscle]) / 100),
     frequencyGap: Math.max(0, weeklyTargets.frequency - directFrequency),
     directCoverageNeed: 1 / (1 + directFrequency),
-    movementRecencyNeed: lastPerformedAt ? clamp((now - lastPerformedAt) / (14 * DAY), 0, 1) : 1,
+    // Keep accumulating urgency beyond two weeks so an expanded catalog
+    // cannot leave a lower-scoring movement permanently behind its siblings.
+    movementRecencyNeed: lastPerformedAt ? clamp((now - lastPerformedAt) / (14 * DAY), 0, 2) : 2,
     volumeGap: highest((muscle) => muscleStatus[muscle]?.volumeNeed
       ?? clamp((weeklyTargets.sets - weeklyLoad.volume[muscle]) / weeklyTargets.sets, 0, 1)),
   };
@@ -1922,7 +1923,11 @@ export function generateWorkout(profile, history = [], options = {}) {
       .map((candidate) => ({ ...candidate,
         score: candidate.score + 45 / (1 + (patternLoad[candidate.exercise.pattern]?.frequency || 0)),
       }))
-      .sort((a, b) => b.score - a.score);
+      // Once there is room for dedicated accessories, indirect work from
+      // presses and rows must not crowd out patterns with no direct work.
+      .sort((a, b) => (targetMinutes >= 40
+        ? Number(!patternLoad[b.exercise.pattern]?.lastPerformedAt)
+          - Number(!patternLoad[a.exercise.pattern]?.lastPerformedAt) : 0) || b.score - a.score);
     const fresh = ranked.filter(({ exercise }) => !wasUsedRecently(exercise));
     // An exact accessory is not repeated in the same seven-day window merely
     // because its pattern has no near-identical substitute. Rotate to another

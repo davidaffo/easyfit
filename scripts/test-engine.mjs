@@ -82,7 +82,7 @@ const benchGuide = await getExerciseDetails(bench.wgerId, 'en');
 assert(benchGuide.description.length > 100, 'The lazy wger guide must expose the English instructions');
 assert(benchGuide.image?.startsWith('/exercise-images/'), 'The bundled wger guide must use a local exercise image');
 for (const exercise of exercises) {
-  const guide = await getExerciseDetails(exercise.wgerId, 'en');
+  const guide = await getExerciseDetails(exercise.guideId || exercise.wgerId, 'en');
   assert(guide?.description?.length >= 100, `Approved exercise ${exercise.name} must ship with a useful offline textual guide`);
   assert(!/fast movement|rapid movement|touches your neck|hands are behind your head/i.test(guide.description), `Approved guide ${exercise.name} must not retain unsafe or low-quality wording`);
   if (guide.image) {
@@ -132,9 +132,8 @@ const benchVariantProfile = {
   preferences: {},
   exerciseFilters: { essentialCatalog: true },
 };
-const reviewedVariant = exercises.find((exercise) => exercise.name === 'Leg Curl');
-const pressVariantCluster = exercises.filter((exercise) => getExerciseVariantKey(exercise) === getExerciseVariantKey(reviewedVariant));
-assert(pressVariantCluster.length > 1, 'The approved catalog must retain reviewed microvariants');
+const pressVariantCluster = exercises.filter((exercise) => exercise.pattern === 'knee-flexion');
+assert(pressVariantCluster.some((exercise) => exercise.executionVariant === 'lying') && pressVariantCluster.some((exercise) => exercise.executionVariant === 'seated'), 'The approved catalog must retain lying and seated leg curls as distinct variants');
 assert.equal(pressVariantCluster.filter((exercise) => isEssentialExercise(exercise, { ...benchVariantProfile, equipment: ['machines'] })).length, pressVariantCluster.length, 'The removed essential-catalog option must never hide reviewed variants');
 
 const baseSet = { targetReps: 8, targetWeight: 60, targetRir: 2, weight: 60, done: true };
@@ -626,6 +625,10 @@ assert(supportedRowGuide.description.includes('bench') && supportedRowGuide.desc
   'Bench-row instructions must agree with its image, support requirement and single-dumbbell load');
 const standingRowGuide = await getExerciseDetails(1463, 'en');
 assert(standingRowGuide.description.includes('pair of dumbbells'), 'The distinct standing row must have its own bilateral guide');
+assert(standingRowGuide.description.includes('underhand grip'), 'The underhand row guide must explain its actual grip');
+const standardStandingRowGuide = await getExerciseDetails(508, 'en');
+assert(standardStandingRowGuide.description.includes('neutral grip') && standardStandingRowGuide.description.includes('No bench'),
+  'The standard standing row must bundle a guide matching its grip and unsupported execution');
 assert.equal(getEquipmentCoverage({ ...focusProfile, equipment: ['dumbbells'], loadInventory: { dumbbells: [10] }, exerciseFilters: { essentialCatalog: true, preferLoadedVariants: false } }).pull, true, 'Dumbbells alone must provide the reviewed unsupported row and structural pulling coverage');
 
 const allEquipment = [...new Set(exercises.flatMap((exercise) => exercise.equipment))];
@@ -644,7 +647,7 @@ assert(intenseGenerated.exercises.every((item) => {
   return item.sets.length <= (exercise.compound ? 2 : 3);
 }), 'The intense style must use at most two compound sets and three accessory sets');
 assert(intenseGenerated.exercises.filter((item) => !exercises.find((candidate) => candidate.id === item.exerciseId).compound)
-  .every((item) => item.sets.length === 3), 'Every prescribed intense accessory must retain all three work sets after time fitting');
+  .every((item) => item.sets.length >= 1 && item.sets.length <= 3), 'Intense accessories must adapt their set count within the style ceiling');
 assert(intenseGenerated.exercises.every((item) => item.sets.map((set) => set.targetRir).at(-1) <= 1), 'Every intense prescription must finish close to the selected effort limit');
 assert(balancedGenerated.exercises.some((item) => item.sets.length === 3), 'A regular balanced workout must retain a three-set prescription where the dose requires it');
 assert(volumeGenerated.exercises.every((item) => item.sets.length <= getExercisePrescription({ ...styleGenerationBase, trainingStyle: 'volume' }, exercises.find((exercise) => exercise.id === item.exerciseId)).maxSets), 'Generated volume prescriptions must respect their exercise-class set ceiling');
@@ -1090,7 +1093,7 @@ for (const targetReps of [10, 12]) {
       done: true, weight: 7, targetWeight: 7, targetReps, reps: 12, targetRir: rir, rir,
     })) }],
   }];
-  const next = generateWorkout(sevenKiloProfile, sevenKiloHistory, { targets: ['biceps'], duration: 30 }).exercises[0];
+  const next = generateWorkout(sevenKiloProfile, sevenKiloHistory, { targets: ['biceps'], duration: 45 }).exercises[0];
   assert(next.sets.every((set) => set.weight === 7 && set.targetReps === 12), 'Completed top-range repetitions must remain at the ceiling when no higher load is available');
   assert.equal(next.progressionStep, 'top', 'Holding completed top-range repetitions must not advertise extra reps');
 }
@@ -1102,7 +1105,7 @@ const manualCurlHistory = [{
     targetRir: [2, 1, 0][index], rir: [2, 1, 0][index],
   })) }],
 }];
-const manualCurlProgress = generateWorkout(manualCurlProfile, manualCurlHistory, { targets: ['biceps'], duration: 30 }).exercises[0];
+const manualCurlProgress = generateWorkout(manualCurlProfile, manualCurlHistory, { targets: ['biceps'], duration: 45 }).exercises[0];
 assert.equal(manualCurlProgress.sets[0].weight, 17, 'A manually performed and inventoried dumbbell load must override the older target weight');
 assert.equal(manualCurlProgress.sets[0].reps, 10, 'Manual reps at the overridden load must calibrate the next prescription from actual performance');
 assert.deepEqual(manualCurlProgress.targetRirs, [2, 1, 0], 'Intense accessories must approach failure progressively and reserve failure for their final set');
@@ -1116,7 +1119,7 @@ const wholeExerciseSurplusHistory = [{
 }];
 const wholeExerciseProgress = getExerciseProgress(wholeExerciseSurplusHistory, dumbbellCurl.id);
 assert(wholeExerciseProgress.latestRepVolumeRatio > 1.09, 'Progress must retain the completed whole-exercise volume ratio');
-const progressedFromWholeVolume = generateWorkout(manualCurlProfile, wholeExerciseSurplusHistory, { targets: ['biceps'], duration: 30 }).exercises[0];
+const progressedFromWholeVolume = generateWorkout(manualCurlProfile, wholeExerciseSurplusHistory, { targets: ['biceps'], duration: 45 }).exercises[0];
 assert(progressedFromWholeVolume.sets.every((set) => set.reps === 10), 'A total-volume surplus must not compensate for a failed set');
 assert(progressedFromWholeVolume.performanceEvidence.repVolumeRatio > 1.09, 'Whole-exercise volume progression must be visible in workout metadata');
 const unevenElevenRepHistory = [{
@@ -1127,7 +1130,7 @@ const unevenElevenRepHistory = [{
     targetRir: [2, 1, 0][index], rir: [2, 1, 0][index],
   })) }],
 }];
-const gradualElevenRepProgress = generateWorkout(manualCurlProfile, unevenElevenRepHistory, { targets: ['biceps'], duration: 30 }).exercises[0];
+const gradualElevenRepProgress = generateWorkout(manualCurlProfile, unevenElevenRepHistory, { targets: ['biceps'], duration: 45 }).exercises[0];
 assert.deepEqual(gradualElevenRepProgress.sets.map((set) => set.targetReps), [11, 11, 11], 'Completing 11/11/10 must advance the common target from the weakest set');
 assert.equal(
   gradualElevenRepProgress.sets.reduce((sum, set) => sum + set.targetReps, 0),
@@ -1153,10 +1156,10 @@ const failedElevenRepTarget = [{
     })),
   }],
 }];
-const heldFailedTarget = generateWorkout(manualCurlProfile, failedElevenRepTarget, { targets: ['biceps'], duration: 30 }).exercises[0];
+const heldFailedTarget = generateWorkout(manualCurlProfile, failedElevenRepTarget, { targets: ['biceps'], duration: 45 }).exercises[0];
 assert.deepEqual(heldFailedTarget.sets.map((set) => set.targetReps), [11, 11, 11], 'Failing an 11/11/11 target with 11/11/10 must never increase the next prescription to 12/12/12');
 failedElevenRepTarget[0].exercises[0].performanceCalibration.decision = 'recalibrate-down';
-const reducedFailedTarget = generateWorkout(manualCurlProfile, failedElevenRepTarget, { targets: ['biceps'], duration: 30 }).exercises[0];
+const reducedFailedTarget = generateWorkout(manualCurlProfile, failedElevenRepTarget, { targets: ['biceps'], duration: 45 }).exercises[0];
 assert.deepEqual(reducedFailedTarget.sets.map((set) => set.targetReps), [10, 10, 10], 'Choosing downward recalibration after a failed target must not prescribe more volume than was completed');
 const heavierOverrideHistory = [{
   id: 'whole-exercise-load-volume-surplus',
@@ -1169,7 +1172,7 @@ const heavierOverrideHistory = [{
 const heavierOverrideProgress = generateWorkout({
   ...manualCurlProfile,
   loadInventory: { dumbbells: [17, 20] },
-}, heavierOverrideHistory, { targets: ['biceps'], duration: 30 }).exercises[0];
+}, heavierOverrideHistory, { targets: ['biceps'], duration: 45 }).exercises[0];
 assert.equal(heavierOverrideProgress.sets[0].weight, 20, 'A heavier manual load must become the next working load when its total load-volume exceeded the prescription');
 assert.equal(heavierOverrideProgress.sets[0].reps, 9, 'Recalibrating to a heavier manual load must retain demonstrated repetitions without stacking a fictitious extra rep');
 assert(heavierOverrideProgress.performanceEvidence.loadVolumeRatio > 1.05, 'The recalibration metadata must retain total weight-by-repetition volume');

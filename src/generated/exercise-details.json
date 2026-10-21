@@ -2,6 +2,17 @@
   "source": "wger",
   "syncedAt": "2026-09-04T18:15:53.577Z",
   "exercises": {
+    "20": {
+      "uuid": "f24cb758-9c0d-42d4-ad9e-6025c527dd13",
+      "descriptions": {
+        "en": "Sit on a bench with the back supported and hold a dumbbell at each shoulder, palms facing you. Press upward while gradually rotating the palms forward. Reverse the rotation while lowering under control. Keep the trunk still and avoid forcing the shoulders through an uncomfortable range. Record the weight of one dumbbell."
+      },
+      "image": null,
+      "imageAttribution": null,
+      "sourceUpdatedAt": "2026-07-23T12:24:53.892041+02:00",
+      "descriptionSource": "easyfit-curated",
+      "imageSource": null
+    },
     "50": {
       "uuid": "13234b53-ea0c-41f1-9069-776865ea8eff",
       "descriptions": {
@@ -24,7 +35,7 @@
     "73": {
       "uuid": "3717d144-7815-4a97-9a56-956fb889c996",
       "descriptions": {
-        "en": "Lay down on a bench, the bar should be directly above your eyes, the knees are somewhat angled and the feet are firmly on the floor. Concentrate, breath deeply and grab the bar more than shoulder wide. Bring it slowly down till it briefly touches your chest at the height of your nipples. Push the bar up.\nIf you train with a high weight it is advisable to have a spotter that can help you up if you can't lift the weight on your own.\nWith the width of the grip you can also control which part of the chest is trained more:\n\n• wide grip: outer chest muscles\n• narrow grip: inner chest muscles and triceps",
+        "en": "Set a flat bench inside a rack and position the supports and safeties. Lie with the feet planted and shoulder blades supported. Hold the bar slightly wider than shoulder width, unrack it, and lower toward the chest under control. Press upward without bouncing or lifting the hips. Return the bar securely to the rack. Record the total barbell weight.",
         "it": "Distensione Panca Piana con BilanciereDistensione Panca Piana con Bilanciere"
       },
       "image": "/exercise-images/73.webp",
@@ -37,7 +48,7 @@
         "licenseUrl": "https://creativecommons.org/licenses/by-sa/3.0/deed.en"
       },
       "sourceUpdatedAt": "2026-06-19T18:46:21.803261+02:00",
-      "descriptionSource": "wger",
+      "descriptionSource": "easyfit-curated",
       "imageSource": "wger"
     },
     "75": {
@@ -62,7 +73,7 @@
     "76": {
       "uuid": "3db63138-a047-4a4d-b616-1a0b7dfca105",
       "descriptions": {
-        "en": "• Setup: Lie flat on the bench and grip the bar at shoulder-width (closer than a standard bench press).\n• Descent: Lower the bar with control to your lower chest.\n• Form: Keep your elbows tucked in tight against your torso—do not let them flare out.\n• Ascent: Press the bar straight back up, squeezing your triceps at the top.",
+        "en": "Set a flat bench inside a rack with the supports and safeties positioned. Lie with the feet planted and hold the bar around shoulder width. Unrack it and lower toward the lower chest with the elbows near the torso. Press upward under control without bouncing, then return the bar securely to the rack. Record the total barbell weight.",
         "it": "Sdraiatevi su una panca, il bilanciere è direttamente sopra gli occhi, le ginocchia formano un leggero angolo e i piedi sono ben saldi a terra. Impugnare la sbarra con una presa stretta (circa 20 cm). Portare il peso lentamente verso il basso fino a quando le braccia sono parallele al pavimento (gomito: angolo retto), premere poi il bilanciere verso l'alto. Quando si porta il bilanciere verso il basso, non farlo scendere sui capezzoli come nel normale esercizio di panca, ma un po' più in basso."
       },
       "image": "/exercise-images/76.webp",
@@ -75,7 +86,7 @@
         "licenseUrl": "https://creativecommons.org/licenses/by-sa/3.0/deed.en"
       },
       "sourceUpdatedAt": "2026-07-02T16:14:26.402383+02:00",
-      "descriptionSource": "wger",
+      "descriptionSource": "easyfit-curated",
       "imageSource": "wger"
     },
     "81": {
@@ -96,6 +107,17 @@
       "descriptionSource": "easyfit-curated",
       "imageSource": "wger"
     },
+    "82": {
+      "uuid": "6f79b381-98a4-40d5-8a45-3bb0558be6fe",
+      "descriptions": {
+        "en": "Stand holding a dumbbell in each hand. Bend the knees slightly and hinge forward at the hips, keeping the trunk braced and the back still. With a small fixed bend in the elbows, raise the arms out to the sides without shrugging or swinging. Lower under control. No bench is required. Record the weight of one dumbbell."
+      },
+      "image": null,
+      "imageAttribution": null,
+      "sourceUpdatedAt": "2026-06-19T18:46:19.206526+02:00",
+      "descriptionSource": "easyfit-curated",
+      "imageSource": null
+    },
     "83": {
       "uuid": "4af6dbd9-8991-484b-9810-68f117c21edf",
       "descriptions": {
@@ -114,6 +136,17 @@
       "sourceUpdatedAt": "2026-06-19T18:46:17.668412+02:00",
       "descriptionSource": "wger",
       "imageSource": "wger"
+    },
+    "84": {
+      "uuid": "2f0ddf9a-f520-4c55-8883-f0d4a789f481",
+      "descriptions": {
+        "en": "Stand holding a barbell with an underhand grip around shoulder width. Bend the knees slightly and hinge forward, keeping the trunk braced. Pull the bar toward the lower ribs with the elbows close to the torso. Lower under control until the arms are extended, keeping the torso angle constant without swinging. Record the total barbell weight."
+      },
+      "image": null,
+      "imageAttribution": null,
+      "sourceUpdatedAt": "2026-06-19T18:49:45.219028+02:00",
+      "descriptionSource": "easyfit-curated",
+      "imageSource": null
     },
     "91": {
       "uuid": "7b99a081-6b1a-4aa5-b86a-5a935d083a35",
@@ -225,6 +258,17 @@
       "descriptionSource": "wger",
       "imageSource": "wger"
     },
+    "139": {
+      "uuid": "a6605e9c-887d-45e0-8282-617a8ec5fea2",
+      "descriptions": {
+        "en": "Adjust the reverse pec deck seat so the handles are around shoulder height. Sit facing the chest pad and hold the handles with a small bend in the elbows. Open the arms out and backward without shrugging or arching the lower back. Return slowly until the arms are in front of you. Keep the chest supported throughout. Record the selected machine load."
+      },
+      "image": null,
+      "imageAttribution": null,
+      "sourceUpdatedAt": "2026-04-15T22:23:54.874667+02:00",
+      "descriptionSource": "easyfit-curated",
+      "imageSource": null
+    },
     "146": {
       "uuid": "0d79f259-3b28-4258-8a08-cffec062a710",
       "descriptions": {
@@ -301,6 +345,28 @@
       "descriptionSource": "easyfit-curated",
       "imageSource": "wger"
     },
+    "172": {
+      "uuid": "401989e0-64c3-459d-bc47-2c171ab4f41d",
+      "descriptions": {
+        "en": "The procedure is very similar as for regular crunches, only with the additional weight of the machine. Sit on the machine, put both feet firmly on the ground. Grab the to the weights, cables, etc. and do a rolling motion forwards (the spine should ideally lose touch vertebra by vertebra). Slowly return to the starting position."
+      },
+      "image": null,
+      "imageAttribution": null,
+      "sourceUpdatedAt": "2026-06-19T18:46:28.487838+02:00",
+      "descriptionSource": "wger",
+      "imageSource": null
+    },
+    "173": {
+      "uuid": "29175281-afaf-4ffd-85e8-cfc38493e304",
+      "descriptions": {
+        "en": "Attach a rope to a high cable and kneel facing the stack. Hold the rope beside the temples with the elbows bent. Curl the ribs toward the pelvis by flexing the trunk, keeping the hips mostly still. Return slowly without pulling with the arms or turning the movement into a hip hinge. Record the selected cable load."
+      },
+      "image": null,
+      "imageAttribution": null,
+      "sourceUpdatedAt": "2026-07-23T12:36:14.430709+02:00",
+      "descriptionSource": "easyfit-curated",
+      "imageSource": null
+    },
     "184": {
       "uuid": "ee8e8db4-2d82-49e1-ab7f-891e9a354934",
       "descriptions": {
@@ -320,10 +386,33 @@
       "descriptionSource": "wger",
       "imageSource": "wger"
     },
+    "185": {
+      "uuid": "bcd801f0-9a38-4615-a91c-900153c8c234",
+      "descriptions": {
+        "en": "Set a decline bench in a rack with the supports and safeties positioned. Secure the legs using the bench supports and hold the bar slightly wider than shoulder width. Unrack it, lower toward the lower chest under control, then press upward without bouncing. Return the bar securely to the rack. This requires a bench that supports a decline position. Record the total barbell weight.",
+        "it": "Sdraiatevi su una panca declinata, il bilanciere deve trovarsi direttamente sopra gli occhi, le ginocchia sono leggermente angolate e i piedi sono ben saldi sul pavimento. Concentratevi, respirate profondamente e afferrate la sbarra a più della larghezza delle spalle. Portatela lentamente verso il basso fino a sfiorare brevemente il petto all'altezza dei capezzoli. Spingere il bilanciere verso l'alto."
+      },
+      "image": null,
+      "imageAttribution": null,
+      "sourceUpdatedAt": "2026-07-23T12:08:35.224422+02:00",
+      "descriptionSource": "easyfit-curated",
+      "imageSource": null
+    },
+    "186": {
+      "uuid": "dda69c96-62d4-4690-aa07-a4a0f6ceb63a",
+      "descriptions": {
+        "en": "Use a bench that supports a decline position and secure the legs with its supports. Hold a dumbbell at each side of the chest with the wrists over the elbows. Press upward, keeping the shoulder blades supported, then lower under control without forcing the shoulders below a comfortable range. Record the weight of one dumbbell."
+      },
+      "image": null,
+      "imageAttribution": null,
+      "sourceUpdatedAt": "2026-07-23T12:08:35.631556+02:00",
+      "descriptionSource": "easyfit-curated",
+      "imageSource": null
+    },
     "194": {
       "uuid": "09dd3e3c-e53a-4e2c-a2e3-645d334f53e2",
       "descriptions": {
-        "en": "A dip is an upper-body strength exercise. Narrow, shoulder-width dips primarily train the triceps, with major synergists being the anterior deltoid, the pectoralis muscles (sternal, clavicular, and minor), and the rhomboid muscles of the back (in that order).[1] Wide arm training places additional emphasis on the pectoral muscles, similar in respect to the way a wide grip bench press would focus more on the pectorals and less on the triceps.",
+        "en": "Support yourself on parallel dip bars with the arms extended and the shoulders controlled. Bend the elbows and lower the body to a comfortable depth without shrugging or forcing the shoulders backward. Press through the bars to return to the top without swinging. Parallel dip bars are required; this is not a bench dip. For the weighted variant, record only the added weight.",
         "it": "È un esercizio di forza della parte superiore del corpo. Dip stretti, alla larghezza delle spalle, allenano principalmente i tricipiti, con i principali sinergici che sono il deltoide anteriore, i muscoli pettorali (sternale, clavicolare e minore) e i muscoli romboidali della schiena (in quest'ordine).[1] L'allenamento con le braccia larghe pone ulteriore enfasi sui muscoli pettorali, in modo simile al modo in cui una panca con presa larga si concentrerebbe maggiormente sui pettorali e meno sui tricipiti."
       },
       "image": "/exercise-images/194.webp",
@@ -336,8 +425,19 @@
         "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/deed.en"
       },
       "sourceUpdatedAt": "2026-07-23T12:08:29.998443+02:00",
-      "descriptionSource": "wger",
+      "descriptionSource": "easyfit-curated",
       "imageSource": "wger"
+    },
+    "202": {
+      "uuid": "46e0f60c-fdc0-489a-82e4-a5b7476a5c21",
+      "descriptions": {
+        "en": "Sit on a bench with the feet apart and hold one dumbbell. Rest the back of the upper arm against the inner thigh. Curl the weight without moving the upper arm or twisting the torso, then lower under control until the elbow is comfortably extended. Complete the repetitions on each side. Record the weight of the single dumbbell."
+      },
+      "image": null,
+      "imageAttribution": null,
+      "sourceUpdatedAt": "2026-06-19T18:57:39.114487+02:00",
+      "descriptionSource": "easyfit-curated",
+      "imageSource": null
     },
     "203": {
       "uuid": "b7c6a444-90ea-4f5b-9fea-748311606eaa",
@@ -368,6 +468,17 @@
       "descriptionSource": "wger",
       "imageSource": null
     },
+    "205": {
+      "uuid": "2f1a2707-e7ff-46ac-9112-3e31e6e961ee",
+      "descriptions": {
+        "en": "Stand holding a dumbbell in each hand. Step forward with one leg and lower by bending both knees, keeping the front foot planted and the trunk controlled. Push through the front foot to return to the starting stance before changing sides. This is a forward lunge in place, not a walking lunge. Complete the repetitions on each side; record the weight of one dumbbell."
+      },
+      "image": null,
+      "imageAttribution": null,
+      "sourceUpdatedAt": "2026-04-15T22:23:56.372270+02:00",
+      "descriptionSource": "easyfit-curated",
+      "imageSource": null
+    },
     "206": {
       "uuid": "dcc6e237-a8bb-4eca-bbc5-7fb852636f6a",
       "descriptions": {
@@ -386,10 +497,21 @@
       "descriptionSource": "wger",
       "imageSource": "wger"
     },
+    "222": {
+      "uuid": "d7a418d4-d0cb-4f85-8a7c-1e9d97152cbd",
+      "descriptions": {
+        "en": "Attach a rope to a pulley station set at about chest level.\nStep back so you're supporting the weight with arms completely outstretched and assume a staggered (one foot forward) stance. Bend the knees slightly for a stable base.\nRetract the scapulae (squeeze your partner's finger with your shoulder blades) and pull the center of the rope slightly up towards the face. A good cue is to think about pulling the ends of the rope apart, not just pulling back.\nAs you near your face, externally rotate so your knuckles are facing the ceiling.\nHold for one second at the top position and slowly lower."
+      },
+      "image": null,
+      "imageAttribution": null,
+      "sourceUpdatedAt": "2026-07-23T12:36:14.828136+02:00",
+      "descriptionSource": "wger",
+      "imageSource": null
+    },
     "237": {
       "uuid": "07c5b9f4-2be5-4a3d-b6d2-16235da1ae3a",
       "descriptions": {
-        "en": "Set both pulleys around chest height and take one handle in each hand. Step forward into a stable staggered stance with the torso upright and a slight bend in the elbows. Bring the handles together in a wide arc without shrugging or changing the elbow angle. Pause when the hands meet, then return under control until the chest is comfortably stretched."
+        "en": "Set both cable pulleys around chest height and hold one handle in each hand. Step forward into a stable stance with the trunk braced. With a small fixed bend in the elbows, bring the hands together in front of the chest. Return under control without shrugging or changing the elbow angle. Record the load selected on one cable stack and use the same load on both stacks."
       },
       "image": "/exercise-images/237.webp",
       "imageAttribution": {
@@ -439,6 +561,17 @@
       "descriptionSource": "wger",
       "imageSource": "easyfit-curated"
     },
+    "246": {
+      "uuid": "95a7e546-e8f8-4521-a76b-983d94161b25",
+      "descriptions": {
+        "en": "Lie on a flat bench and hold an EZ bar above the chest with a comfortable narrow grip. Keep the upper arms mostly still and bend the elbows to lower the bar beside or just behind the forehead within a comfortable range. Extend the elbows to raise it without swinging the shoulders. Record the total weight of the EZ bar."
+      },
+      "image": null,
+      "imageAttribution": null,
+      "sourceUpdatedAt": "2026-06-19T18:46:40.278298+02:00",
+      "descriptionSource": "easyfit-curated",
+      "imageSource": null
+    },
     "257": {
       "uuid": "d677de4c-5bd9-412a-91f1-857116a666a2",
       "descriptions": {
@@ -478,6 +611,40 @@
       "descriptionSource": "wger",
       "imageSource": null
     },
+    "275": {
+      "uuid": "04365177-e078-489b-983a-8ac61b7346f1",
+      "descriptions": {
+        "en": "Attach a rope to a low cable. Stand upright and hold the rope ends with the palms facing each other in a neutral grip. Curl by bending the elbows while keeping the upper arms close to the sides. Lower slowly to a comfortable extension without swinging the trunk. Record the selected cable load."
+      },
+      "image": null,
+      "imageAttribution": null,
+      "sourceUpdatedAt": "2026-07-23T12:36:15.643371+02:00",
+      "descriptionSource": "easyfit-curated",
+      "imageSource": null
+    },
+    "294": {
+      "uuid": "19a289c0-33af-4055-bb34-3570c2975d3d",
+      "descriptions": {
+        "en": "Sit on the floor with the upper back against a stable bench and a padded barbell over the hips. Plant the feet and brace the trunk. Drive through the feet to raise the hips until the torso and thighs align, without arching the lower back. Lower under control while keeping the upper back supported. Record the total barbell weight."
+      },
+      "image": null,
+      "imageAttribution": null,
+      "sourceUpdatedAt": "2026-07-02T16:55:31.500709+02:00",
+      "descriptionSource": "easyfit-curated",
+      "imageSource": null
+    },
+    "308": {
+      "uuid": "55ff32e6-24ab-4303-9b50-176d60d48796",
+      "descriptions": {
+        "en": "Set an adjustable bench to a moderate incline. Lie back with a dumbbell in each hand above the chest. Keep a small fixed bend in the elbows and open the arms out to the sides within a comfortable range. Bring the weights back above the chest without turning the movement into a press. Record the weight of one dumbbell.",
+        "it": "DistDistensione Panca Inclinata con BilanciereDistensione Panca Inclinata con Bilanciere"
+      },
+      "image": null,
+      "imageAttribution": null,
+      "sourceUpdatedAt": "2026-06-19T18:57:01.265947+02:00",
+      "descriptionSource": "easyfit-curated",
+      "imageSource": null
+    },
     "310": {
       "uuid": "27eb3d4a-8677-4c1f-bf34-251e2b4741cb",
       "descriptions": {
@@ -511,7 +678,7 @@
     "364": {
       "uuid": "48836f44-efcd-4471-a456-5f024936025a",
       "descriptions": {
-        "en": "The leg curl, also known as the hamstring curl, is an isolation exercise that targets the hamstring muscles. The exercise involves flexing the lower leg against resistance towards the buttocks. Other exercises that can be used to strengthen the hamstrings are the glute-ham raise and the deadlift."
+        "en": "Adjust the lying leg curl machine so the knees align with its pivot and the lower-leg pad rests above the heels. Lie face down and hold the handles. Bend the knees to bring the pad toward the buttocks without lifting the hips. Lower slowly to a comfortable knee extension. Record the selected machine load."
       },
       "image": "/exercise-images/364.webp",
       "imageAttribution": {
@@ -523,26 +690,19 @@
         "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/deed.en"
       },
       "sourceUpdatedAt": "2026-06-19T18:56:59.133439+02:00",
-      "descriptionSource": "wger",
+      "descriptionSource": "easyfit-curated",
       "imageSource": "wger"
     },
-    "365": {
-      "uuid": "3bc8b411-a28d-4e1c-a6d1-769e18fe9881",
+    "366": {
+      "uuid": "440a5184-de58-4a86-a7ba-76ddeafaa855",
       "descriptions": {
-        "en": "Lay on a bench and put your calves behind the leg holder (better if they are hold on around the lower calves). Hold a grip on the bars to make sure the body is firmly in place. Bend your legs bringing the weight up, go slowly back. During the exercise the body should not move, all work is done by the legs."
+        "en": "Adjust the seated leg curl machine so the knees align with its pivot. Place the lower legs over the ankle pad and secure the thigh pad. Keep the back against the support and bend the knees to pull the pad down and backward. Return slowly without lifting the thighs or hips. Record the selected machine load."
       },
-      "image": "/exercise-images/365.webp",
-      "imageAttribution": {
-        "author": "Everkinetic",
-        "authorUrl": "",
-        "sourceUrl": "https://wger.de/media/exercise-images/154/lying-leg-curl-machine-large-1.png",
-        "derivativeSourceUrl": "",
-        "licenseName": "CC-BY-SA 3",
-        "licenseUrl": "https://creativecommons.org/licenses/by-sa/3.0/deed.en"
-      },
-      "sourceUpdatedAt": "2026-06-19T18:56:57.741764+02:00",
-      "descriptionSource": "wger",
-      "imageSource": "wger"
+      "image": null,
+      "imageAttribution": null,
+      "sourceUpdatedAt": "2026-04-15T22:23:53.335983+02:00",
+      "descriptionSource": "easyfit-curated",
+      "imageSource": null
     },
     "369": {
       "uuid": "62170477-90ec-463c-907e-9e523abc0a15",
@@ -618,6 +778,18 @@
       "descriptionSource": "easyfit-curated",
       "imageSource": "wger"
     },
+    "465": {
+      "uuid": "dd52fb99-9426-4a78-b446-20a8e3e4ec47",
+      "descriptions": {
+        "en": "Sit at a preacher bench with the upper arms supported by the angled pad. Hold an EZ bar with the palms facing upward and the wrists comfortable. Curl without lifting the upper arms off the pad, then lower under control to a comfortable elbow extension. This requires a preacher pad, not only a flat bench. Record the total EZ-bar weight.",
+        "it": "Posiziona la barra EZ curl sulle maniglie di riposo davanti alla panca del predicatore. Appoggiati alla panca e afferra la barra EZ curl con i palmi rivolti verso l'alto. Sedersi sulla panca del predicatore in modo che la parte superiore delle braccia poggi sulla parte superiore dell'imbottitura e il petto sia premuto contro l'imbottitura. Abbassa il peso finché i gomiti non sono estesi e le braccia sono dritte. Riporta i pesi al punto di partenza contraendo i bicipiti. Ripetere"
+      },
+      "image": null,
+      "imageAttribution": null,
+      "sourceUpdatedAt": "2026-07-23T12:08:30.792885+02:00",
+      "descriptionSource": "easyfit-curated",
+      "imageSource": null
+    },
     "475": {
       "uuid": "8e420408-0682-4ab6-89f5-2681e54c7ce0",
       "descriptions": {
@@ -637,26 +809,26 @@
       "descriptionSource": "easyfit-curated",
       "imageSource": "wger"
     },
-    "478": {
-      "uuid": "4284336c-6cfa-4c4d-a440-26b30db035d1",
-      "descriptions": {
-        "en": "Hold a dumbbell at each shoulder with the palms facing inward. Stand with the feet planted and brace the trunk. Bend the knees slightly, then extend the legs to help press both dumbbells overhead. Finish with the arms extended without leaning backward. Lower the dumbbells under control to shoulder height and reset before the next repetition. Record the weight of one dumbbell."
-      },
-      "image": null,
-      "imageAttribution": null,
-      "sourceUpdatedAt": "2026-06-19T18:57:11.741474+02:00",
-      "descriptionSource": "easyfit-curated",
-      "imageSource": null
-    },
     "487": {
       "uuid": "3f93459a-d06e-465c-85db-2137da759440",
       "descriptions": {
-        "en": "Seated on a bench with the dumbbells on the floor bend over at 45 Degrees and then slowly raise each dumbbell to shoulder height and hold for a couple seconds before lowering to the starting position."
+        "en": "Sit on a bench holding a dumbbell in each hand. Hinge the trunk forward and keep the back still. With a small fixed bend in the elbows, raise the arms out to the sides without shrugging or swinging. Lower slowly while maintaining the torso angle. Record the weight of one dumbbell."
       },
       "image": null,
       "imageAttribution": null,
       "sourceUpdatedAt": "2026-06-19T18:57:14.553603+02:00",
-      "descriptionSource": "wger",
+      "descriptionSource": "easyfit-curated",
+      "imageSource": null
+    },
+    "508": {
+      "uuid": "4b7cb037-0789-4014-ab6f-a451716b7538",
+      "descriptions": {
+        "en": "Stand holding a pair of dumbbells with the palms facing each other in a neutral grip. Keep the knees slightly bent and hinge at the hips until the torso is inclined forward. Brace the trunk and keep the back still. Pull both dumbbells toward the hips by driving the elbows backward without shrugging, swinging or standing up. Lower under control until the arms are extended, keeping the torso angle constant. No bench is required. Record the weight of one dumbbell; both dumbbells are used together."
+      },
+      "image": null,
+      "imageAttribution": null,
+      "sourceUpdatedAt": "2026-06-19T18:57:18.793678+02:00",
+      "descriptionSource": "easyfit-curated",
       "imageSource": null
     },
     "512": {
@@ -715,7 +887,7 @@
     "566": {
       "uuid": "8b0a0371-c0a9-42a7-aab7-68d520542fb2",
       "descriptions": {
-        "en": "Sit on a bench, the back rest should be almost vertical. Take a barbell with a shoulder wide grip and bring it up to chest height. Press the weight up, but don't stretch the arms completely. Go slowly down and repeat."
+        "en": "Set a bench with an upright back support inside a rack. Sit with the feet planted and hold the bar at upper-chest height, slightly wider than shoulder width. Press overhead without arching the back, then lower under control. Return the bar securely to the rack. Record the total barbell weight."
       },
       "image": "/exercise-images/566.webp",
       "imageAttribution": {
@@ -727,13 +899,13 @@
         "licenseUrl": "https://creativecommons.org/licenses/by-sa/3.0/deed.en"
       },
       "sourceUpdatedAt": "2026-06-19T18:57:22.944103+02:00",
-      "descriptionSource": "wger",
+      "descriptionSource": "easyfit-curated",
       "imageSource": "wger"
     },
     "567": {
       "uuid": "87affa4b-395b-437c-9581-2bd20ea5aa7c",
       "descriptions": {
-        "en": "Sit on a bench, the back rest should be almost vertical. Take two dumbbells and bring them up to shoulder height, the palms and the elbows point during the whole exercise to the front. Press the weights up, at the highest point they come very near but don't touch. Go slowly down and repeat."
+        "en": "Sit on a bench with an almost upright back support and the feet planted. Hold a dumbbell at each shoulder with the wrists above the elbows. Press overhead without pushing with the legs or arching the lower back. Lower under control to shoulder height. This is the seated variant and requires a bench. Record the weight of one dumbbell."
       },
       "image": "/exercise-images/567.webp",
       "imageAttribution": {
@@ -745,13 +917,24 @@
         "licenseUrl": "https://creativecommons.org/licenses/by-sa/3.0/deed.en"
       },
       "sourceUpdatedAt": "2026-06-19T18:46:58.504753+02:00",
-      "descriptionSource": "wger",
+      "descriptionSource": "easyfit-curated",
       "imageSource": "wger"
+    },
+    "590": {
+      "uuid": "6e46833d-fd83-4c1a-90af-eb3f3a917199",
+      "descriptions": {
+        "en": "Sit in a seated calf raise machine with the balls of the feet on the platform and the thigh pads secured above the knees. Release the machine support, raise the heels, then lower slowly within a comfortable ankle range. Keep the knees bent and avoid bouncing. Re-engage the support after the set. Record the selected machine load."
+      },
+      "image": null,
+      "imageAttribution": null,
+      "sourceUpdatedAt": "2026-06-19T18:47:00.068013+02:00",
+      "descriptionSource": "easyfit-curated",
+      "imageSource": null
     },
     "622": {
       "uuid": "7ce443b6-eb84-4f65-b05f-461c1cc8bcc0",
       "descriptions": {
-        "en": "Get onto the calf raises machine, you should able to completely push your calves down. Stand straight, don't make a hollow back and don't bend your legs. Pull yourself up as high as you can. Make a small pause of 1 - 2 seconds and go slowly down.",
+        "en": "Use a standing calf raise machine with the shoulder pads adjusted and the balls of the feet on its platform. Keep the knees nearly straight and the trunk still. Raise the heels without bouncing, pause briefly, then lower under control within a comfortable range. Record the selected machine load.",
         "it": "Salite sulla macchina per i sollevamenti dei polpacci, dovreste essere in grado di spingere completamente i polpacci verso il basso. State dritti, non inarcate la schiena e non piegate le gambe. Tiratevi su il più possibile. Fate una piccola pausa di 1-2 secondi e scendete lentamente."
       },
       "image": "/exercise-images/622.webp",
@@ -764,8 +947,19 @@
         "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/deed.en"
       },
       "sourceUpdatedAt": "2026-06-19T18:47:04.282658+02:00",
-      "descriptionSource": "wger",
+      "descriptionSource": "easyfit-curated",
       "imageSource": "wger"
+    },
+    "630": {
+      "uuid": "0c2d9b74-3d1e-481f-a7bf-3b3532f7d6b0",
+      "descriptions": {
+        "en": "Stand over a barbell with a wide stance and the toes turned outward comfortably. Bend the hips and knees and grip the bar inside the legs. Brace the trunk and push through the floor to stand, keeping the bar close. Finish upright without leaning backward. Lower by bending the hips and knees under control. Record the total barbell weight."
+      },
+      "image": null,
+      "imageAttribution": null,
+      "sourceUpdatedAt": "2026-07-23T12:08:24.973930+02:00",
+      "descriptionSource": "easyfit-curated",
+      "imageSource": null
     },
     "655": {
       "uuid": "5915fabe-c941-4dac-b196-bc4e8c7ce57b",
@@ -801,10 +995,33 @@
       "descriptionSource": "wger",
       "imageSource": "wger"
     },
+    "702": {
+      "uuid": "4e752292-051a-4043-8f80-a390c23875e6",
+      "descriptions": {
+        "en": "Stand on one foot and use a wall lightly for balance. Keep the supporting knee nearly straight, raise the heel, then lower slowly to the floor without bouncing. Keep the pelvis level. Complete the prescribed repetitions on each side. No external weight or machine is required.",
+        "it": "• Stare in piedi sul pavimento o sul bordo di un gradino per aumentare il raggio di movimento. Sollevare un piede, appoggiando la parte superiore sul polpaccio.\n• Sollevare i talloni fino a stare in piedi sulle punte dei piedi.\n• Resta in questa posizione per tre secondi, poi abbassa il piede senza toccare il suolo con il tallone."
+      },
+      "image": null,
+      "imageAttribution": null,
+      "sourceUpdatedAt": "2026-04-15T22:23:56.740043+02:00",
+      "descriptionSource": "easyfit-curated",
+      "imageSource": null
+    },
+    "723": {
+      "uuid": "55b9d286-c4cc-4a29-97ad-58cb13c2bb7e",
+      "descriptions": {
+        "en": "Sit at a high-cable pulldown station and secure the thighs under the pads. Hold the bar with an overhand grip comfortably wider than shoulder width. Pull toward the upper chest by driving the elbows down, without swinging or pulling behind the neck. Return under control until the arms are extended. Record the selected cable load."
+      },
+      "image": null,
+      "imageAttribution": null,
+      "sourceUpdatedAt": "2026-07-23T12:36:21.397419+02:00",
+      "descriptionSource": "easyfit-curated",
+      "imageSource": null
+    },
     "822": {
       "uuid": "5d244235-cd56-472a-876e-6e530a899ef2",
       "descriptions": {
-        "en": "The reverse cable fly, also known as the cable rear delt fly, is a deltoid muscle strengthening and definition exercise. It’s one of the best isolation exercises for your back and posterior deltoid.This workout targets your posterior (back) deltoids while using a range of upper body muscles.\n\n• Adjust the weight and the pulleys to the right height. You should be able to see the pulleys because they should be above your head.\n• With your right hand, grab the left pulley, and with your left hand, grab the right pulley, crossing them in front of you. This is where you’ll begin your journey.\n• Start the movement by moving your arms back and forth while keeping your arms straight.\n• Pause at the finish of the move for a brief moment before returning the handles to their starting positions."
+        "en": "Set both cable pulleys around shoulder height and hold the opposite handles with the arms in front of you. Keep a small fixed bend in the elbows and open the arms out to the sides without shrugging or arching the lower back. Return under control. Record the load selected on one cable stack and use the same load on both stacks."
       },
       "image": "/exercise-images/822.webp",
       "imageAttribution": {
@@ -816,8 +1033,32 @@
         "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/deed.en"
       },
       "sourceUpdatedAt": "2026-07-23T12:36:22.670251+02:00",
-      "descriptionSource": "wger",
+      "descriptionSource": "easyfit-curated",
       "imageSource": "wger"
+    },
+    "828": {
+      "uuid": "70c99a4e-3340-4993-a7f1-2d2709dada1a",
+      "descriptions": {
+        "en": "Set an adjustable bench to a moderate incline and lie face down with the chest supported. Hold a dumbbell in each hand below the shoulders. With a small fixed bend in the elbows, raise the arms out to the sides without shrugging or lifting the chest. Lower slowly. Record the weight of one dumbbell.",
+        "it": "Le alzate posteriori sono un esercizio complementare e di isolamento per il deltoide posteriore. Essendo focalizzato su un muscolo specifico, solitamente, si usano pesi leggeri ripetizioni fra le 10 e le 15 per serie."
+      },
+      "image": null,
+      "imageAttribution": null,
+      "sourceUpdatedAt": "2026-07-23T12:08:36.445040+02:00",
+      "descriptionSource": "easyfit-curated",
+      "imageSource": null
+    },
+    "978": {
+      "uuid": "f4991a98-6422-4884-8ad3-43412f91fac1",
+      "descriptions": {
+        "en": "Hang from a pull-up bar with the shoulders controlled. Bend the knees and raise them toward the chest, finishing with a small controlled curl of the pelvis. Lower slowly without swinging, kicking or arching the lower back. Work within a range that allows the trunk to remain controlled. No added weight is required.",
+        "it": "sollevamento gambe 90° alla sbarra è un esercizio molto intenso che coinvolge tutta la muscolatura addominale."
+      },
+      "image": null,
+      "imageAttribution": null,
+      "sourceUpdatedAt": "2026-05-09T20:21:42.525966+02:00",
+      "descriptionSource": "easyfit-curated",
+      "imageSource": null
     },
     "984": {
       "uuid": "3284fd27-5402-4821-9c32-29066d4e2667",
@@ -866,6 +1107,29 @@
       "imageAttribution": null,
       "sourceUpdatedAt": "2026-06-19T18:57:47.486181+02:00",
       "descriptionSource": "wger",
+      "imageSource": null
+    },
+    "1086": {
+      "uuid": "44cfa56c-d8c2-4f2c-8b5a-f29810fd60e7",
+      "descriptions": {
+        "en": "Drop into a strong plank position, bringing your hands close together until they're almost touching. (picture 1)Bend your elbows to slowly bring your chest to the floor (picture 2). Keep your elbows close to your body as you push back up explosively. Repeat. Ensure you take your time lowering on each rep, keeping your form sharp."
+      },
+      "image": null,
+      "imageAttribution": null,
+      "sourceUpdatedAt": "2026-06-19T18:49:23.374725+02:00",
+      "descriptionSource": "wger",
+      "imageSource": null
+    },
+    "1111": {
+      "uuid": "4aa7e2a7-86ad-4322-978f-ff8b391f556c",
+      "descriptions": {
+        "en": "Place the hands on a stable bench and walk the feet back until the body forms a straight line. Bend the elbows to lower the chest toward the bench, then press back up while keeping the trunk braced. Keep the bench fixed and avoid letting the hips sag. The hands are elevated; the feet stay on the floor.",
+        "it": "Distensione Panca Inclinata con BilanciereDistensione Panca Inclinata con Bilanciere"
+      },
+      "image": null,
+      "imageAttribution": null,
+      "sourceUpdatedAt": "2026-06-19T18:49:50.559940+02:00",
+      "descriptionSource": "easyfit-curated",
       "imageSource": null
     },
     "1112": {
@@ -922,10 +1186,21 @@
       "descriptionSource": "wger",
       "imageSource": "wger"
     },
+    "1243": {
+      "uuid": "58ca3e51-ea64-4771-a74a-a74d29f5c40c",
+      "descriptions": {
+        "en": "Stand with the feet around hip width and use a wall lightly for balance if needed. Keep the knees nearly straight and raise both heels to stand on the balls of the feet. Pause briefly, then lower slowly to the floor without bouncing. This bodyweight version requires no calf machine or external weight."
+      },
+      "image": null,
+      "imageAttribution": null,
+      "sourceUpdatedAt": "2026-06-19T18:50:59.048473+02:00",
+      "descriptionSource": "easyfit-curated",
+      "imageSource": null
+    },
     "1298": {
       "uuid": "4ef75e13-c058-4410-91c0-2f2d2df98130",
       "descriptions": {
-        "en": "The high-cable cross tricep extension is an isolation exercise for targeting the triceps,\nparticularly the long head. It utilizes cables and handles grasped with opposite hands, allowing for a unique pressing motion that can be effective for building tricep strength. Unlike exercises that use a straight bar or rope, this variation can be more comfortable on your wrists and elbows"
+        "en": "Set both cable pulleys around head height and hold the opposite handles in a crossed setup. Keep the upper arms mostly still and extend the elbows down and outward in a comfortable cross-body path. Return under control without shrugging or swinging the torso. Record the selected load on one cable stack; both stacks are used together."
       },
       "image": "/exercise-images/1298.webp",
       "imageAttribution": {
@@ -937,7 +1212,7 @@
         "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/deed.en"
       },
       "sourceUpdatedAt": "2026-07-23T12:36:30.040993+02:00",
-      "descriptionSource": "wger",
+      "descriptionSource": "easyfit-curated",
       "imageSource": "wger"
     },
     "1312": {
@@ -969,6 +1244,17 @@
       "descriptionSource": "wger",
       "imageSource": "wger"
     },
+    "1366": {
+      "uuid": "8a3e08ab-4e97-4aee-897a-60d8693b9b43",
+      "descriptions": {
+        "en": "Stand in a split stance holding a dumbbell in each hand, with both feet on the floor. Bend both knees to lower the body vertically, keeping the front foot planted and the trunk controlled. Push through the front foot to rise without stepping. Complete the repetitions on each side. No bench is required. Record the weight of one dumbbell."
+      },
+      "image": null,
+      "imageAttribution": null,
+      "sourceUpdatedAt": "2026-07-23T12:25:12.789068+02:00",
+      "descriptionSource": "easyfit-curated",
+      "imageSource": null
+    },
     "1378": {
       "uuid": "81942f3d-d92c-431c-b9d0-0da12918d1e4",
       "descriptions": {
@@ -987,15 +1273,59 @@
       "descriptionSource": "wger",
       "imageSource": "wger"
     },
+    "1414": {
+      "uuid": "f462df26-3264-48c2-b5aa-2374d0670c24",
+      "descriptions": {
+        "en": "Use a hack squat machine with the back and shoulders supported by its pads. Plant the feet securely on the platform and release the supports. Bend the hips and knees to lower within a comfortable range while keeping the back supported. Push through the feet to rise without bouncing, then re-engage the supports. Record the machine load."
+      },
+      "image": null,
+      "imageAttribution": null,
+      "sourceUpdatedAt": "2026-06-19T18:52:31.727148+02:00",
+      "descriptionSource": "easyfit-curated",
+      "imageSource": null
+    },
+    "1424": {
+      "uuid": "e68f6d51-fe02-4175-b277-dec0c1521f36",
+      "descriptions": {
+        "en": "The biceps curl machine is designed to isolate the biceps muscles and provide a controlled range of motion. Sit on the machine with your back against the pad and adjust the seat so your arms are aligned with the machine's handles or pads. Grip the handles firmly, keeping your elbows fixed in place, and curl the handles upward by contracting your biceps. Slowly lower the handles to the starting position, maintaining control throughout the movement."
+      },
+      "image": null,
+      "imageAttribution": null,
+      "sourceUpdatedAt": "2026-06-19T18:52:33.112552+02:00",
+      "descriptionSource": "wger",
+      "imageSource": null
+    },
     "1463": {
       "uuid": "1dca10f9-a976-4a09-ab85-b95fafaa1a28",
       "descriptions": {
-        "en": "The Dumbbell Underhand Dead Row will involve the back, which means you can try a bit heavier weight. The catch is that you need to be able to control the weight for all the reps.\n\n• Start by holding a pair of dumbbells with your feet shoulder-wide apart and your knees slightly bent.\n• Hinge at your hips to lower your torse forward until it's almost parallel to the floor, keeping your back flat and maintaining a slight bend in your knees.\n• Exhale as you row the dumbbells to your sides up to chest height, leading with your elbows until your upper arms are just past parallel to the floor and the dumbbells are at ribcage level.\n• Slowly lower to the starting position and repeat. Keep your back flat all the time."
+        "en": "Stand holding a pair of dumbbells with an underhand grip, palms facing forward. Keep the knees slightly bent and hinge at the hips until the torso is inclined forward. Brace the trunk and keep the back still. Pull the dumbbells toward the hips with the elbows close to the torso, maintaining the underhand grip. Lower under control until the arms are extended without swinging or standing up. No bench is required. Record the weight of one dumbbell; both dumbbells are used together."
       },
       "image": null,
       "imageAttribution": null,
       "sourceUpdatedAt": "2026-06-19T18:52:57.027802+02:00",
-      "descriptionSource": "wger",
+      "descriptionSource": "easyfit-curated",
+      "imageSource": null
+    },
+    "1493": {
+      "uuid": "06968051-a818-489c-9fbb-ddb94a001245",
+      "descriptions": {
+        "en": "Set a cable pulley low and hold one handle with the arm slightly behind the torso. Face away from the stack in a stable stance. Curl by bending the elbow while keeping the upper arm still and the shoulder in a comfortable position. Lower under control without swinging. Complete the repetitions on each side. Record the selected cable load."
+      },
+      "image": null,
+      "imageAttribution": null,
+      "sourceUpdatedAt": "2026-07-23T12:36:35.382539+02:00",
+      "descriptionSource": "easyfit-curated",
+      "imageSource": null
+    },
+    "1513": {
+      "uuid": "f2e17c8d-7285-4fd5-bfe8-26f407802850",
+      "descriptions": {
+        "en": "Attach a rope to a cable pulley and face away from the stack. Hold the rope above and behind the head, with the elbows pointing upward. Brace the trunk in a stable stance and extend the elbows without moving the upper arms or arching the back. Bend the elbows to return under control. Record the selected cable load."
+      },
+      "image": null,
+      "imageAttribution": null,
+      "sourceUpdatedAt": "2026-07-23T12:36:36.598356+02:00",
+      "descriptionSource": "easyfit-curated",
       "imageSource": null
     },
     "1551": {
@@ -1037,7 +1367,7 @@
     "1620": {
       "uuid": "6995c30a-037f-4de3-ac4a-45384a1f38f9",
       "descriptions": {
-        "en": "The seated dumbbell calf raise is a targeted exercise for strengthening the lower leg muscles. It follows the same movement pattern as the machine version: you place the weight on your knees, and by extending and flexing your ankles, you move the weight."
+        "en": "Sit on a bench with the feet flat and the knees bent. Place one dumbbell across the thighs just above the knees and hold it securely. Raise both heels, pause briefly, then lower slowly without bouncing. Keep the weight balanced and the torso still. Record the weight of the single dumbbell."
       },
       "image": "/exercise-images/1620.webp",
       "imageAttribution": {
@@ -1049,13 +1379,24 @@
         "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/deed.en"
       },
       "sourceUpdatedAt": "2026-06-19T18:54:53.981469+02:00",
-      "descriptionSource": "wger",
+      "descriptionSource": "easyfit-curated",
       "imageSource": "wger"
+    },
+    "1640": {
+      "uuid": "4621b41f-0d32-4033-acff-dc079c792606",
+      "descriptions": {
+        "en": "This exercise involves holding a dumbbell in each hand at shoulder height and performing a squat. It targets the lower body muscles, including the quads, hamstrings, and glutes, while also engaging the core and upper body."
+      },
+      "image": null,
+      "imageAttribution": null,
+      "sourceUpdatedAt": "2026-06-19T18:49:28.824471+02:00",
+      "descriptionSource": "wger",
+      "imageSource": null
     },
     "1642": {
       "uuid": "af77220c-098c-47c2-9f8c-92a651998903",
       "descriptions": {
-        "en": "This exercise involves sitting on the ground with a dumbbell resting on the hips, then thrusting the hips upward while squeezing the glutes. It is a great exercise for strengthening the glutes and improving hip mobility."
+        "en": "Sit on the floor with the upper back against a stable bench. Place one dumbbell across the hips and hold it securely. Plant the feet and raise the hips until the thighs and torso align without arching the lower back. Lower under control while keeping the upper back supported. Record the weight of the single dumbbell."
       },
       "image": "/exercise-images/1642.webp",
       "imageAttribution": {
@@ -1067,7 +1408,7 @@
         "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/deed.en"
       },
       "sourceUpdatedAt": "2026-06-19T18:49:31.505813+02:00",
-      "descriptionSource": "wger",
+      "descriptionSource": "easyfit-curated",
       "imageSource": "wger"
     },
     "1648": {
@@ -1135,6 +1476,17 @@
       "descriptionSource": "wger",
       "imageSource": "wger"
     },
+    "1696": {
+      "uuid": "1f490456-b426-4b89-b70c-e155c3571422",
+      "descriptions": {
+        "en": "Use a pull-up bar with parallel handles and hold them with the palms facing each other. Begin with the arms extended and the shoulders controlled. Pull upward by driving the elbows down without kicking or swinging. Lower slowly to the starting position. Parallel handles are required for this neutral grip. For the weighted variant, record only the added weight."
+      },
+      "image": null,
+      "imageAttribution": null,
+      "sourceUpdatedAt": "2026-06-19T18:54:32.427383+02:00",
+      "descriptionSource": "easyfit-curated",
+      "imageSource": null
+    },
     "1700": {
       "uuid": "72129e4f-df97-4869-9561-33a1ba3c9186",
       "descriptions": {
@@ -1181,6 +1533,39 @@
       "sourceUpdatedAt": "2026-07-23T12:36:44.796486+02:00",
       "descriptionSource": "wger",
       "imageSource": "wger"
+    },
+    "1736": {
+      "uuid": "a630de17-9170-434c-b486-96a6b8705506",
+      "descriptions": {
+        "en": "Stand holding one dumbbell in one hand. Shift onto one leg with the knee slightly bent. Hinge at the hips while extending the free leg backward, keeping the pelvis level and the back still. Lower only as far as you can control, then drive the hip forward to stand. Complete the repetitions on each side. Record the single dumbbell weight."
+      },
+      "image": null,
+      "imageAttribution": null,
+      "sourceUpdatedAt": "2026-06-19T18:55:12.191611+02:00",
+      "descriptionSource": "easyfit-curated",
+      "imageSource": null
+    },
+    "1740": {
+      "uuid": "68f1efb8-e7d2-4a79-99bb-65f128e10a11",
+      "descriptions": {
+        "en": "Lie on the back with one foot planted and the knee bent. Lift the other foot off the floor. Brace the trunk and push through the planted foot to raise the hips without rotating the pelvis or arching the lower back. Lower slowly and complete the repetitions on each side. No external weight is required."
+      },
+      "image": null,
+      "imageAttribution": null,
+      "sourceUpdatedAt": "2026-04-15T22:23:55.725771+02:00",
+      "descriptionSource": "easyfit-curated",
+      "imageSource": null
+    },
+    "1772": {
+      "uuid": "5d8d3581-bce5-4a28-868f-8b299eaedbdd",
+      "descriptions": {
+        "en": "• Lay down\n• Place your hands near your butt (often slightly in front or under or both)\n• Raise your legs, but about 70% of the way you should be able to also raise your pelvis\n• (optional/variable) Hold 1/2 seconds at the top\n• Go back to starting position"
+      },
+      "image": null,
+      "imageAttribution": null,
+      "sourceUpdatedAt": "2026-06-19T18:55:11.513776+02:00",
+      "descriptionSource": "wger",
+      "imageSource": null
     },
     "1801": {
       "uuid": "5d0e0a8b-1940-4034-b4ae-b965859f1ff0",
@@ -1235,6 +1620,37 @@
       "sourceUpdatedAt": "2026-06-19T18:55:44.799925+02:00",
       "descriptionSource": "wger",
       "imageSource": "wger"
+    },
+    "1893": {
+      "uuid": "2500c212-6f14-4a8d-a997-04e9e7c04116",
+      "descriptions": {
+        "en": "Set a barbell on rack supports at upper-chest height. Stand with the feet around hip width, hold the bar slightly wider than shoulder width, and unrack it. Brace the trunk and press overhead without bending the knees or driving with the legs. Lower under control to the upper chest and return the bar to the rack. Record the total barbell weight."
+      },
+      "image": null,
+      "imageAttribution": null,
+      "sourceUpdatedAt": "2026-06-19T18:56:13.401032+02:00",
+      "descriptionSource": "easyfit-curated",
+      "imageSource": null
+    },
+    "1968": {
+      "uuid": "9dfce8f0-39fc-4204-9f84-500ec42074e9",
+      "descriptions": {
+        "en": "Stand with the feet planted and hold one dumbbell at shoulder height. Brace the trunk and press overhead without leaning sideways, arching the back or pushing with the legs. Lower under control to shoulder height. Complete the repetitions on each side. No bench is required. Record the weight of the single dumbbell."
+      },
+      "image": null,
+      "imageAttribution": null,
+      "sourceUpdatedAt": "2026-06-19T18:48:21.547721+02:00",
+      "descriptionSource": "easyfit-curated",
+      "imageSource": null
+    },
+    "wger-567-standing": {
+      "descriptions": {
+        "en": "Stand holding a dumbbell at each shoulder, with the feet planted and the trunk braced. Press both dumbbells overhead without bending the knees, pushing with the legs or arching the lower back. Lower under control to shoulder height. Keep the wrists above the elbows and work within a comfortable range. No bench is required. Record the weight of one dumbbell."
+      },
+      "image": null,
+      "imageAttribution": null,
+      "descriptionSource": "easyfit-curated",
+      "imageSource": null
     }
   }
 }

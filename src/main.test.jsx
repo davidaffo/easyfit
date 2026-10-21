@@ -123,8 +123,9 @@ describe('critical workout lifecycle', () => {
     await user.click(screen.getByRole('button', { name: /Sostituisci con uno simile/ }));
     const picker = screen.getByRole('dialog', { name: `Sostituisci ${supportedRow.name}` });
     expect(within(picker).getByRole('button', { name: /Chest-Supported Dumbbell Row/ })).toBeTruthy();
-    await user.click(within(picker).getByRole('button', { name: /Standing Dumbbell Row/ }));
-    expect(JSON.parse(localStorage.getItem('easyfit-workout')).exercises[0].exerciseId).toBe('wger-1463');
+    expect(within(picker).getByRole('button', { name: /Standing Dumbbell Row \(Underhand\)/ })).toBeTruthy();
+    await user.click(within(picker).getByRole('button', { name: /^Standing Dumbbell RowSchiena/ }));
+    expect(JSON.parse(localStorage.getItem('easyfit-workout')).exercises[0].exerciseId).toBe('wger-508');
   });
 
   test.each([[[11, 11], '+14%'], [[14, 14], '-11%'], [[13, 12], null]])('completion volume compares actual reps with the previous %s-rep sets', async (previousReps, expectedChange) => {
@@ -430,7 +431,7 @@ test('bodyweight-only onboarding warns about reduced coverage but does not trap 
   await user.click(screen.getByRole('button', { name: /Configura in 60 secondi/ }));
   await user.click(screen.getByRole('button', { name: /Continua/ }));
   await user.click(screen.getByRole('button', { name: /Manubri/ }));
-  await user.click(screen.getByRole('button', { name: /Panca/ }));
+  await user.click(screen.getByRole('button', { name: /Panca$/ }));
   expect(screen.getByText(/Attrezzatura incompleta/)).toBeTruthy();
   await user.click(screen.getByRole('button', { name: /Continua/ }));
   expect(screen.getByRole('heading', { name: 'Ultimi dettagli' })).toBeTruthy();

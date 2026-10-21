@@ -5,12 +5,32 @@ import { setSuperset, nextSupersetExercise } from './supersets.js';
 
 const exercise = exercises.find((entry) => entry.loadType === 'external');
 const item = (reps, extra = {}) => ({ exerciseId: exercise.id, sets: reps.map((reps) => ({ done: true, reps, weight: 60, rir: 0, targetRir: 2 })), ...extra });
+describe('adaptive intense accessory sets', () => {
+  const curl = exercises.find((entry) => entry.wgerId === 92);
+  const profile = {
+    goal: 'muscle', level: 'intermediate', trainingStyle: 'intense',
+    equipment: ['dumbbells'],
+    preferences: Object.fromEntries(exercises.map((entry) => [entry.id, entry.id === curl.id ? 'normal' : 'exclude'])),
+  };
+  it.each([[30, [2, 0]], [45, [2, 1, 0]]])('adapts to %i minutes while keeping the final set at failure', (duration, rirs) => {
+    const workout = generateWorkout({ ...profile, duration }, [], { now: Date.UTC(2026, 9, 21), targets: ['biceps'] });
+    expect(workout.exercises).toHaveLength(1);
+    expect(workout.exercises[0].sets.map((set) => set.targetRir)).toEqual(rirs);
+    expect(workout.exercises[0].minimumTimeFitSets).toBe(1);
+  });
+  it('respects a one-set accessory limit', () => {
+    const workout = generateWorkout({ ...profile, duration: 30, exerciseOverrides: { [curl.id]: { maxSets: 1 } } }, [], {
+      now: Date.UTC(2026, 9, 21), targets: ['biceps'],
+    });
+    expect(workout.exercises[0].sets.map((set) => set.targetRir)).toEqual([0]);
+  });
+});
 describe('bodyweight rep progression', () => {
   const dips = exercises.find((entry) => entry.name === 'Dips');
   const now = Date.UTC(2026, 9, 16);
   const profile = {
     goal: 'muscle', level: 'intermediate', duration: 30, trainingStyle: 'intense',
-    equipment: ['bodyweight'], exerciseFilters: {},
+    equipment: ['bodyweight', 'dipbars'], exerciseFilters: {},
     preferences: Object.fromEntries(exercises.map((entry) => [entry.id, entry.id === dips.id ? 'normal' : 'exclude'])),
   };
   const history = (rir) => [{
@@ -32,7 +52,7 @@ describe('bodyweight rep progression', () => {
     expect(getExercisePrescription(profile, loaded).maxReps).toBe(12);
   });
   const withWeight = (extra = {}) => ({
-    ...profile, equipment: ['bodyweight', 'addedweight'], loadInventory: { addedweight: [2.5, 5, 10] },
+    ...profile, equipment: ['bodyweight', 'dipbars', 'addedweight'], loadInventory: { addedweight: [2.5, 5, 10] },
     preferences: { ...profile.preferences, [`${dips.id}-weighted`]: 'normal' }, ...extra,
   });
   it('offers weighted dips only after reaching the rep ceiling with reserve', () => {
@@ -43,7 +63,7 @@ describe('bodyweight rep progression', () => {
     expect(getAvailableLoads(exercises.find((entry) => entry.id === `${dips.id}-weighted`), withWeight())).toEqual([2.5, 5, 10]);
   });
   it.each([
-    { equipment: ['bodyweight'] },
+    { equipment: ['bodyweight', 'dipbars'] },
     { loadInventory: { addedweight: [] } },
     { preferences: { ...profile.preferences } },
   ])('keeps bodyweight progression when weighted equipment or loads are missing, or the variant is excluded: %o', (extra) => {

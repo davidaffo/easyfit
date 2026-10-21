@@ -1148,7 +1148,7 @@ function SetNumberInput({ value, min, max, step, inputMode, label, onCommit }) {
 function ExerciseCard({ item, history, supersetPartners = [], exerciseIndex, language, updateSet, recordAvailableLoad, setInitialLoad, setInitialReps, changeSetCount, toggleSet, onRir, onGuide, onHistory, onOptions }) {
   const exercise = getWorkoutExercise(item);
   const currentCatalogExercise = exercises.some((candidate) => candidate.id === item.exerciseId);
-  const details = useExerciseDetails(currentCatalogExercise ? exercise.wgerId : null, 'en');
+  const details = useExerciseDetails(currentCatalogExercise ? exercise.guideId || exercise.wgerId : null, 'en');
   const [initialLoad, setInitialLoadValue] = useState('');
   const [initialReps, setInitialRepsValue] = useState('');
   const usesWeight = ['external', 'per-dumbbell'].includes(exercise.loadType);
@@ -1173,12 +1173,13 @@ function ExerciseCard({ item, history, supersetPartners = [], exerciseIndex, lan
     <header><span className="exercise-index">{String(exerciseIndex + 1).padStart(2, '0')}</span><div><div className="exercise-name-row"><h2>{getExerciseName(exercise, language)}</h2>{item.progressionStep === 'max-increase' && <span className="progression-badge">MASSIMALE +{Math.max(.1, Number(item.performanceEvidence?.maximumChange || 0) * 100).toFixed(1)}%</span>}{item.progressionStep === 'max-decrease' && <span className="progression-badge">RICALIBRATO</span>}{item.progressionStep === 'reps' && <span className="progression-badge">+ REPS</span>}{item.progressionStep === 'load' && <span className="progression-badge load">+ CARICO</span>}</div><p>{muscles[exercise.primary] || 'Esercizio salvato'} · {targetRepSummary}{item.calibrationBelowRange ? ' · range adattato alla capacità' : item.repRange ? ` · range ${item.repRange.min}–${item.repRange.max}` : ''} · RIR {item.targetRir}</p></div>{currentCatalogExercise && <button className="icon-button" onClick={onOptions} aria-label={`Opzioni per ${getExerciseName(exercise, language)}`}><Icon name="more" size={20}/></button>}</header>
     {supersetPartners.length > 0 && <p className="superset-note"><strong>Superserie</strong> con {supersetPartners.map((entry) => getExerciseName(getWorkoutExercise(entry), language)).join(' + ')}. Alterna le serie; recupera a fine giro.</p>}
     {exercise.loadUnit === 'added-weight' && <p className="load-reference">I kg indicano solo la zavorra aggiunta al peso corporeo.</p>}
+    {exercise.loadUnit === 'per-stack' && <p className="load-reference">I kg indicano il carico selezionato su ciascun pacco pesi; usa lo stesso carico sui due lati.</p>}
     {item.rotation && <p className="exercise-rotation">Blocco {item.rotation.block} · esecuzione {Math.min(item.rotation.completedExposures + 1, item.rotation.targetExposures)} di {item.rotation.targetExposures}</p>}
     {currentCatalogExercise && <ExercisePreview source={details?.image} name={getExerciseName(exercise, language)} onOpen={onGuide}/>}
     {needsInitialLoad ? <form className="initial-load" onSubmit={submitInitialLoad}>
       <div><span>PRIMA VOLTA</span><strong>Che carico vuoi usare?</strong><small>Scegli un peso con cui pensi di chiudere le serie a RIR {item.targetRir}.</small></div>
       {loadReference && <p className="load-reference">Riferimento: <strong>{getExerciseName(loadReference.exercise, language)} · {loadReference.weight} kg{exercise.loadType === 'per-dumbbell' ? ' per manubrio' : ''}</strong>. Il carico può cambiare tra esercizi: scegli quello adatto qui.</p>}
-      <label><input autoFocus inputMode="decimal" type="number" min="0.5" max="1000" step="0.5" placeholder="0" value={initialLoad} onChange={(event) => setInitialLoadValue(event.target.value)}/><span>kg {exercise.loadType === 'per-dumbbell' ? 'per manubrio' : exercise.loadUnit === 'single-dumbbell' ? 'del manubrio' : exercise.loadUnit === 'added-weight' ? 'di zavorra' : ''}</span></label>
+      <label><input autoFocus inputMode="decimal" type="number" min="0.5" max="1000" step="0.5" placeholder="0" value={initialLoad} onChange={(event) => setInitialLoadValue(event.target.value)}/><span>kg {exercise.loadType === 'per-dumbbell' ? 'per manubrio' : exercise.loadUnit === 'single-dumbbell' ? 'del manubrio' : exercise.loadUnit === 'added-weight' ? 'di zavorra' : exercise.loadUnit === 'per-stack' ? 'per pacco pesi' : ''}</span></label>
       <button className="button dark" disabled={Number(initialLoad) <= 0}>Imposta carico</button>
     </form> : item.needsInitialReps ? <form className="initial-load bodyweight-calibration" onSubmit={submitInitialReps}>
       <div><span>CALIBRAZIONE INIZIALE</span><strong>Quante ripetizioni massime?</strong><small>Inserisci quante ripetizioni pulite riusciresti a fare arrivando a cedimento. Easyfit sottrae il RIR target e rispetta il limite dell’esercizio.</small></div>
@@ -1227,7 +1228,7 @@ function RirSheet({ item, language, onChoose, onClose }) {
 
 function ExerciseGuideSheet({ exerciseId, language, onClose }) {
   const exercise = exercises.find((candidate) => candidate.id === exerciseId);
-  const details = useExerciseDetails(exercise.wgerId, 'en');
+  const details = useExerciseDetails(exercise.guideId || exercise.wgerId, 'en');
   const [imageFailed, setImageFailed] = useState(false);
   useEffect(() => { setImageFailed(false); }, [details?.image]);
   const equipment = exercise.equipment.map((id) => equipmentLabels[id] || id).join(' · ');

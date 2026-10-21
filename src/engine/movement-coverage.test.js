@@ -49,7 +49,7 @@ describe('direct movement coverage', () => {
     workout.exercises.push(structuredClone(workout.exercises[0]));
     const preview = recorded('wger-567');
     delete preview.completedAt;
-    const skipped = recorded('wger-478');
+    const skipped = recorded('wger-567');
     skipped.exercises[0].sets.forEach((set) => { set.done = false; });
     const insufficient = recorded('wger-364');
     insufficient.exercises[0].sets.forEach((set) => { set.reps = 1; });
@@ -118,15 +118,22 @@ describe('direct movement coverage', () => {
     }
   });
 
-  it('makes the reviewed dumbbell Push Press available without collapsing it into the strict press', () => {
-    const pushPress = exercises.find((exercise) => exercise.wgerId === 478);
+  it('uses the strict shoulder press without automatically rotating in a push press', () => {
     const strictPress = exercises.find((exercise) => exercise.wgerId === 567);
-    expect(pushPress.equipment).toEqual(['dumbbells']);
-    expect(pushPress.effortClass).toBe('high-fatigue-compound');
-    expect(pushPress.intensifierEligible).toBe(false);
-    expect(getExerciseVariantKey(pushPress)).not.toBe(getExerciseVariantKey(strictPress));
+    expect(exercises.some((exercise) => exercise.wgerId === 478)).toBe(false);
     const workout = generateWorkout(only([478, 567]), [recorded('wger-567')], { now, duration: 30 });
-    expect(workout.exercises[0].exerciseId).toBe(pushPress.id);
+    expect(getWorkoutExercise(workout.exercises[0]).wgerId).toBe(strictPress.wgerId);
+    expect(getWorkoutExercise(workout.exercises[0]).executionVariant).not.toBe('push-press');
+  });
+
+  it('offers the standard unsupported row and keeps the underhand grip distinct', () => {
+    const standard = exercises.find((exercise) => exercise.wgerId === 508);
+    const underhand = exercises.find((exercise) => exercise.wgerId === 1463);
+    expect(standard.equipment).toEqual(['dumbbells']);
+    expect(standard.loadMultiplier).toBe(2);
+    expect(getExerciseVariantKey(standard)).not.toBe(getExerciseVariantKey(underhand));
+    const workout = generateWorkout(only([508, 1463]), [], { now, duration: 30 });
+    expect(workout.exercises[0].exerciseId).toBe(standard.id);
   });
 
   for (const duration of [30, 45, 60]) {

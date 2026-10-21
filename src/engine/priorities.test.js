@@ -43,7 +43,7 @@ describe('anatomical training urgency', () => {
     const overview = getAdaptiveTrainingOverview(machineProfile, machineHistory, 30, now);
     expect(overview.families[0].id).toBe('hip');
     const workout = generateWorkout(machineProfile, machineHistory, { now, duration: 30 });
-    expect(workout.exercises.some((exercise) => [364, 365].includes(exercise.exerciseSnapshot.wgerId))).toBe(true);
+    expect(workout.exercises.some((exercise) => exercise.exerciseSnapshot.pattern === 'knee-flexion')).toBe(true);
     expect(workout.engine.unavailableMovementFamilies).not.toContain('hip');
     expect(workout.engine.estimatedMinutes).toBeLessThanOrEqual(30 + SESSION_TIME_TOLERANCE_MINUTES);
   });
