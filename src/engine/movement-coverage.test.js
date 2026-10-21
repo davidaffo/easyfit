@@ -104,7 +104,7 @@ describe('direct movement coverage', () => {
     const workout = generateWorkout(only([73, 567, 364, 146]), history, { now, duration: 45 });
     const curl = workout.exercises.find((item) => getWorkoutExercise(item).pattern === 'knee-flexion');
     expect(curl).toBeDefined();
-    expect(curl.sets).toHaveLength(1);
+    expect(curl.sets).toHaveLength(2);
   });
 
   it('preserves the planned movement coverage when refreshing the whole workout', () => {
@@ -155,7 +155,7 @@ describe('direct movement coverage', () => {
           expect(selected.filter(isPrimaryMovement).length).toBeLessThanOrEqual(limits.maxCompounds);
           expect(selected.filter((exercise) => isPrimaryMovement(exercise) && isLowerBodyExercise(exercise)).length).toBeLessThanOrEqual(duration <= 30 ? 1 : 2);
           expect(selected.every((exercise) => isExerciseAllowed(exercise, profile))).toBe(true);
-          expect(workout.exercises.every((item) => item.sets.length > 0
+          expect(workout.exercises.every((item) => item.sets.length >= 2
             && item.sets.length <= getExercisePrescription(profile, getWorkoutExercise(item)).maxSets)).toBe(true);
           history.push(complete(workout, time + 3600000));
         }

@@ -16,7 +16,7 @@ describe('adaptive intense accessory sets', () => {
     const workout = generateWorkout({ ...profile, duration }, [], { now: Date.UTC(2026, 9, 21), targets: ['biceps'] });
     expect(workout.exercises).toHaveLength(1);
     expect(workout.exercises[0].sets.map((set) => set.targetRir)).toEqual(rirs);
-    expect(workout.exercises[0].minimumTimeFitSets).toBe(1);
+    expect(workout.exercises[0].minimumTimeFitSets).toBe(2);
   });
   it('respects a one-set accessory limit', () => {
     const workout = generateWorkout({ ...profile, duration: 30, exerciseOverrides: { [curl.id]: { maxSets: 1 } } }, [], {

@@ -11,7 +11,7 @@ const CONTINUITY_BREAK_DAYS = 28;
 const RECENT_VARIATION_DAYS = 7;
 const EXERCISE_ROTATION_EXPOSURES = 4;
 export const SESSION_TIME_TOLERANCE_MINUTES = 7;
-export const ENGINE_VERSION = 53;
+export const ENGINE_VERSION = 54;
 
 const muscleBaseImportance = {
   chest: 100,
@@ -1164,9 +1164,9 @@ function prescribedSetCount(exercise, profile, context, limits) {
     maximum = Math.min(limits.maxSets, Math.max(maximum, 4));
   }
   if (distributedSets === 0) return context.allowMaintenance
-    ? intenseStyleSets || Math.min(limits.maxSets, exercise.compound ? 2 : 1)
+    ? Math.min(maximum, 2)
     : 0;
-  const minimum = exercise.compound ? Math.min(2, limits.maxSets) : distributedSets === 1 ? 1 : 2;
+  const minimum = Math.min(2, limits.maxSets);
   return clamp(distributedSets, Math.min(minimum, maximum), maximum);
 }
 
@@ -1253,7 +1253,7 @@ function prescription(exercise, profile, history, context = {}) {
       positiveEvidence: progress.latestPositiveEvidence,
       negativeEvidence: progress.latestNegativeEvidence,
     } : null,
-    minimumTimeFitSets: exercise.compound ? Math.min(sets, 2) : 1,
+    minimumTimeFitSets: Math.min(sets, 2),
     estimatedOneRepMax: progress.latestE1rm,
     needsInitialLoad: ['external', 'per-dumbbell'].includes(exercise.loadType) && progression.weight == null,
     needsInitialReps: exercise.loadType === 'bodyweight' && progress.sessions === 0,

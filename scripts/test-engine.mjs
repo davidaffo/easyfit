@@ -647,7 +647,7 @@ assert(intenseGenerated.exercises.every((item) => {
   return item.sets.length <= (exercise.compound ? 2 : 3);
 }), 'The intense style must use at most two compound sets and three accessory sets');
 assert(intenseGenerated.exercises.filter((item) => !exercises.find((candidate) => candidate.id === item.exerciseId).compound)
-  .every((item) => item.sets.length >= 1 && item.sets.length <= 3), 'Intense accessories must adapt their set count within the style ceiling');
+  .every((item) => item.sets.length >= 2 && item.sets.length <= 3), 'Intense accessories must use two or three sets, including after time fitting');
 assert(intenseGenerated.exercises.every((item) => item.sets.map((set) => set.targetRir).at(-1) <= 1), 'Every intense prescription must finish close to the selected effort limit');
 assert(balancedGenerated.exercises.some((item) => item.sets.length === 3), 'A regular balanced workout must retain a three-set prescription where the dose requires it');
 assert(volumeGenerated.exercises.every((item) => item.sets.length <= getExercisePrescription({ ...styleGenerationBase, trainingStyle: 'volume' }, exercises.find((exercise) => exercise.id === item.exerciseId)).maxSets), 'Generated volume prescriptions must respect their exercise-class set ceiling');
