@@ -11,7 +11,7 @@ const CONTINUITY_BREAK_DAYS = 28;
 const RECENT_VARIATION_DAYS = 7;
 const EXERCISE_ROTATION_EXPOSURES = 4;
 export const SESSION_TIME_TOLERANCE_MINUTES = 7;
-export const ENGINE_VERSION = 54;
+export const ENGINE_VERSION = 55;
 
 const muscleBaseImportance = {
   chest: 100,
@@ -120,6 +120,9 @@ function styleRuleFor(profile, exercise) {
 export function targetRirsForSetCount(targetRirs, count) {
   if (count <= 0) return [];
   if (count === 1) return [targetRirs.at(-1)];
+  // Shortened failure-focused prescriptions keep the final steps: 2→1→0
+  // becomes 1→0, including time fitting and manual set-count changes.
+  if (count < targetRirs.length && targetRirs.at(-1) === 0) return targetRirs.slice(-count);
   if (targetRirs.length <= 1) return Array.from({ length: count }, () => targetRirs[0] ?? 2);
   // Preserve the intended effort curve when the user changes set count. For
   // example, 2→1→0 becomes 2→1→1→0 with four sets instead of 2→1→0→0.
@@ -1869,8 +1872,9 @@ export function generateWorkout(profile, history = [], options = {}) {
     return true;
   };
 
-  const rankCandidates = (patterns = null, scoringTargets = targets) => {
+  const rankCandidates = (patterns = null, scoringTargets = targets, primaryOnly = false) => {
     const compatible = exercises
+    .filter((exercise) => !primaryOnly || isPrimaryMovement(exercise))
     .filter((exercise) => profile.preferences?.[exercise.id] !== 'exclude' && !chosen.some((item) => item.id === exercise.id))
     .filter((exercise) => isAutomaticExerciseAllowed(exercise, profile, history, now))
     .filter((exercise) => isEssentialExercise(exercise, profile))
@@ -1920,6 +1924,21 @@ export function generateWorkout(profile, history = [], options = {}) {
   const rankAccessoryCandidates = () => {
     const ranked = rankCandidates(null, accessoryTargets)
       .filter(({ exercise }) => !isPrimaryMovement(exercise))
+      .filter(({ exercise }) => {
+        // Isolations complement direct base work. Indirect muscle dose does
+        // not justify repeated accessory sessions while skipping the base.
+        if (exercise.pattern !== 'chest-isolation') return true;
+        const family = requiredFamilies.find((family) => family.id === 'horizontal-push');
+        if (!family || chosen.some((item) => isPrimaryMovement(item) && family.primaryPatterns.includes(item.pattern))) return true;
+        const baseFrequency = family.primaryPatterns.reduce((sum, pattern) => sum + (patternLoad[pattern]?.frequency || 0), 0);
+        const accessoryFrequency = patternLoad[exercise.pattern]?.frequency || 0;
+        if (baseFrequency > accessoryFrequency) return true;
+        return !exercises.some((item) => isPrimaryMovement(item)
+          && family.primaryPatterns.includes(item.pattern)
+          && !avoidIds.has(item.id)
+          && isAutomaticExerciseAllowed(item, profile, history, now)
+          && isEssentialExercise(item, profile));
+      })
       .map((candidate) => ({ ...candidate,
         score: candidate.score + 45 / (1 + (patternLoad[candidate.exercise.pattern]?.frequency || 0)),
       }))
@@ -1967,7 +1986,7 @@ export function generateWorkout(profile, history = [], options = {}) {
   const minimumPrimaryMovements = Math.max(0, Math.min(desiredPrimaryMovements, maxExercises) - isolationFamilies);
   while (chosen.filter(isPrimaryMovement).length < minimumPrimaryMovements) {
     const primaryFallbacks = requiredFamilies
-      .flatMap((family) => rankCandidates(family.patterns).map((candidate) => ({ ...candidate, family })))
+      .flatMap((family) => rankCandidates(family.primaryPatterns, targets, true).map((candidate) => ({ ...candidate, family })))
       .filter(({ exercise }) => isPrimaryMovement(exercise))
       .sort((a, b) => b.score - a.score);
     const next = primaryFallbacks[0];
@@ -1978,6 +1997,22 @@ export function generateWorkout(profile, history = [], options = {}) {
     }
     maintenanceMode = true;
     if (!plannedFamilies.some((family) => family.id === next.family.id)) plannedFamilies.push(next.family);
+  }
+
+  // If recent chest work has drifted toward flies, reserve an available
+  // slot for a press before considering more isolation work.
+  const chestFamily = requiredFamilies.find((family) => family.id === 'horizontal-push');
+  const chestIsolationFrequency = patternLoad['chest-isolation']?.frequency || 0;
+  if (chestFamily && chestIsolationFrequency > 0
+    && chestIsolationFrequency >= (patternLoad['horizontal-push']?.frequency || 0)
+    && !chosen.some((exercise) => isPrimaryMovement(exercise) && chestFamily.primaryPatterns.includes(exercise.pattern))) {
+    const presses = rankCandidates(chestFamily.primaryPatterns, targets, true);
+    for (const { exercise } of presses) {
+      if (chosen.length < maxExercises && addExercise(exercise, true)) {
+        plannedFamilies.push(chestFamily);
+        break;
+      }
+    }
   }
 
   while (chosen.filter((exercise) => !isPrimaryMovement(exercise)).length < compositionLimits.desiredAccessories

@@ -156,4 +156,4 @@ Si inserisce il normale indirizzo usato per aprire Nextcloud, per esempio `https
 - backup JSON con import/export e upload/ripristino manuale Nextcloud WebDAV;
 - installazione PWA e uso offline.
 
-Tutti i dati utente restano in `localStorage` per impostazione predefinita. Vengono inviati fuori dal dispositivo soltanto quando l’utente preme esplicitamente **Carica / sovrascrivi**.
+Profilo, storico e workout restano in IndexedDB sul dispositivo, con archiviazione atomica delle sessioni. Al primo avvio i dati presenti in `localStorage` vengono migrati automaticamente e rimossi dalla vecchia memoria solo dopo il salvataggio riuscito. L’app richiede inoltre al browser la persistenza dell’archivio, quando supportata. Vengono inviati fuori dal dispositivo soltanto quando l’utente preme esplicitamente **Carica / sovrascrivi**.

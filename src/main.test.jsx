@@ -1,5 +1,7 @@
 // @vitest-environment jsdom
 import React from 'react';
+import { IDBFactory } from 'fake-indexeddb';
+import { DATABASE_NAME, STATE_STORE } from './data/storage.js';
 import { cleanup, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
@@ -27,6 +29,27 @@ const profile = {
   exerciseFilters: { essentialCatalog: true, preferLoadedVariants: true, excludeDirectCore: false, excludeCalves: false },
   preferences: {},
 };
+
+async function stored(key) {
+  const db = await new Promise((resolve, reject) => {
+    const request = indexedDB.open(DATABASE_NAME, 1);
+    request.onsuccess = () => resolve(request.result);
+    request.onerror = () => reject(request.error);
+  });
+  try {
+    return await new Promise((resolve, reject) => {
+      const request = db.transaction(STATE_STORE).objectStore(STATE_STORE).get(key);
+      request.onsuccess = () => resolve(request.result === undefined ? null : JSON.stringify(request.result));
+      request.onerror = () => reject(request.error);
+    });
+  } finally { db.close(); }
+}
+
+async function renderApp() {
+  const result = render(<App/>);
+  await waitFor(() => expect(screen.queryByText('Caricamento archivio…')).toBeNull());
+  return result;
+}
 
 function saveState({ workout = null, history = [], savedProfile = profile } = {}) {
   localStorage.setItem('easyfit-profile', JSON.stringify(savedProfile));
@@ -57,6 +80,8 @@ function readyWorkout(extra = {}) {
 }
 
 beforeEach(() => {
+  vi.restoreAllMocks();
+  vi.stubGlobal('indexedDB', new IDBFactory());
   const values = new Map();
   const storage = {
     clear: () => values.clear(),
@@ -69,7 +94,6 @@ beforeEach(() => {
   Object.defineProperty(window, 'localStorage', { configurable: true, value: storage });
   vi.stubGlobal('localStorage', storage);
   localStorage.clear();
-  vi.restoreAllMocks();
 });
 
 afterEach(cleanup);
@@ -85,9 +109,9 @@ describe('critical workout lifecycle', () => {
       set.reps = 99;
     }));
     saveState({ workout: preview });
-    const { unmount } = render(<App/>);
-    await waitFor(() => expect(JSON.parse(localStorage.getItem('easyfit-workout')).createdAt).toBeGreaterThan(savedAt));
-    const refreshed = JSON.parse(localStorage.getItem('easyfit-workout'));
+    const { unmount } = await renderApp();
+    await waitFor(async () => expect(JSON.parse(await stored('easyfit-workout')).createdAt).toBeGreaterThan(savedAt));
+    const refreshed = JSON.parse(await stored('easyfit-workout'));
     expect(refreshed.engine.version).toBe(ENGINE_VERSION);
     expect(refreshed.duration).toBe(30);
     expect(refreshed.startedAt).toBeFalsy();
@@ -97,12 +121,12 @@ describe('critical workout lifecycle', () => {
     const reopenedAt = Date.now() + 1000;
     const nowSpy = vi.spyOn(Date, 'now').mockReturnValue(reopenedAt);
     await user.click(screen.getByRole('button', { name: 'Anteprima workout' }));
-    const reopened = JSON.parse(localStorage.getItem('easyfit-workout'));
+    const reopened = JSON.parse(await stored('easyfit-workout'));
     expect(reopened.createdAt).toBe(reopenedAt);
     expect(reopened.duration).toBe(30);
     expect(reopened.startedAt).toBeFalsy();
     await user.click(screen.getByRole('button', { name: 'Inizia workout' }));
-    const started = JSON.parse(localStorage.getItem('easyfit-workout'));
+    const started = JSON.parse(await stored('easyfit-workout'));
     expect(started.exercises).toEqual(reopened.exercises);
     expect(started.startedAt).toBe(reopenedAt);
     unmount();
@@ -117,7 +141,7 @@ describe('critical workout lifecycle', () => {
       ...workout.exercises[0], exerciseId: supportedRow.id, exerciseSnapshot: supportedRow,
     }];
     saveState({ workout });
-    render(<App/>);
+    await renderApp();
     await user.click(screen.getByRole('button', { name: 'Riprendi allenamento' }));
     await user.click(screen.getByRole('button', { name: `Opzioni per ${supportedRow.name}` }));
     await user.click(screen.getByRole('button', { name: /Sostituisci con uno simile/ }));
@@ -125,7 +149,7 @@ describe('critical workout lifecycle', () => {
     expect(within(picker).getByRole('button', { name: /Chest-Supported Dumbbell Row/ })).toBeTruthy();
     expect(within(picker).getByRole('button', { name: /Standing Dumbbell Row \(Underhand\)/ })).toBeTruthy();
     await user.click(within(picker).getByRole('button', { name: /^Standing Dumbbell RowSchiena/ }));
-    expect(JSON.parse(localStorage.getItem('easyfit-workout')).exercises[0].exerciseId).toBe('wger-508');
+    expect(JSON.parse(await stored('easyfit-workout')).exercises[0].exerciseId).toBe('wger-508');
   });
 
   test.each([[[11, 11], '+14%'], [[14, 14], '-11%'], [[13, 12], null]])('completion volume compares actual reps with the previous %s-rep sets', async (previousReps, expectedChange) => {
@@ -141,7 +165,7 @@ describe('critical workout lifecycle', () => {
       id: 'previous-actual-volume', completedAt: Date.now() - 864e5,
       exercises: [{ ...exercise, sets: previousReps.map(completedSet) }],
     }] });
-    render(<App/>);
+    await renderApp();
     await user.click(screen.getByRole('button', { name: 'Riprendi allenamento' }));
     await user.click(screen.getByRole('button', { name: 'Termina workout' }));
     const summary = screen.getByRole('dialog', { name: 'Riepilogo workout completato' });
@@ -151,7 +175,7 @@ describe('critical workout lifecycle', () => {
       expect(within(summary).queryByText(/ · volume /)).toBeNull();
     }
     expect(within(summary).getByText(`Reps effettive: 13 + 12 · precedenti: ${previousReps.join(' + ')}`)).toBeTruthy();
-    const savedHistory = JSON.parse(localStorage.getItem('easyfit-history'));
+    const savedHistory = JSON.parse(await stored('easyfit-history'));
     expect(savedHistory.at(-1).exercises[0].sets.map((set) => set.reps)).toEqual([13, 12]);
     const insight = getWorkoutCompletionInsights(savedHistory.at(-1), savedHistory.slice(0, -1)).items[0];
     expect(insight.currentVolume).toBe(25 * 60);
@@ -170,13 +194,13 @@ describe('critical workout lifecycle', () => {
       reps: set.targetReps + (index === 0 ? extraReps : index === sets.length - 1 ? -1 : 0),
     })) }];
     saveState({ workout });
-    const { container } = render(<App/>);
+    const { container } = await renderApp();
     await user.click(screen.getByRole('button', { name: 'Riprendi allenamento' }));
     const checks = container.querySelectorAll('.set-check');
     await user.click(checks[checks.length - 1]);
     await user.click(screen.getByRole('button', { name: /2.*Due/ }));
     expect(screen.queryByRole('dialog', { name: 'Gestisci volume sotto target' })).toBeNull();
-    const saved = JSON.parse(localStorage.getItem('easyfit-workout'));
+    const saved = JSON.parse(await stored('easyfit-workout'));
     expect(saved.exercises[0].sets.every((set) => set.done)).toBe(true);
     expect(saved.exercises[0].underperformanceDecision).not.toBe('pending');
   });
@@ -184,26 +208,26 @@ describe('critical workout lifecycle', () => {
   test('generation previews the workout and only the start button starts it', async () => {
     const user = userEvent.setup();
     saveState();
-    const { container, unmount } = render(<App/>);
+    const { container, unmount } = await renderApp();
     await user.click(screen.getByRole('button', { name: 'Genera workout' }));
     expect(screen.getByRole('button', { name: 'Inizia workout' })).toBeTruthy();
     expect(container.querySelector('.preview-sets')).toBeTruthy();
     expect(container.querySelector('.set-check')).toBeNull();
-    let saved = JSON.parse(localStorage.getItem('easyfit-workout'));
+    let saved = JSON.parse(await stored('easyfit-workout'));
     expect(saved.startedAt).toBeFalsy();
     expect(saved.exercises.every((item) => item.sets.every((set) => !set.done))).toBe(true);
 
     await user.click(screen.getByRole('button', { name: 'Rigenera anteprima' }));
-    expect(JSON.parse(localStorage.getItem('easyfit-workout')).startedAt).toBeFalsy();
+    expect(JSON.parse(await stored('easyfit-workout')).startedAt).toBeFalsy();
     await user.click(screen.getByRole('button', { name: 'Torna alla home' }));
     unmount();
-    render(<App/>);
+    await renderApp();
     await user.click(screen.getByRole('button', { name: 'Anteprima workout' }));
-    saved = JSON.parse(localStorage.getItem('easyfit-workout'));
+    saved = JSON.parse(await stored('easyfit-workout'));
     expect(saved.startedAt).toBeFalsy();
     const earliestStart = Date.now();
     await user.click(screen.getByRole('button', { name: 'Inizia workout' }));
-    await waitFor(() => expect(JSON.parse(localStorage.getItem('easyfit-workout')).startedAt).toBeGreaterThanOrEqual(earliestStart));
+    await waitFor(async () => expect(JSON.parse(await stored('easyfit-workout')).startedAt).toBeGreaterThanOrEqual(earliestStart));
     expect(screen.getByRole('button', { name: 'Termina workout' })).toBeTruthy();
     expect(screen.queryByRole('button', { name: 'Inizia workout' })).toBeNull();
   });
@@ -222,7 +246,7 @@ describe('critical workout lifecycle', () => {
       })),
     }];
     saveState({ workout });
-    const { container } = render(<App/>);
+    const { container } = await renderApp();
 
     await user.click(screen.getByRole('button', { name: 'Riprendi allenamento' }));
     const checks = container.querySelectorAll('.set-check');
@@ -232,8 +256,8 @@ describe('critical workout lifecycle', () => {
     expect(screen.getByRole('dialog', { name: 'Gestisci volume sotto target' })).toBeTruthy();
     expect(screen.getByText(/obiettivo non completato/i)).toBeTruthy();
     await user.click(screen.getByRole('button', { name: /Ero solo stanco/ }));
-    await waitFor(() => {
-      const saved = JSON.parse(localStorage.getItem('easyfit-workout'));
+    await waitFor(async () => {
+      const saved = JSON.parse(await stored('easyfit-workout'));
       expect(saved.exercises[0].underperformanceDecision).toBe('maintain');
     });
   });
@@ -245,10 +269,10 @@ describe('critical workout lifecycle', () => {
     const protectedSet = structuredClone(oldWorkout.exercises[0].sets[0]);
     saveState({ workout: oldWorkout });
 
-    render(<App/>);
+    await renderApp();
 
-    await waitFor(() => expect(JSON.parse(localStorage.getItem('easyfit-workout')).engine.version).toBe(ENGINE_VERSION));
-    const migrated = JSON.parse(localStorage.getItem('easyfit-workout'));
+    await waitFor(async () => expect(JSON.parse(await stored('easyfit-workout')).engine.version).toBe(ENGINE_VERSION));
+    const migrated = JSON.parse(await stored('easyfit-workout'));
     expect(migrated.startedAt).toBe(oldWorkout.startedAt);
     const protectedExercise = migrated.exercises.find((item) => item.exerciseId === oldWorkout.exercises[0].exerciseId);
     expect(protectedExercise.sets[0]).toEqual(protectedSet);
@@ -257,7 +281,7 @@ describe('critical workout lifecycle', () => {
   test('an active workout survives navigation and reload state without exposing generation', async () => {
     const user = userEvent.setup();
     saveState({ workout: activeWorkout({ restEndsAt: Date.now() + 60_000 }) });
-    render(<App/>);
+    await renderApp();
 
     expect(screen.getByRole('heading', { name: /Workoutin pausa/ })).toBeTruthy();
     expect(screen.queryByRole('button', { name: 'Genera workout' })).toBeNull();
@@ -265,23 +289,26 @@ describe('critical workout lifecycle', () => {
     expect(screen.getByText('RECUPERO')).toBeTruthy();
 
     await user.click(screen.getByRole('button', { name: 'Metti in pausa e torna indietro' }));
-    await waitFor(() => expect(JSON.parse(localStorage.getItem('easyfit-workout')).pausedAt).toBeGreaterThan(0));
+    await waitFor(async () => expect(JSON.parse(await stored('easyfit-workout')).pausedAt).toBeGreaterThan(0));
     await user.click(screen.getByRole('button', { name: 'Riprendi allenamento' }));
     expect(screen.getByText('RECUPERO')).toBeTruthy();
-    await waitFor(() => {
-      const resumed = JSON.parse(localStorage.getItem('easyfit-workout'));
+    await waitFor(async () => {
+      const resumed = JSON.parse(await stored('easyfit-workout'));
       expect(resumed.pausedAt).toBeNull();
       expect(resumed.pausedDurationMs).toBeGreaterThanOrEqual(0);
     });
   });
 
-  test('a partial workout requires confirmation and is archived with its completion rate', async () => {
+  test('a partial workout archives in IndexedDB even when localStorage is full', async () => {
     const user = userEvent.setup();
     const workout = activeWorkout();
     workout.exercises[0].sets[0] = { ...workout.exercises[0].sets[0], done: true, rir: 2 };
     saveState({ workout });
+    vi.spyOn(localStorage, 'setItem').mockImplementation(() => {
+      throw new DOMException('Quota exceeded', 'QuotaExceededError');
+    });
     const confirmation = vi.spyOn(window, 'confirm').mockReturnValue(false);
-    render(<App/>);
+    await renderApp();
     await user.click(screen.getByRole('button', { name: 'Riprendi allenamento' }));
     await user.click(screen.getByRole('button', { name: /Termina workout/ }));
     expect(confirmation).toHaveBeenCalledOnce();
@@ -289,13 +316,13 @@ describe('critical workout lifecycle', () => {
 
     confirmation.mockReturnValue(true);
     await user.click(screen.getByRole('button', { name: /Termina workout/ }));
-    await waitFor(() => {
-      const history = JSON.parse(localStorage.getItem('easyfit-history'));
+    await waitFor(async () => {
+      const history = JSON.parse(await stored('easyfit-history'));
       expect(history).toHaveLength(1);
       expect(history[0].completionRate).toBeGreaterThan(0);
       expect(history[0].completionRate).toBeLessThan(1);
       expect(history[0].sessionDurationSeconds).toBeGreaterThanOrEqual(0);
-      expect(localStorage.getItem('easyfit-workout')).toBeNull();
+      expect(await stored('easyfit-workout')).toBeNull();
     });
     const summary = screen.getByRole('dialog', { name: 'Riepilogo workout completato' });
     expect(within(summary).getByText('Nuovi riferimenti salvati.')).toBeTruthy();
@@ -313,46 +340,47 @@ describe('critical workout lifecycle', () => {
     const workout = activeWorkout();
     workout.exercises[0].sets[0] = { ...workout.exercises[0].sets[0], done: true, rir: 2 };
     saveState({ workout });
-    const originalSetItem = localStorage.setItem.bind(localStorage);
-    localStorage.setItem = vi.fn((key, value) => {
-      if (key === 'easyfit-history') throw new DOMException('Quota exceeded', 'QuotaExceededError');
-      originalSetItem(key, value);
-    });
     vi.spyOn(window, 'confirm').mockReturnValue(true);
-    render(<App/>);
+    await renderApp();
+    const { IDBObjectStore } = await import('fake-indexeddb');
+    const originalPut = IDBObjectStore.prototype.put;
+    vi.spyOn(IDBObjectStore.prototype, 'put').mockImplementation(function (value, key) {
+      if (key === 'easyfit-history') throw new DOMException('Write failed', 'UnknownError');
+      return originalPut.call(this, value, key);
+    });
 
     await user.click(screen.getByRole('button', { name: 'Riprendi allenamento' }));
     await user.click(screen.getByRole('button', { name: /Termina workout/ }));
 
     expect(await screen.findByText(/Workout non archiviato/)).toBeTruthy();
     expect(screen.getByRole('button', { name: /Termina workout/ })).toBeTruthy();
-    expect(localStorage.getItem('easyfit-workout')).not.toBeNull();
-    expect(JSON.parse(localStorage.getItem('easyfit-history'))).toHaveLength(0);
+    expect(await stored('easyfit-workout')).not.toBeNull();
+    expect(JSON.parse(await stored('easyfit-history'))).toHaveLength(0);
   });
 });
 
 test('a manually added dumbbell load is immediately visible and persisted', async () => {
   const user = userEvent.setup();
   saveState({ savedProfile: { ...profile, loadInventory: { ...profile.loadInventory, dumbbells: [] } } });
-  render(<App/>);
+  await renderApp();
   await user.click(screen.getByRole('button', { name: 'Impostazioni' }));
   const input = screen.getByRole('spinbutton', { name: 'Peso disponibile per Manubri' });
   await user.type(input, '12.5');
   await user.click(within(input.closest('form')).getByRole('button', { name: 'Aggiungi' }));
   expect(screen.getByRole('button', { name: 'Rimuovi 12.5 kg' })).toBeTruthy();
-  await waitFor(() => expect(JSON.parse(localStorage.getItem('easyfit-profile')).loadInventory.dumbbells).toContain(12.5));
+  await waitFor(async () => expect(JSON.parse(await stored('easyfit-profile')).loadInventory.dumbbells).toContain(12.5));
 });
 
 test('training style replaces global RIR and set-cap controls and persists as one choice', async () => {
   const user = userEvent.setup();
   saveState();
-  render(<App/>);
+  await renderApp();
   await user.click(screen.getByRole('button', { name: 'Impostazioni' }));
   expect(screen.getByRole('heading', { name: 'Stile di allenamento' })).toBeTruthy();
   expect(screen.queryByRole('heading', { name: 'RIR target' })).toBeNull();
   expect(screen.queryByRole('heading', { name: 'Limite serie per esercizio' })).toBeNull();
   await user.click(screen.getByRole('button', { name: /Essenziale intenso/ }));
-  await waitFor(() => expect(JSON.parse(localStorage.getItem('easyfit-profile')).trainingStyle).toBe('intense'));
+  await waitFor(async () => expect(JSON.parse(await stored('easyfit-profile')).trainingStyle).toBe('intense'));
 });
 
 test('disabled core and calves never appear in today priorities or stimulus details', async () => {
@@ -361,7 +389,7 @@ test('disabled core and calves never appear in today priorities or stimulus deta
     ...profile,
     exerciseFilters: { ...profile.exerciseFilters, excludeDirectCore: true, excludeCalves: true },
   } });
-  render(<App/>);
+  await renderApp();
   expect(screen.getByText('MUSCOLI PRIORITARI')).toBeTruthy();
   expect(screen.queryByText('PIÙ RECUPERATI')).toBeNull();
   expect(screen.queryByText('Core')).toBeNull();
@@ -392,7 +420,7 @@ test('exercise history lists every completed set by session with the newest sess
     session('older', now - 5 * 864e5, 60, 10, 2),
     session('newer', now - 2 * 864e5, 65, 8, 1),
   ] });
-  render(<App/>);
+  await renderApp();
 
   await user.click(screen.getByRole('button', { name: 'Progressi' }));
   await user.click(screen.getByRole('button', { name: /Bench Press/ }));
@@ -410,7 +438,7 @@ test('exercise history lists every completed set by session with the newest sess
 test('a load entered during a workout is added to the available inventory', async () => {
   const user = userEvent.setup();
   saveState({ workout: activeWorkout() });
-  render(<App/>);
+  await renderApp();
   await user.click(screen.getByRole('button', { name: 'Riprendi allenamento' }));
   const calibrationInput = screen.getAllByRole('spinbutton', { name: /^kg/ })[0];
   await user.type(calibrationInput, '12');
@@ -419,15 +447,15 @@ test('a load entered during a workout is added to the available inventory', asyn
   await user.clear(weightInput);
   await user.type(weightInput, '14');
   await user.tab();
-  await waitFor(() => {
-    const saved = JSON.parse(localStorage.getItem('easyfit-profile'));
+  await waitFor(async () => {
+    const saved = JSON.parse(await stored('easyfit-profile'));
     expect(Object.values(saved.loadInventory).some((loads) => loads.includes(14))).toBe(true);
   });
 });
 
 test('bodyweight-only onboarding warns about reduced coverage but does not trap the user', async () => {
   const user = userEvent.setup();
-  render(<App/>);
+  await renderApp();
   await user.click(screen.getByRole('button', { name: /Configura in 60 secondi/ }));
   await user.click(screen.getByRole('button', { name: /Continua/ }));
   await user.click(screen.getByRole('button', { name: /Manubri/ }));
@@ -441,9 +469,9 @@ test('loading filters malformed history without silently overwriting the origina
   localStorage.setItem('easyfit-profile', JSON.stringify(profile));
   const original = JSON.stringify([{ legacy: true, raw: 'preserve-for-recovery' }]);
   localStorage.setItem('easyfit-history', original);
-  render(<App/>);
+  await renderApp();
   await waitFor(() => expect(screen.getByRole('heading', { name: /Ciao, sei pronto/ })).toBeTruthy());
-  expect(localStorage.getItem('easyfit-history')).toBe(original);
+  expect(await stored('easyfit-history')).toBe(original);
 });
 
 test('changing prescription limits never rewrites completed-set evidence', () => {
@@ -464,7 +492,7 @@ test('changing prescription limits never rewrites completed-set evidence', () =>
 test('editing a set replaces the selected number and propagates only to later unfinished sets', async () => {
   const user = userEvent.setup();
   saveState({ workout: readyWorkout() });
-  render(<App/>);
+  await renderApp();
   await user.click(screen.getByRole('button', { name: 'Riprendi allenamento' }));
   const firstCard = screen.getAllByRole('article')[0];
   const first = within(firstCard).getByRole('textbox', { name: 'Ripetizioni set 1' });
@@ -477,7 +505,7 @@ test('editing a set replaces the selected number and propagates only to later un
   expect(first.value).toBe(firstValue);
   expect(second.value).toBe('6');
   expect(third.value).toBe('6');
-  const saved = JSON.parse(localStorage.getItem('easyfit-workout'));
+  const saved = JSON.parse(await stored('easyfit-workout'));
   expect(saved.exercises[0].sets[0].reps).toBe(Number(firstValue));
   expect(saved.exercises[0].sets[1].reps).toBe(6);
   expect(saved.exercises[0].sets[2].reps).toBe(6);
@@ -486,7 +514,7 @@ test('editing a set replaces the selected number and propagates only to later un
 test('work sets can be appended and the final unfinished set removed manually', async () => {
   const user = userEvent.setup();
   saveState({ workout: readyWorkout() });
-  render(<App/>);
+  await renderApp();
   await user.click(screen.getByRole('button', { name: 'Riprendi allenamento' }));
   const firstCard = screen.getAllByRole('article')[0];
   const originalInputs = within(firstCard).getAllByRole('textbox', { name: /Ripetizioni set/ }).length;
@@ -500,14 +528,14 @@ test('an exercise can be added explicitly after workout generation', async () =>
   const user = userEvent.setup();
   const workout = readyWorkout();
   saveState({ workout });
-  render(<App/>);
+  await renderApp();
   await user.click(screen.getByRole('button', { name: 'Riprendi allenamento' }));
   await user.click(screen.getByRole('button', { name: "Scegli un'alternativa adattiva" }));
   const refreshDialog = screen.getByRole('dialog', { name: "Scegli un'alternativa adattiva" });
   const refreshedChoice = refreshDialog.querySelector('.refresh-type-list button');
   expect(refreshedChoice).toBeTruthy();
   await user.click(refreshedChoice);
-  const refreshedCount = JSON.parse(localStorage.getItem('easyfit-workout')).exercises.length;
+  const refreshedCount = JSON.parse(await stored('easyfit-workout')).exercises.length;
   await user.click(screen.getAllByRole('button', { name: /Opzioni per/ })[0]);
   expect(screen.getByRole('button', { name: /Rimuovi da questo workout/ })).toBeTruthy();
   await user.click(screen.getByRole('button', { name: 'Chiudi' }));
@@ -516,7 +544,7 @@ test('an exercise can be added explicitly after workout generation', async () =>
   const choice = dialog.querySelector('.similar-list button');
   expect(choice).toBeTruthy();
   await user.click(choice);
-  await waitFor(() => expect(JSON.parse(localStorage.getItem('easyfit-workout')).exercises.length).toBe(refreshedCount + 1));
+  await waitFor(async () => expect(JSON.parse(await stored('easyfit-workout')).exercises.length).toBe(refreshedCount + 1));
   expect(screen.getByText('Esercizio aggiunto alla scheda')).toBeTruthy();
 });
 
@@ -525,7 +553,7 @@ test('excluding an exercise requires choosing and installs a similar replacement
   const workout = activeWorkout();
   const excludedId = workout.exercises[0].exerciseId;
   saveState({ workout });
-  render(<App/>);
+  await renderApp();
   await user.click(screen.getByRole('button', { name: 'Riprendi allenamento' }));
   await user.click(screen.getAllByRole('button', { name: /Opzioni per/ })[0]);
   await user.click(screen.getByRole('button', { name: /Non proporre più/ }));
@@ -533,9 +561,9 @@ test('excluding an exercise requires choosing and installs a similar replacement
   const choice = dialog.querySelector('.similar-list button');
   expect(choice).toBeTruthy();
   await user.click(choice);
-  await waitFor(() => {
-    expect(JSON.parse(localStorage.getItem('easyfit-profile')).preferences[excludedId]).toBe('exclude');
-    expect(JSON.parse(localStorage.getItem('easyfit-workout')).exercises.some((item) => item.exerciseId === excludedId)).toBe(false);
+  await waitFor(async () => {
+    expect(JSON.parse(await stored('easyfit-profile')).preferences[excludedId]).toBe('exclude');
+    expect(JSON.parse(await stored('easyfit-workout')).exercises.some((item) => item.exerciseId === excludedId)).toBe(false);
   });
 });
 
@@ -560,7 +588,7 @@ test('activity opens the complete workout register', async () => {
   workout.completedAt = Date.now() - 864e5;
   workout.exercises[0].sets[0] = { ...workout.exercises[0].sets[0], reps: 9, weight: 20, done: true, rir: 1 };
   saveState({ history: [workout] });
-  render(<App/>);
+  await renderApp();
   await user.click(screen.getByRole('button', { name: 'Progressi' }));
   await user.click(screen.getByRole('button', { name: 'Attività' }));
   await user.click(screen.getByRole('button', { name: /Apri registro allenamento/ }));
@@ -573,16 +601,16 @@ test('manual supersets persist and skip rest between partners', async () => {
   const user = userEvent.setup();
   const workout = readyWorkout();
   saveState({ workout });
-  render(<App/>);
+  await renderApp();
   await user.click(screen.getByRole('button', { name: 'Riprendi allenamento' }));
   await user.click(screen.getAllByRole('button', { name: /Opzioni per/ })[0]);
   await user.click(screen.getByRole('button', { name: /Superserie/ }));
   const sheet = screen.getByRole('dialog', { name: 'Configura superserie' });
   await user.click(within(sheet).getAllByRole('button').find((button) => button.textContent.includes('Aggiungi alla superserie')));
-  const saved = JSON.parse(localStorage.getItem('easyfit-workout'));
+  const saved = JSON.parse(await stored('easyfit-workout'));
   expect(saved.exercises[0].supersetId).toBe(saved.exercises[1].supersetId);
   const firstCard = screen.getAllByRole('article')[0];
   await user.click(within(firstCard).getAllByRole('button').find((button) => button.classList.contains('set-check')));
   expect(document.querySelector('.rest-timer')).toBeNull();
-  expect(JSON.parse(localStorage.getItem('easyfit-workout')).exercises[0].sets[0].done).toBe(true);
+  expect(JSON.parse(await stored('easyfit-workout')).exercises[0].sets[0].done).toBe(true);
 });

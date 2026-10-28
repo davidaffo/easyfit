@@ -51,6 +51,7 @@ import {
   willCompleteExercise,
 } from './engine/generator.js';
 import { setSuperset, nextSupersetExercise } from './engine/supersets.js';
+import { openAppStorage, requestPersistentStorage } from './data/storage.js';
 import './styles.css';
 
 const defaultProfile = {
@@ -126,15 +127,6 @@ function normalizeProfile(profile = {}) {
   };
 }
 
-function load(key, fallback) {
-  try {
-    const value = localStorage.getItem(key);
-    return value ? JSON.parse(value) : fallback;
-  } catch {
-    return fallback;
-  }
-}
-
 function formatClock(totalSeconds) {
   const seconds = Math.max(0, Math.floor(Number(totalSeconds) || 0));
   const hours = Math.floor(seconds / 3600);
@@ -172,41 +164,8 @@ function closeRestNotifications() {
     .catch(() => {});
 }
 
-function persist(key, value) {
-  try {
-    if (value == null) localStorage.removeItem(key);
-    else localStorage.setItem(key, JSON.stringify(value));
-    return true;
-  } catch {
-    return false;
-  }
-}
-
-function persistAppStateAtomically(entries) {
-  const previous = new Map(entries.map(([key]) => [key, localStorage.getItem(key)]));
-  try {
-    entries.forEach(([key, value]) => {
-      if (value == null) localStorage.removeItem(key);
-      else localStorage.setItem(key, JSON.stringify(value));
-    });
-    return true;
-  } catch {
-    entries.forEach(([key]) => {
-      try {
-        const value = previous.get(key);
-        if (value == null) localStorage.removeItem(key);
-        else localStorage.setItem(key, value);
-      } catch {
-        // Best-effort rollback: the active workout is written last, so quota
-        // failures cannot delete it before history and profile are durable.
-      }
-    });
-    return false;
-  }
-}
-
-function loadHistory() {
-  const history = load('easyfit-history', []);
+function loadHistory(storage) {
+  const history = storage.load('easyfit-history', []);
   if (!Array.isArray(history)) return [];
   return history.filter((workout) => isWorkoutRecord(workout)
     && Number.isFinite(Number(workout.completedAt))
@@ -428,11 +387,35 @@ function restoreCurrentWorkout(saved, profile, history) {
 }
 
 function App() {
+  const [storage, setStorage] = useState(null);
+  const [error, setError] = useState('');
+  const [attempt, setAttempt] = useState(0);
+  useEffect(() => {
+    let active = true;
+    let opened;
+    setError('');
+    openAppStorage().then((value) => {
+      opened = value;
+      if (active) setStorage(value);
+      else value.close();
+    }).catch((error) => {
+      if (active) setError(error.message || 'Archivio non disponibile');
+    });
+    requestPersistentStorage();
+    return () => { active = false; opened?.close(); };
+  }, [attempt]);
+  if (error) return <main className="standard-page"><p role="alert">Impossibile aprire l’archivio: {error}</p><button onClick={() => setAttempt((value) => value + 1)}>Riprova</button></main>;
+  if (!storage) return <main aria-busy="true">Caricamento archivio…</main>;
+  return <LoadedApp storage={storage}/>;
+}
+
+function LoadedApp({ storage }) {
+  const { load, persist, persistAppStateAtomically } = storage;
   const [profile, setProfile] = useState(() => {
     const saved = load('easyfit-profile', null);
     return saved ? normalizeProfile(saved) : null;
   });
-  const [history, setHistory] = useState(loadHistory);
+  const [history, setHistory] = useState(() => loadHistory(storage));
   const [workout, setWorkout] = useState(() => {
     const saved = load('easyfit-workout', null);
     return restoreCurrentWorkout(saved, profile, history);
@@ -443,22 +426,24 @@ function App() {
   const [installPrompt, setInstallPrompt] = useState(null);
   const historyHydrated = useRef(false);
 
-  useEffect(() => { if (profile && !persist('easyfit-profile', profile)) setToast('Spazio locale esaurito: esporta un backup'); }, [profile]);
+  useEffect(() => { if (profile) persist('easyfit-profile', profile).then((saved) => { if (!saved) setToast('Profilo non salvato: riprova il salvataggio'); }); }, [profile]);
   useEffect(() => {
     if (!historyHydrated.current) {
       historyHydrated.current = true;
       return;
     }
-    if (!persist('easyfit-history', history)) setToast('Storico non salvato: esporta un backup e libera spazio');
+    persist('easyfit-history', history).then((saved) => { if (!saved) setToast('Storico non salvato: riprova il salvataggio'); });
   }, [history]);
   useEffect(() => {
-    if (!persist('easyfit-workout', workout)) setToast('Workout non salvato: libera spazio prima di continuare');
+    persist('easyfit-workout', workout).then((saved) => { if (!saved) setToast('Workout non salvato: riprova il salvataggio'); });
   }, [workout]);
   useEffect(() => {
     // Versions before v16 could persist WebDAV credentials and sync metadata.
     // Manual backup never keeps secrets in browser storage.
-    localStorage.removeItem('easyfit-webdav-secret');
-    localStorage.removeItem('easyfit-webdav-synced-fingerprint');
+    try {
+      localStorage.removeItem('easyfit-webdav-secret');
+      localStorage.removeItem('easyfit-webdav-synced-fingerprint');
+    } catch { /* Legacy storage may be unavailable. */ }
   }, []);
   useEffect(() => {
     const handler = (event) => { event.preventDefault(); setInstallPrompt(event); };
@@ -496,7 +481,6 @@ function App() {
       setToast('Nessun esercizio compatibile: controlla attrezzatura ed esclusioni');
       return;
     }
-    if (!persist('easyfit-workout', generated)) setToast('Workout non salvato: libera spazio prima di continuare');
     setWorkout(generated);
     setView('preview');
   };
@@ -520,7 +504,6 @@ function App() {
           pausedAt: null,
         }
         : activeWorkout;
-      if (resumedWorkout && !persist('easyfit-workout', resumedWorkout)) setToast('Workout non salvato: libera spazio prima di continuare');
       return resumedWorkout;
     });
     setView('workout');
@@ -538,22 +521,25 @@ function App() {
     setView('home');
     setToast('Workout scartato');
   };
-  const resetAppData = () => {
-    ['easyfit-profile', 'easyfit-history', 'easyfit-workout', 'easyfit-webdav-secret', 'easyfit-webdav-synced-fingerprint'].forEach((key) => localStorage.removeItem(key));
+  const resetAppData = async () => {
+    if (!await persistAppStateAtomically(['easyfit-profile', 'easyfit-history', 'easyfit-workout'].map((key) => [key, null]))) {
+      setToast('Cancellazione non riuscita: riprova');
+      return;
+    }
     setWorkout(null);
     setHistory([]);
     setProfile(null);
     setView('home');
     setToast('');
   };
-  const restoreBackup = (backup) => {
+  const restoreBackup = async (backup) => {
     const restoredProfile = normalizeProfile(backup.profile);
     const restoredWorkout = restoreCurrentWorkout(backup.workout, restoredProfile, backup.history);
-    if (!persistAppStateAtomically([
+    if (!await persistAppStateAtomically([
       ['easyfit-profile', restoredProfile],
       ['easyfit-history', backup.history],
       ['easyfit-workout', restoredWorkout],
-    ])) throw new Error('Spazio locale insufficiente: il backup non è stato applicato.');
+    ])) throw new Error('Salvataggio del backup non riuscito. I dati precedenti sono conservati.');
     setProfile(restoredProfile);
     setHistory(backup.history);
     setWorkout(restoredWorkout);
@@ -564,15 +550,15 @@ function App() {
   return <div className="app-shell">
     <AppUpdate settings={view === 'profile'}/>
     {view === 'workout' && isWorkoutActive(workout)
-      ? <WorkoutView workout={workout} setWorkout={setWorkout} profile={profile} setProfile={setProfile} history={history} showToast={showToast} onBack={() => setView('home')} onFinish={(completed) => {
+      ? <WorkoutView workout={workout} setWorkout={setWorkout} profile={profile} setProfile={setProfile} history={history} showToast={showToast} onBack={() => setView('home')} onFinish={async (completed) => {
           const nextHistory = [...history, completed];
           const nextProfile = recalibrateTrainingTargets(profile, nextHistory, completed.completedAt);
-          if (!persistAppStateAtomically([
+          if (!await persistAppStateAtomically([
             ['easyfit-history', nextHistory],
             ['easyfit-profile', nextProfile],
             ['easyfit-workout', null],
           ])) {
-            showToast('Workout non archiviato: libera spazio o esporta un backup');
+            showToast('Workout non archiviato: salvataggio non riuscito, riprova');
             return;
           }
           setHistory(nextHistory);
@@ -745,6 +731,8 @@ function applyExercisePrescriptionLimits(item, limits) {
 function WorkoutView({ workout, setWorkout, profile, setProfile, history, showToast, onBack, onFinish }) {
   const [rest, setRest] = useState(() => Math.max(0, Math.ceil((Number(workout.restEndsAt) - Date.now()) / 1000) || 0));
   const [pendingSet, setPendingSet] = useState(null);
+  const [finishing, setFinishing] = useState(false);
+  const finishingRef = useRef(false);
   const [historyExerciseId, setHistoryExerciseId] = useState(null);
   const [guideExerciseId, setGuideExerciseId] = useState(null);
   const [optionsExerciseId, setOptionsExerciseId] = useState(null);
@@ -1047,7 +1035,8 @@ function WorkoutView({ workout, setWorkout, profile, setProfile, history, showTo
     setRefreshSeed(null);
     showToast('Alternativa adattiva caricata');
   };
-  const complete = () => {
+  const complete = async () => {
+    if (finishingRef.current) return;
     if (pendingVolumeDecision) return showToast('Scegli prima come gestire la serie sotto target');
     if (doneSets < totalSets && !window.confirm(`Hai completato ${doneSets} serie su ${totalSets}. Terminare e archiviare comunque il workout come parziale?`)) return;
     const completedAt = Date.now();
@@ -1057,7 +1046,9 @@ function WorkoutView({ workout, setWorkout, profile, setProfile, history, showTo
       { ...completedWorkout, startedAt, completedAt, sessionDurationSeconds, completionRate: doneSets / totalSets },
       history,
     );
-    onFinish(finishedWorkout);
+    finishingRef.current = true;
+    setFinishing(true);
+    try { await onFinish(finishedWorkout); } finally { finishingRef.current = false; setFinishing(false); }
   };
   const pauseWorkout = () => {
     setWorkout((current) => ({ ...current, pausedAt: Date.now() }));
@@ -1072,7 +1063,7 @@ function WorkoutView({ workout, setWorkout, profile, setProfile, history, showTo
       {workout.exercises.map((item, exerciseIndex) => <ExerciseCard key={item.exerciseId} item={item} history={history} supersetPartners={workout.exercises.filter((entry) => item.supersetId && entry.supersetId === item.supersetId && entry.exerciseId !== item.exerciseId)} exerciseIndex={exerciseIndex} language={profile.exerciseLanguage} updateSet={updateSet} recordAvailableLoad={recordAvailableLoad} setInitialLoad={setInitialLoad} setInitialReps={setInitialReps} changeSetCount={changeSetCount} toggleSet={toggleSet} onRir={(setIndex) => setPendingSet({ exerciseIndex, setIndex, item, wasDone: item.sets[setIndex].done })} onGuide={() => setGuideExerciseId(item.exerciseId)} onHistory={() => setHistoryExerciseId(item.exerciseId)} onOptions={() => setOptionsExerciseId(item.exerciseId)}/>)}
     </div>
     <div className="workout-edit-actions"><button onClick={() => setAddExerciseOpen(true)}><Icon name="plus" size={17}/> Aggiungi esercizio</button><span>Per sostituire o rimuovere usa <Icon name="more" size={16}/> sulla scheda.</span></div>
-    <div className="finish-panel"><div><span>{totalSets ? Math.round(doneSets / totalSets * 100) : 0}%</span><small>completato</small></div><button className="button acid" disabled={!doneSets || !totalSets} onClick={complete}><Icon name="trophy"/>Termina workout</button></div>
+    <div className="finish-panel"><div><span>{totalSets ? Math.round(doneSets / totalSets * 100) : 0}%</span><small>completato</small></div><button className="button acid" disabled={finishing || !doneSets || !totalSets} onClick={complete}><Icon name="trophy"/>Termina workout</button></div>
     {rest > 0 && <div className="rest-timer"><div><span>RECUPERO</span><strong>{formatClock(rest)}</strong></div><span className="rest-timer-track"><i style={{ width: `${Math.max(0, Math.min(100, rest / Math.max(1, Number(workout.restDuration) || rest) * 100))}%` }}/></span><button className="skip-rest" onClick={clearRest}>Salta</button></div>}
     {pendingSet && <RirSheet item={pendingSet.item} language={profile.exerciseLanguage} onChoose={chooseRir} onClose={() => setPendingSet(null)}/>}
     {pendingVolumeDecision && <UnderperformanceSheet item={pendingVolumeDecision} language={profile.exerciseLanguage} onChoose={resolveUnderperformance}/>}
@@ -1749,7 +1740,7 @@ function BackupSheet({ profile, history, workout, onRestore, onSaveCloud, showTo
       backup.profile.cloud = { webDavUrl: normalizedUrl, webDavUsername: username.trim() };
       const date = formatBackupDate(backup.exportedAt);
       if (!window.confirm(`Ripristinare il backup Nextcloud del ${date}? I dati locali attuali verranno sostituiti.`)) return;
-      const result = onRestore(backup);
+      const result = await onRestore(backup);
       showToast(result.skippedWorkout ? 'Backup ripristinato; workout incompatibile ignorato' : 'Backup Nextcloud ripristinato');
     } catch (error) {
       setMessage(error.message || 'Ripristino non riuscito.');
@@ -1805,7 +1796,7 @@ function Profile({ profile, setProfile, history, workout, onRestoreBackup, insta
       const backup = parseBackup(await file.text());
       const date = formatBackupDate(backup.exportedAt);
       if (!window.confirm(`Importare il backup del ${date}? Profilo, storico e workout locali verranno sostituiti.`)) return;
-      const result = onRestoreBackup(backup);
+      const result = await onRestoreBackup(backup);
       showToast(result.skippedWorkout ? 'Backup importato; workout incompatibile ignorato' : 'Backup importato');
     } catch (error) {
       showToast(error.message || 'Backup non valido');

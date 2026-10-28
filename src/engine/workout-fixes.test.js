@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { exercises } from '../data/exercises.js';
-import { generateWorkout, getAvailableLoads, getExercisePrescription, getWorkoutCompletionInsights, getSimilarLoadReference } from './generator.js';
+import { generateWorkout, getAvailableLoads, getExercisePrescription, getWorkoutCompletionInsights, getSimilarLoadReference, targetRirsForSetCount } from './generator.js';
 import { setSuperset, nextSupersetExercise } from './supersets.js';
 
 const exercise = exercises.find((entry) => entry.loadType === 'external');
@@ -12,11 +12,19 @@ describe('adaptive intense accessory sets', () => {
     equipment: ['dumbbells'],
     preferences: Object.fromEntries(exercises.map((entry) => [entry.id, entry.id === curl.id ? 'normal' : 'exclude'])),
   };
-  it.each([[30, [2, 0]], [45, [2, 1, 0]]])('adapts to %i minutes while keeping the final set at failure', (duration, rirs) => {
+  it.each([[30, [1, 0]], [45, [2, 1, 0]]])('adapts to %i minutes while keeping the final set at failure', (duration, rirs) => {
     const workout = generateWorkout({ ...profile, duration }, [], { now: Date.UTC(2026, 9, 21), targets: ['biceps'] });
     expect(workout.exercises).toHaveLength(1);
     expect(workout.exercises[0].sets.map((set) => set.targetRir)).toEqual(rirs);
     expect(workout.exercises[0].minimumTimeFitSets).toBe(2);
+  });
+  it('keeps 1→0 when an accessory has an explicit two-set cap', () => {
+    const limits = getExercisePrescription({ ...profile, exerciseOverrides: { [curl.id]: { maxSets: 2 } } }, curl);
+    expect(limits.targetRirs).toEqual([1, 0]);
+    expect(targetRirsForSetCount([2, 1, 0], 2)).toEqual([1, 0]);
+    expect(targetRirsForSetCount([2, 1, 0], 1)).toEqual([0]);
+    expect(targetRirsForSetCount([2, 1, 0], 4)).toEqual([2, 1, 1, 0]);
+    expect(targetRirsForSetCount([3, 3], 2)).toEqual([3, 3]);
   });
   it('respects a one-set accessory limit', () => {
     const workout = generateWorkout({ ...profile, duration: 30, exerciseOverrides: { [curl.id]: { maxSets: 1 } } }, [], {

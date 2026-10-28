@@ -92,6 +92,28 @@ describe('direct movement coverage', () => {
     expect(workout.engine.estimatedMinutes).toBeLessThanOrEqual(45 + SESSION_TIME_TOLERANCE_MINUTES);
   });
 
+  it('does not keep rotating chest isolations while skipping available presses', () => {
+    const profile = { ...base, trainingStyle: 'intense', duration: 45 };
+    const history = [];
+    for (let index = 0; index < 32; index += 1) {
+      const time = now + index * day;
+      const workout = generateWorkout(profile, history, { now: time, variation: 1 });
+      const selected = workout.exercises.map(getWorkoutExercise);
+      const load = getMovementPatternLoad(history, time);
+      if (selected.some((exercise) => exercise.pattern === 'chest-isolation')) {
+        const hasPress = selected.some((exercise) => exercise.pattern === 'horizontal-push' && isPrimaryMovement(exercise));
+        expect(hasPress || (load['horizontal-push']?.frequency || 0) > (load['chest-isolation']?.frequency || 0)).toBe(true);
+      }
+      history.push(complete(workout, time + 3600000));
+    }
+    expect(history.some((workout) => patterns(workout).includes('horizontal-push'))).toBe(true);
+  });
+
+  it('retains chest isolation when every chest base is excluded', () => {
+    const workout = generateWorkout(only([238, 308]), [], { now, targets: ['chest'], duration: 30 });
+    expect(patterns(workout)).toContain('chest-isolation');
+  });
+
   it('keeps distinct metadata after edits and includes the new engine version', () => {
     const workout = generateWorkout(only([73, 567, 348]), [], { now, duration: 30 });
     const edited = rebuildWorkoutMetadata({ ...workout, exercises: workout.exercises.filter((item) => getWorkoutExercise(item).pattern !== 'vertical-push') });
