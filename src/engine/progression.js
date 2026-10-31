@@ -86,7 +86,6 @@ export function calculateProgression({ sets = [], recentSessions = [], decision,
       // load. Restart at the minimum instead of filling the new capacity.
       supported = limits.minReps;
     }
-    if (decision === 'recalibrate-down' && hasTargets && !recentLevelProtected) supported = Math.min(supported, baseline);
     const step = effortChanged ? 'effort-adjustment' : loadChanged ? 'load-adjustment' : 'performance-adjustment';
     return result(weight, bounded(supported, recalibrationMin, limits.maxReps), step,
       effortChanged ? 'effort-changed' : loadChanged ? 'performed-load-changed' : recentLevelProtected ? 'recent-level-preserved' : 'recalibration');
@@ -117,10 +116,13 @@ export function calculateProgression({ sets = [], recentSessions = [], decision,
       return result(next, limits.minReps, 'load', 'range-completed');
     }
   }
-  // A single common target advances from the weakest successful set.
-  // Extra reps on the final set remain recorded performance, not a new split.
-  const reps = bounded(Math.min(...sets.slice(0, count).map((set) => Number(set.reps))) + 1, 1, limits.maxReps);
-  const increased = reps > Math.min(...sets.slice(0, count).map((set) => Number(set.reps)));
+  // Once every set meets reps and effort, advance the completed rep volume.
+  // Using min(reps) + 1 could turn 10+12 into 11+11 (no increase), or even
+  // prescribe less work. A common integer target must exceed the mean.
+  const performed = sets.slice(0, count).map((set) => Number(set.reps));
+  const average = performed.reduce((sum, reps) => sum + reps, 0) / performed.length;
+  const reps = bounded(Math.floor(average) + 1, 1, limits.maxReps);
+  const increased = reps > average;
   return result(weight, reps, increased ? 'reps' : 'top',
     increased ? 'all-sets-completed' : 'range-completed');
 }

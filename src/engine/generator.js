@@ -11,7 +11,7 @@ const CONTINUITY_BREAK_DAYS = 28;
 const RECENT_VARIATION_DAYS = 7;
 const EXERCISE_ROTATION_EXPOSURES = 4;
 export const SESSION_TIME_TOLERANCE_MINUTES = 7;
-export const ENGINE_VERSION = 55;
+export const ENGINE_VERSION = 56;
 
 const muscleBaseImportance = {
   chest: 100,
@@ -1111,17 +1111,7 @@ export function getExercisePrescription(profile, exercise) {
   // Bodyweight exercises progress through reps because there is no external
   // load to increase at the goal's usual rep ceiling. Keep explicit caps.
   const requestedMaxReps = Number(override.maxReps) || (exercise.loadType === 'bodyweight' ? 50 : rule.maxReps);
-  // Long lower-body compound sets taken to failure have a disproportionate
-  // systemic/cardiorespiratory cost. Keep the automatic prescription at ten
-  // reps when its final set targets 0 RIR. An explicit exercise override still
-  // wins, because it is an intentional user decision rather than an engine default.
-  const automaticFailureCap = override.maxReps == null
-    && exercise.compound
-    && isLowerBodyExercise(exercise)
-    && targetRirs.includes(0)
-    ? 10
-    : 50;
-  const maxReps = clamp(Math.min(requestedMaxReps, automaticFailureCap), minReps, 50);
+  const maxReps = clamp(requestedMaxReps, minReps, 50);
   return {
     minReps,
     maxReps,

@@ -71,15 +71,32 @@ describe('prescription decisions', () => {
       expect(next.targetReps).toEqual([6, 6]);
     }
   });
-  it('advances a uniform target from the weakest successful set', () => {
+  it('advances a uniform target beyond completed volume after every set succeeds', () => {
     for (let first = 8; first <= 20; first++) {
       for (let second = 8; second <= 20; second++) {
         const next = calculate({ sets: [set({ reps: first }), set({ reps: second })], loads: [60], limits: { minReps: 8, maxReps: 20 } });
-        expect(next.targetReps).toEqual(Array(2).fill(Math.min(Math.min(first, second) + 1, 20)));
+        expect(next.targetReps).toEqual(Array(2).fill(Math.min(Math.floor((first + second) / 2) + 1, 20)));
         expect(next.weight).toBe(60);
       }
     }
   });
+  it.each([[[11, 10], 9, 11], [[8, 7], 7, 8], [[9, 7], 6, 9], [[10, 12], 10, 12]])(
+    'progresses completed %s at 15 kg without losing performed volume', (actual, targetReps, expected) => {
+      const next = calculate({
+        sets: actual.map((reps, index) => set({ weight: 15, targetWeight: 15, targetReps, reps, rir: index ? 2 : null })),
+        loads: [15], workingWeight: 15,
+      });
+      expect(next.weight).toBe(15);
+      expect(next.targetReps).toEqual([expected, expected]);
+      expect(next.targetReps.reduce((sum, reps) => sum + reps, 0)).toBeGreaterThan(actual[0] + actual[1]);
+    },
+  );
+  it.each([[[11, 10], 9, 10], [[9, 7], 6, 7]])(
+    'does not cap recalibrated %s at an obsolete target', (actual, targetReps, expected) => {
+      const next = calculate({ sets: actual.map((reps) => set({ reps, targetReps })), decision: 'recalibrate-down' });
+      expect(next.targetReps).toEqual([expected, expected]);
+    },
+  );
   it('uses 13 and 12 completed reps instead of the two prescribed sets of 11', () => {
     const next = calculate({ sets: [set({ targetReps: 11, reps: 13, targetRir: 1, rir: 1 }), set({ targetReps: 11, reps: 12, targetRir: 0, rir: 1 })], targetRirs: [1, 0], limits: { minReps: 8, maxReps: 15 } });
     expect(next.targetReps).toEqual([13, 13]);

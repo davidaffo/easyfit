@@ -325,9 +325,9 @@ assert.deepEqual(getExercisePrescription({ ...profile, trainingStyle: 'volume' }
 assert.deepEqual(getExercisePrescription({ ...profile, goal: 'strength', trainingStyle: 'intense' }, bench).targetRirs, [2, 1], 'Strength training must keep high-fatigue compounds one RIR farther from failure');
 assert.equal(getExercisePrescription({ ...profile, goal: 'strength', trainingStyle: 'intense' }, bench).rest, 180, 'Strength training must extend high-fatigue compound recovery');
 assert.equal(Object.keys(trainingStyles).length, 3, 'The UI and engine must share exactly the three supported training styles');
-assert.equal(getExercisePrescription({ ...profile, trainingStyle: 'intense' }, squat).maxReps, 10, 'Automatic lower-body compound work at RIR 0 must be capped at ten repetitions');
+assert.equal(getExercisePrescription({ ...profile, trainingStyle: 'intense' }, squat).maxReps, 12, 'Lower-body compounds must keep the goal repetition range even in the intense style');
 assert.equal(getExercisePrescription({ ...profile, trainingStyle: 'balanced' }, squat).maxReps, 12, 'Lower-body work not prescribed at failure must keep its normal repetition range');
-assert.equal(getExercisePrescription({ ...profile, trainingStyle: 'intense', exerciseOverrides: { [squat.id]: { maxReps: 12 } } }, squat).maxReps, 12, 'An explicit per-exercise override must remain authoritative over the automatic failure cap');
+assert.equal(getExercisePrescription({ ...profile, trainingStyle: 'intense', exerciseOverrides: { [squat.id]: { maxReps: 10 } } }, squat).maxReps, 10, 'An explicit per-exercise repetition cap must remain authoritative');
 
 const rirSurplusNow = Date.now();
 const rirSurplusHistory = [{
@@ -1022,7 +1022,7 @@ const unevenOverPerformedHistory = [{
 }];
 const unevenOverPerformedProgress = generateWorkout(profile, unevenOverPerformedHistory, { targets: ['chest'], duration: 25 }).exercises[0];
 assert.equal(unevenOverPerformedProgress.sets[0].weight, 60);
-assert.deepEqual(unevenOverPerformedProgress.sets.map((set) => set.reps), [11, 11], 'Targets must be uniform after uneven actual repetitions');
+assert.deepEqual(unevenOverPerformedProgress.sets.map((set) => set.reps), [12, 12], 'Uniform targets must advance beyond the completed volume of the retained sets');
 
 const slightlyUnderPerformedHistory = [{
   id: 'slightly-under-performed-reps',

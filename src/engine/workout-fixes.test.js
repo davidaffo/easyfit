@@ -1,10 +1,33 @@
 import { describe, expect, it } from 'vitest';
 import { exercises } from '../data/exercises.js';
-import { generateWorkout, getAvailableLoads, getExercisePrescription, getWorkoutCompletionInsights, getSimilarLoadReference, targetRirsForSetCount } from './generator.js';
+import { finalizeWorkoutPerformance, generateWorkout, getAvailableLoads, getExercisePrescription, getWorkoutCompletionInsights, getSimilarLoadReference, targetRirsForSetCount } from './generator.js';
 import { setSuperset, nextSupersetExercise } from './supersets.js';
 
 const exercise = exercises.find((entry) => entry.loadType === 'external');
 const item = (reps, extra = {}) => ({ exerciseId: exercise.id, sets: reps.map((reps) => ({ done: true, reps, weight: 60, rir: 0, targetRir: 2 })), ...extra });
+describe('Romanian deadlift completed volume progression', () => {
+  it.each(['wger-1700', 'wger-1652'])('advances 10+12 beyond 22 reps for %s after saving completion', (exerciseId) => {
+    const exercise = exercises.find((entry) => entry.id === exerciseId);
+    const now = Date.UTC(2026, 9, 31);
+    const profile = {
+      goal: 'muscle', level: 'intermediate', duration: 30, trainingStyle: 'intense',
+      equipment: exercise.equipment,
+      loadInventory: { barbell: [15], dumbbells: [15] },
+      preferences: Object.fromEntries(exercises.map((entry) => [entry.id, entry.id === exerciseId ? 'normal' : 'exclude'])),
+    };
+    const saved = finalizeWorkoutPerformance({
+      id: `completed-${exerciseId}`, completedAt: now - 3 * 864e5,
+      exercises: [{ exerciseId, sets: [10, 12].map((reps, index) => ({
+        done: true, reps, targetReps: 10, weight: 15, targetWeight: 15,
+        targetRir: 1 - index, rir: index ? 0 : null,
+      })) }],
+    });
+    const next = generateWorkout(profile, [saved], { now, targets: ['hamstrings'], duration: 30 });
+    expect(next.exercises).toHaveLength(1);
+    expect(next.exercises[0].sets.map((set) => [set.targetWeight, set.targetReps])).toEqual([[15, 12], [15, 12]]);
+    expect(next.exercises[0].progressionStep).toBe('reps');
+  });
+});
 describe('adaptive intense accessory sets', () => {
   const curl = exercises.find((entry) => entry.wgerId === 92);
   const profile = {
