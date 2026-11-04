@@ -600,6 +600,8 @@ test('activity opens the complete workout register', async () => {
 test('manual supersets persist and skip rest between partners', async () => {
   const user = userEvent.setup();
   const workout = readyWorkout();
+  workout.exercises[0].rest = 120;
+  workout.exercises[1].rest = 60;
   saveState({ workout });
   await renderApp();
   await user.click(screen.getByRole('button', { name: 'Riprendi allenamento' }));
@@ -609,8 +611,12 @@ test('manual supersets persist and skip rest between partners', async () => {
   await user.click(within(sheet).getAllByRole('button').find((button) => button.textContent.includes('Aggiungi alla superserie')));
   const saved = JSON.parse(await stored('easyfit-workout'));
   expect(saved.exercises[0].supersetId).toBe(saved.exercises[1].supersetId);
+  expect(screen.getAllByText(/poi 2:00 di recupero a fine giro/)).toHaveLength(2);
   const firstCard = screen.getAllByRole('article')[0];
   await user.click(within(firstCard).getAllByRole('button').find((button) => button.classList.contains('set-check')));
   expect(document.querySelector('.rest-timer')).toBeNull();
   expect(JSON.parse(await stored('easyfit-workout')).exercises[0].sets[0].done).toBe(true);
+  const secondCard = screen.getAllByRole('article')[1];
+  await user.click(within(secondCard).getAllByRole('button').find((button) => button.classList.contains('set-check')));
+  expect(document.querySelector('.rest-timer strong').textContent).toBe('2:00');
 });

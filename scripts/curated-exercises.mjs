@@ -209,6 +209,8 @@ export const curatedExerciseVariants = [{
 // Keeping this registry next to the catalog makes the sync and curator share
 // one source of truth instead of relying on files that happen to exist.
 export const curatedGuideImageOverrides = {
+  // Wger's illustration shows an incline chest-supported fly, not the seated variant.
+  487: null,
   265: '/exercise-images/265.webp',
   245: '/exercise-images/245.svg',
   655: '/exercise-images/655.svg',

@@ -1,4 +1,15 @@
 // Groups exist only in the current workout and are created by the user.
+export function supersetRest(items) {
+  const rests = items.map((item) => Number(item.rest)).filter((rest) => Number.isFinite(rest) && rest >= 0);
+  return rests.length ? Math.max(...rests) : 0;
+}
+
+export function recoveryRest(workout, item) {
+  return item.supersetId
+    ? supersetRest(workout.exercises.filter((entry) => entry.supersetId === item.supersetId))
+    : item.rest;
+}
+
 export function setSuperset(workout, exerciseId, partnerId = null) {
   const source = workout.exercises.find((item) => item.exerciseId === exerciseId);
   const partner = workout.exercises.find((item) => item.exerciseId === partnerId);

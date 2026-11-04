@@ -52,7 +52,7 @@ function curatedGuide(id) {
   if (!guide) return guide;
   // Newly reviewed text-only guides must work offline too. Source images are
   // included only after sync has downloaded them into the app's image folder.
-  const candidateImage = curatedGuideImageOverrides[id] || guide.image;
+  const candidateImage = Object.hasOwn(curatedGuideImageOverrides, id) ? curatedGuideImageOverrides[id] : guide.image;
   const image = candidateImage?.startsWith('/exercise-images/') ? candidateImage : null;
   return {
     ...guide,

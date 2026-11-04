@@ -66,6 +66,11 @@ describe('reviewed catalog coverage', () => {
     expect(getWorkoutExercise({ exerciseId: 'wger-365', sets: [] })).toMatchObject({ id: 'wger-365', pattern: 'knee-flexion', primary: 'hamstrings' });
   });
 
+  it('keeps the chest-supported reverse fly image out of the seated guide', async () => {
+    expect((await getExerciseDetails(487)).image).toBeNull();
+    expect((await getExerciseDetails(828)).image).toBeTruthy();
+  });
+
   it('has unique stable IDs and only recognized equipment', () => {
     expect(new Set(exercises.map((exercise) => exercise.id)).size).toBe(exercises.length);
     expect(new Set(exercises.map(getExerciseVariantKey)).size).toBe(exercises.length);

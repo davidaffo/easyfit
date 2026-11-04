@@ -142,11 +142,18 @@
       "descriptions": {
         "en": "Stand holding a barbell with an underhand grip around shoulder width. Bend the knees slightly and hinge forward, keeping the trunk braced. Pull the bar toward the lower ribs with the elbows close to the torso. Lower under control until the arms are extended, keeping the torso angle constant without swinging. Record the total barbell weight."
       },
-      "image": null,
-      "imageAttribution": null,
+      "image": "/exercise-images/84.webp",
+      "imageAttribution": {
+        "author": "Everkinetic",
+        "authorUrl": "",
+        "sourceUrl": "https://wger.de/media/exercise-images/110/Reverse-grip-bent-over-rows-1.png",
+        "derivativeSourceUrl": "",
+        "licenseName": "CC-BY-SA 3",
+        "licenseUrl": "https://creativecommons.org/licenses/by-sa/3.0/deed.en"
+      },
       "sourceUpdatedAt": "2026-06-19T18:49:45.219028+02:00",
       "descriptionSource": "easyfit-curated",
-      "imageSource": null
+      "imageSource": "wger"
     },
     "91": {
       "uuid": "7b99a081-6b1a-4aa5-b86a-5a935d083a35",
@@ -392,11 +399,18 @@
         "en": "Set a decline bench in a rack with the supports and safeties positioned. Secure the legs using the bench supports and hold the bar slightly wider than shoulder width. Unrack it, lower toward the lower chest under control, then press upward without bouncing. Return the bar securely to the rack. This requires a bench that supports a decline position. Record the total barbell weight.",
         "it": "Sdraiatevi su una panca declinata, il bilanciere deve trovarsi direttamente sopra gli occhi, le ginocchia sono leggermente angolate e i piedi sono ben saldi sul pavimento. Concentratevi, respirate profondamente e afferrate la sbarra a più della larghezza delle spalle. Portatela lentamente verso il basso fino a sfiorare brevemente il petto all'altezza dei capezzoli. Spingere il bilanciere verso l'alto."
       },
-      "image": null,
-      "imageAttribution": null,
+      "image": "/exercise-images/185.webp",
+      "imageAttribution": {
+        "author": "Everkinetic",
+        "authorUrl": "",
+        "sourceUrl": "https://wger.de/media/exercise-images/100/Decline-bench-press-1.png",
+        "derivativeSourceUrl": "",
+        "licenseName": "CC-BY-SA 3",
+        "licenseUrl": "https://creativecommons.org/licenses/by-sa/3.0/deed.en"
+      },
       "sourceUpdatedAt": "2026-07-23T12:08:35.224422+02:00",
       "descriptionSource": "easyfit-curated",
-      "imageSource": null
+      "imageSource": "wger"
     },
     "186": {
       "uuid": "dda69c96-62d4-4690-aa07-a4a0f6ceb63a",
@@ -566,22 +580,36 @@
       "descriptions": {
         "en": "Lie on a flat bench and hold an EZ bar above the chest with a comfortable narrow grip. Keep the upper arms mostly still and bend the elbows to lower the bar beside or just behind the forehead within a comfortable range. Extend the elbows to raise it without swinging the shoulders. Record the total weight of the EZ bar."
       },
-      "image": null,
-      "imageAttribution": null,
+      "image": "/exercise-images/246.webp",
+      "imageAttribution": {
+        "author": "Everkinetic",
+        "authorUrl": "",
+        "sourceUrl": "https://wger.de/media/exercise-images/84/Lying-close-grip-triceps-press-to-chin-1.png",
+        "derivativeSourceUrl": "",
+        "licenseName": "CC-BY-SA 3",
+        "licenseUrl": "https://creativecommons.org/licenses/by-sa/3.0/deed.en"
+      },
       "sourceUpdatedAt": "2026-06-19T18:46:40.278298+02:00",
       "descriptionSource": "easyfit-curated",
-      "imageSource": null
+      "imageSource": "wger"
     },
     "257": {
       "uuid": "d677de4c-5bd9-412a-91f1-857116a666a2",
       "descriptions": {
         "en": "Set the bar on rack supports at shoulder height. Hold it across the front of the shoulders with the elbows raised and the trunk braced. Unrack it and step back into a stable stance. Bend the knees and hips to squat to a comfortable depth while keeping the elbows lifted and the feet planted. Stand back up without rounding the back, then return the bar securely to the rack."
       },
-      "image": null,
-      "imageAttribution": null,
+      "image": "/exercise-images/257.webp",
+      "imageAttribution": {
+        "author": "Everkinetic",
+        "authorUrl": "",
+        "sourceUrl": "https://wger.de/media/exercise-images/191/Front-squat-1-857x1024.png",
+        "derivativeSourceUrl": "",
+        "licenseName": "CC-BY-SA 3",
+        "licenseUrl": "https://creativecommons.org/licenses/by-sa/3.0/deed.en"
+      },
       "sourceUpdatedAt": "2026-04-15T22:23:55.585492+02:00",
       "descriptionSource": "easyfit-curated",
-      "imageSource": null
+      "imageSource": "wger"
     },
     "265": {
       "uuid": "ceb0c2d0-06ac-4a49-89e7-8d7b1c1e5672",
@@ -605,22 +633,36 @@
         "en": "• Start: Hold dumbbells at your sides with palms facing your torso.\n• Curl: Lift the weights toward your shoulders while maintaining the neutral grip (like holding a hammer).\n• Squeeze: Contract the biceps at the top without moving your elbows forward.\n• Lower: Slowly return to the starting position with full control.",
         "it": "Hummer curl con manubriHummer curl con manubri"
       },
-      "image": null,
-      "imageAttribution": null,
+      "image": "/exercise-images/272.webp",
+      "imageAttribution": {
+        "author": "Everkinetic",
+        "authorUrl": "",
+        "sourceUrl": "https://wger.de/media/exercise-images/86/Bicep-hammer-curl-1.png",
+        "derivativeSourceUrl": "",
+        "licenseName": "CC-BY-SA 3",
+        "licenseUrl": "https://creativecommons.org/licenses/by-sa/3.0/deed.en"
+      },
       "sourceUpdatedAt": "2026-06-19T18:46:39.253111+02:00",
       "descriptionSource": "wger",
-      "imageSource": null
+      "imageSource": "wger"
     },
     "275": {
       "uuid": "04365177-e078-489b-983a-8ac61b7346f1",
       "descriptions": {
         "en": "Attach a rope to a low cable. Stand upright and hold the rope ends with the palms facing each other in a neutral grip. Curl by bending the elbows while keeping the upper arms close to the sides. Lower slowly to a comfortable extension without swinging the trunk. Record the selected cable load."
       },
-      "image": null,
-      "imageAttribution": null,
+      "image": "/exercise-images/275.webp",
+      "imageAttribution": {
+        "author": "Everkinetic",
+        "authorUrl": "",
+        "sourceUrl": "https://wger.de/media/exercise-images/138/Hammer-curls-with-rope-1.png",
+        "derivativeSourceUrl": "",
+        "licenseName": "CC-BY-SA 3",
+        "licenseUrl": "https://creativecommons.org/licenses/by-sa/3.0/deed.en"
+      },
       "sourceUpdatedAt": "2026-07-23T12:36:15.643371+02:00",
       "descriptionSource": "easyfit-curated",
-      "imageSource": null
+      "imageSource": "wger"
     },
     "294": {
       "uuid": "19a289c0-33af-4055-bb34-3570c2975d3d",
@@ -698,11 +740,18 @@
       "descriptions": {
         "en": "Adjust the seated leg curl machine so the knees align with its pivot. Place the lower legs over the ankle pad and secure the thigh pad. Keep the back against the support and bend the knees to pull the pad down and backward. Return slowly without lifting the thighs or hips. Record the selected machine load."
       },
-      "image": null,
-      "imageAttribution": null,
+      "image": "/exercise-images/366.webp",
+      "imageAttribution": {
+        "author": "Everkinetic",
+        "authorUrl": "",
+        "sourceUrl": "https://wger.de/media/exercise-images/117/seated-leg-curl-large-1.png",
+        "derivativeSourceUrl": "",
+        "licenseName": "CC-BY-SA 3",
+        "licenseUrl": "https://creativecommons.org/licenses/by-sa/3.0/deed.en"
+      },
       "sourceUpdatedAt": "2026-04-15T22:23:53.335983+02:00",
       "descriptionSource": "easyfit-curated",
-      "imageSource": null
+      "imageSource": "wger"
     },
     "369": {
       "uuid": "62170477-90ec-463c-907e-9e523abc0a15",
@@ -784,11 +833,18 @@
         "en": "Sit at a preacher bench with the upper arms supported by the angled pad. Hold an EZ bar with the palms facing upward and the wrists comfortable. Curl without lifting the upper arms off the pad, then lower under control to a comfortable elbow extension. This requires a preacher pad, not only a flat bench. Record the total EZ-bar weight.",
         "it": "Posiziona la barra EZ curl sulle maniglie di riposo davanti alla panca del predicatore. Appoggiati alla panca e afferra la barra EZ curl con i palmi rivolti verso l'alto. Sedersi sulla panca del predicatore in modo che la parte superiore delle braccia poggi sulla parte superiore dell'imbottitura e il petto sia premuto contro l'imbottitura. Abbassa il peso finché i gomiti non sono estesi e le braccia sono dritte. Riporta i pesi al punto di partenza contraendo i bicipiti. Ripetere"
       },
-      "image": null,
-      "imageAttribution": null,
+      "image": "/exercise-images/465.webp",
+      "imageAttribution": {
+        "author": "Everkinetic",
+        "authorUrl": "",
+        "sourceUrl": "https://wger.de/media/exercise-images/193/Preacher-curl-3-1.png",
+        "derivativeSourceUrl": "",
+        "licenseName": "CC-BY-SA 3",
+        "licenseUrl": "https://creativecommons.org/licenses/by-sa/3.0/deed.en"
+      },
       "sourceUpdatedAt": "2026-07-23T12:08:30.792885+02:00",
       "descriptionSource": "easyfit-curated",
-      "imageSource": null
+      "imageSource": "wger"
     },
     "475": {
       "uuid": "8e420408-0682-4ab6-89f5-2681e54c7ce0",
@@ -855,11 +911,18 @@
         "en": "This is a variation of the flat bench press designed to emphasize the clavicular head of the pectoralis major (the upper portion). By tilting the torso, the angle of the push changes, shifting more tension to the upper chest and shoulders, which helps achieve a more aesthetic, balanced, and three-dimensional development of the torso.\n\n• \nBench Adjustment and Preparation: Set the bench to an incline of between 30 and 45 degrees (an incline greater than 45° will place too much strain on the shoulders and reduce the stimulus to the chest). Sit down with a dumbbell on each thigh.\n\n• \nStarting position: Lean back, resting your back against the bench, while using your knees one after the other to push the dumbbells upward to shoulder height.\n\n• \nAnatomical Stabilization: Plant your feet firmly on the floor. Retract your scapulas (bring your shoulder blades together and press them into the bench) to protect your shoulders and stabilize the load.\n\n• \nEccentric Phase (Lowering): Lower the dumbbells slowly and in a controlled manner toward the upper part of your chest. Your elbows should not splay out to the sides (90°); maintain a safe angle of about 45 to 60 degrees relative to your torso.\n\n• \nConcentric Phase (Lift): Push the dumbbells vertically upward as you exhale. Follow a slightly converging path (without letting them touch at the top). Stop the movement just before locking out your elbows to maintain muscle tension in the upper pectoral.",
         "it": "• \nLa panca dovrebbe essere inclinata ovunque da 30 a 45 gradi\n\n• \nAssicurati di premere i manubri verso l'alto (perpendicolarmente al pavimento)"
       },
-      "image": null,
-      "imageAttribution": null,
+      "image": "/exercise-images/537.webp",
+      "imageAttribution": {
+        "author": "Everkinetic",
+        "authorUrl": "",
+        "sourceUrl": "https://wger.de/media/exercise-images/16/Incline-press-1.png",
+        "derivativeSourceUrl": "",
+        "licenseName": "CC-BY-SA 3",
+        "licenseUrl": "https://creativecommons.org/licenses/by-sa/3.0/deed.en"
+      },
       "sourceUpdatedAt": "2026-07-02T16:44:43.088138+02:00",
       "descriptionSource": "wger",
-      "imageSource": null
+      "imageSource": "wger"
     },
     "538": {
       "uuid": "275fb49f-975c-4d6e-9d63-2c86ed740f40",
@@ -867,22 +930,36 @@
         "en": "Set a bench to a moderate incline inside a rack and position the bar above the upper chest. Set the rack supports and safeties before starting. Lie back with the feet planted and shoulder blades supported. Unrack the bar, lower it under control toward the upper chest, then press upward without lifting the hips or bouncing the bar. Return the bar securely to the rack after the set.",
         "it": "Distensione Panca Inclinata con BilanciereDistensione Panca Inclinata con Bilanciere"
       },
-      "image": null,
-      "imageAttribution": null,
+      "image": "/exercise-images/538.webp",
+      "imageAttribution": {
+        "author": "Everkinetic",
+        "authorUrl": "",
+        "sourceUrl": "https://wger.de/media/exercise-images/41/Incline-bench-press-1.png",
+        "derivativeSourceUrl": "",
+        "licenseName": "CC-BY-SA 3",
+        "licenseUrl": "https://creativecommons.org/licenses/by-sa/3.0/deed.en"
+      },
       "sourceUpdatedAt": "2026-04-15T22:23:55.484203+02:00",
       "descriptionSource": "easyfit-curated",
-      "imageSource": null
+      "imageSource": "wger"
     },
     "543": {
       "uuid": "5912d7ed-6a0e-4b4c-b30a-fc9f3f890fc1",
       "descriptions": {
         "en": "Adjust the shoulder-press machine seat so the handles start around shoulder height. Sit with the back supported and feet planted. Hold the handles, keep the ribs down, and press upward in a controlled movement without shrugging or arching the back. Lower to the starting position under control. Select the weight on the machine and keep the movement within a comfortable range."
       },
-      "image": null,
-      "imageAttribution": null,
+      "image": "/exercise-images/543.webp",
+      "imageAttribution": {
+        "author": "wger.de",
+        "authorUrl": "",
+        "sourceUrl": "https://wger.de/media/exercise-images/53/Shoulder-press-machine-2.png",
+        "derivativeSourceUrl": "",
+        "licenseName": "CC-BY-SA 3",
+        "licenseUrl": "https://creativecommons.org/licenses/by-sa/3.0/deed.en"
+      },
       "sourceUpdatedAt": "2026-04-15T22:23:55.116420+02:00",
       "descriptionSource": "easyfit-curated",
-      "imageSource": null
+      "imageSource": "wger"
     },
     "566": {
       "uuid": "8b0a0371-c0a9-42a7-aab7-68d520542fb2",
@@ -955,11 +1032,18 @@
       "descriptions": {
         "en": "Stand over a barbell with a wide stance and the toes turned outward comfortably. Bend the hips and knees and grip the bar inside the legs. Brace the trunk and push through the floor to stand, keeping the bar close. Finish upright without leaning backward. Lower by bending the hips and knees under control. Record the total barbell weight."
       },
-      "image": null,
-      "imageAttribution": null,
+      "image": "/exercise-images/630.webp",
+      "imageAttribution": {
+        "author": "magdy",
+        "authorUrl": "",
+        "sourceUrl": "https://wger.de/media/exercise-images/630/b0f0c7d8-5878-4d9e-b820-21acc013741d.webp",
+        "derivativeSourceUrl": "",
+        "licenseName": "CC-BY-SA 4",
+        "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/deed.en"
+      },
       "sourceUpdatedAt": "2026-07-23T12:08:24.973930+02:00",
       "descriptionSource": "easyfit-curated",
-      "imageSource": null
+      "imageSource": "wger"
     },
     "655": {
       "uuid": "5915fabe-c941-4dac-b196-bc4e8c7ce57b",
@@ -1042,11 +1126,18 @@
         "en": "Set an adjustable bench to a moderate incline and lie face down with the chest supported. Hold a dumbbell in each hand below the shoulders. With a small fixed bend in the elbows, raise the arms out to the sides without shrugging or lifting the chest. Lower slowly. Record the weight of one dumbbell.",
         "it": "Le alzate posteriori sono un esercizio complementare e di isolamento per il deltoide posteriore. Essendo focalizzato su un muscolo specifico, solitamente, si usano pesi leggeri ripetizioni fra le 10 e le 15 per serie."
       },
-      "image": null,
-      "imageAttribution": null,
+      "image": "/exercise-images/828.webp",
+      "imageAttribution": {
+        "author": "cshep442",
+        "authorUrl": "",
+        "sourceUrl": "https://wger.de/media/exercise-images/828/2e959dab-f39b-4c7c-9063-eb43064ab5eb.png",
+        "derivativeSourceUrl": "",
+        "licenseName": "CC-BY-SA 4",
+        "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/deed.en"
+      },
       "sourceUpdatedAt": "2026-07-23T12:08:36.445040+02:00",
       "descriptionSource": "easyfit-curated",
-      "imageSource": null
+      "imageSource": "wger"
     },
     "978": {
       "uuid": "f4991a98-6422-4884-8ad3-43412f91fac1",
@@ -1103,22 +1194,36 @@
       "descriptions": {
         "en": "Grab your dumbbells and lay flat on your back with your knees bent and your feet flat on the ground (use a bench if you have one). Press the weights up, locking out your elbows (A). Lower them slowly until your upper arms are resting on the floor (B) close to your body. Pause here before explosively pressing back up. Squeeze your chest hard and repeat."
       },
-      "image": null,
-      "imageAttribution": null,
+      "image": "/exercise-images/1084.webp",
+      "imageAttribution": {
+        "author": "admin",
+        "authorUrl": "",
+        "sourceUrl": "https://wger.de/media/exercise-images/1084/91dd5a95-1c45-46f2-a074-de41b6ad599b.jpg",
+        "derivativeSourceUrl": "",
+        "licenseName": "CC-BY-SA 4",
+        "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/deed.en"
+      },
       "sourceUpdatedAt": "2026-06-19T18:57:47.486181+02:00",
       "descriptionSource": "wger",
-      "imageSource": null
+      "imageSource": "wger"
     },
     "1086": {
       "uuid": "44cfa56c-d8c2-4f2c-8b5a-f29810fd60e7",
       "descriptions": {
         "en": "Drop into a strong plank position, bringing your hands close together until they're almost touching. (picture 1)Bend your elbows to slowly bring your chest to the floor (picture 2). Keep your elbows close to your body as you push back up explosively. Repeat. Ensure you take your time lowering on each rep, keeping your form sharp."
       },
-      "image": null,
-      "imageAttribution": null,
+      "image": "/exercise-images/1086.webp",
+      "imageAttribution": {
+        "author": "philip",
+        "authorUrl": "",
+        "sourceUrl": "https://wger.de/media/exercise-images/1086/b2ee8d9b-0480-4992-8494-c223b37c2696.jpg",
+        "derivativeSourceUrl": "",
+        "licenseName": "CC-BY-SA 4",
+        "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/deed.en"
+      },
       "sourceUpdatedAt": "2026-06-19T18:49:23.374725+02:00",
       "descriptionSource": "wger",
-      "imageSource": null
+      "imageSource": "wger"
     },
     "1111": {
       "uuid": "4aa7e2a7-86ad-4322-978f-ff8b391f556c",
@@ -1191,11 +1296,18 @@
       "descriptions": {
         "en": "Stand with the feet around hip width and use a wall lightly for balance if needed. Keep the knees nearly straight and raise both heels to stand on the balls of the feet. Pause briefly, then lower slowly to the floor without bouncing. This bodyweight version requires no calf machine or external weight."
       },
-      "image": null,
-      "imageAttribution": null,
+      "image": "/exercise-images/1243.webp",
+      "imageAttribution": {
+        "author": "erikocobra",
+        "authorUrl": "",
+        "sourceUrl": "https://commons.wikimedia.org/wiki/File:Exercise_Heel_Raise_Two_Legs.png",
+        "derivativeSourceUrl": "",
+        "licenseName": "CC-BY-SA 4",
+        "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/deed.en"
+      },
       "sourceUpdatedAt": "2026-06-19T18:50:59.048473+02:00",
       "descriptionSource": "easyfit-curated",
-      "imageSource": null
+      "imageSource": "wger"
     },
     "1298": {
       "uuid": "4ef75e13-c058-4410-91c0-2f2d2df98130",
@@ -1387,11 +1499,18 @@
       "descriptions": {
         "en": "This exercise involves holding a dumbbell in each hand at shoulder height and performing a squat. It targets the lower body muscles, including the quads, hamstrings, and glutes, while also engaging the core and upper body."
       },
-      "image": null,
-      "imageAttribution": null,
+      "image": "/exercise-images/1640.webp",
+      "imageAttribution": {
+        "author": "AlucardEvil40",
+        "authorUrl": "",
+        "sourceUrl": "https://wger.de/media/exercise-images/1640/bdea82f1-15ef-4649-8b5a-1303cfc178e7.webp",
+        "derivativeSourceUrl": "",
+        "licenseName": "CC-BY-SA 4",
+        "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/deed.en"
+      },
       "sourceUpdatedAt": "2026-06-19T18:49:28.824471+02:00",
       "descriptionSource": "wger",
-      "imageSource": null
+      "imageSource": "wger"
     },
     "1642": {
       "uuid": "af77220c-098c-47c2-9f8c-92a651998903",
@@ -1434,11 +1553,18 @@
       "descriptions": {
         "en": "This exercise involves holding a dumbbell in each hand and stepping back into a lunge position, then returning to standing. It primarily targets the glutes, hamstrings, and quadriceps."
       },
-      "image": null,
-      "imageAttribution": null,
+      "image": "/exercise-images/1651.webp",
+      "imageAttribution": {
+        "author": "AlucardEvil40",
+        "authorUrl": "",
+        "sourceUrl": "https://wger.de/media/exercise-images/1651/04ab2679-a04d-4d05-9c85-0d36e898328c.webp",
+        "derivativeSourceUrl": "",
+        "licenseName": "CC-BY-SA 4",
+        "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/deed.en"
+      },
       "sourceUpdatedAt": "2026-06-19T18:49:37.661523+02:00",
       "descriptionSource": "wger",
-      "imageSource": null
+      "imageSource": "wger"
     },
     "1652": {
       "uuid": "65d12ecf-54b8-466d-a412-e55c396cad69",

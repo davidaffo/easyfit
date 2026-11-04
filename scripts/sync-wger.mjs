@@ -152,12 +152,12 @@ const licenseById = new Map(licenseResponse.results.map((license) => [license.id
 
 const normalized = records.map((item) => normalize(item, licenseById)).filter(Boolean).sort((a, b) => a.core.name.localeCompare(b.core.name));
 await mkdir(imagesDirectory, { recursive: true });
-const curatedLocalImages = Object.values(curatedGuideImageOverrides);
+const curatedLocalImages = Object.values(curatedGuideImageOverrides).filter(Boolean);
 await Promise.all(curatedLocalImages.map((publicPath) => access(resolve(imagesDirectory, publicPath.split('/').at(-1)))));
 const approvedIds = new Set(Object.keys(curatedExercises).map(Number));
 const imageItems = normalized.filter((item) => approvedIds.has(item.core.wgerId)
   && item.details.image
-  && !curatedGuideImageOverrides[item.core.wgerId]);
+  && !Object.hasOwn(curatedGuideImageOverrides, item.core.wgerId));
 const localImages = [...curatedLocalImages];
 for (let index = 0; index < imageItems.length; index += 4) {
   const downloaded = await Promise.all(imageItems.slice(index, index + 4).map(localizeImage));

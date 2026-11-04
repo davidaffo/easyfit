@@ -50,7 +50,7 @@ import {
   trainingStyles,
   willCompleteExercise,
 } from './engine/generator.js';
-import { setSuperset, nextSupersetExercise } from './engine/supersets.js';
+import { setSuperset, nextSupersetExercise, supersetRest, recoveryRest } from './engine/supersets.js';
 import { openAppStorage, requestPersistentStorage } from './data/storage.js';
 import './styles.css';
 
@@ -912,7 +912,7 @@ function WorkoutView({ workout, setWorkout, profile, setProfile, history, showTo
       clearRest();
       showToast(`Superserie: passa a ${getExerciseName(getWorkoutExercise(next), profile.exerciseLanguage)}`);
       document.getElementById(`exercise-${next.exerciseId}`)?.scrollIntoView?.({ behavior: 'smooth', block: 'start' });
-    } else beginRest(item.rest);
+    } else beginRest(recoveryRest(workout, item));
   };
   const toggleSet = (exerciseIndex, setIndex, item) => {
     const set = item.sets[setIndex];
@@ -1137,6 +1137,7 @@ function SetNumberInput({ value, min, max, step, inputMode, label, onCommit }) {
 }
 
 function ExerciseCard({ item, history, supersetPartners = [], exerciseIndex, language, updateSet, recordAvailableLoad, setInitialLoad, setInitialReps, changeSetCount, toggleSet, onRir, onGuide, onHistory, onOptions }) {
+  const rest = supersetPartners.length ? supersetRest([item, ...supersetPartners]) : item.rest;
   const exercise = getWorkoutExercise(item);
   const currentCatalogExercise = exercises.some((candidate) => candidate.id === item.exerciseId);
   const details = useExerciseDetails(currentCatalogExercise ? exercise.guideId || exercise.wgerId : null, 'en');
@@ -1162,7 +1163,7 @@ function ExerciseCard({ item, history, supersetPartners = [], exerciseIndex, lan
 
   return <article className="exercise-card" id={`exercise-${item.exerciseId}`}>
     <header><span className="exercise-index">{String(exerciseIndex + 1).padStart(2, '0')}</span><div><div className="exercise-name-row"><h2>{getExerciseName(exercise, language)}</h2>{item.progressionStep === 'max-increase' && <span className="progression-badge">MASSIMALE +{Math.max(.1, Number(item.performanceEvidence?.maximumChange || 0) * 100).toFixed(1)}%</span>}{item.progressionStep === 'max-decrease' && <span className="progression-badge">RICALIBRATO</span>}{item.progressionStep === 'reps' && <span className="progression-badge">+ REPS</span>}{item.progressionStep === 'load' && <span className="progression-badge load">+ CARICO</span>}</div><p>{muscles[exercise.primary] || 'Esercizio salvato'} · {targetRepSummary}{item.calibrationBelowRange ? ' · range adattato alla capacità' : item.repRange ? ` · range ${item.repRange.min}–${item.repRange.max}` : ''} · RIR {item.targetRir}</p></div>{currentCatalogExercise && <button className="icon-button" onClick={onOptions} aria-label={`Opzioni per ${getExerciseName(exercise, language)}`}><Icon name="more" size={20}/></button>}</header>
-    {supersetPartners.length > 0 && <p className="superset-note"><strong>Superserie</strong> con {supersetPartners.map((entry) => getExerciseName(getWorkoutExercise(entry), language)).join(' + ')}. Alterna le serie; recupera a fine giro.</p>}
+    {supersetPartners.length > 0 && <p className="superset-note"><strong>Superserie</strong> con {supersetPartners.map((entry) => getExerciseName(getWorkoutExercise(entry), language)).join(' + ')}. Una serie per esercizio, senza pausa tra gli esercizi; poi {formatClock(rest)} di recupero a fine giro (recupero più lungo tra: {[item, ...supersetPartners].map((entry) => `${entry.rest}s`).join(', ')}). Se un esercizio termina prima, continua con le serie rimaste e lo stesso recupero.</p>}
     {exercise.loadUnit === 'added-weight' && <p className="load-reference">I kg indicano solo la zavorra aggiunta al peso corporeo.</p>}
     {exercise.loadUnit === 'per-stack' && <p className="load-reference">I kg indicano il carico selezionato su ciascun pacco pesi; usa lo stesso carico sui due lati.</p>}
     {item.rotation && <p className="exercise-rotation">Blocco {item.rotation.block} · esecuzione {Math.min(item.rotation.completedExposures + 1, item.rotation.targetExposures)} di {item.rotation.targetExposures}</p>}
@@ -1198,7 +1199,7 @@ function ExerciseCard({ item, history, supersetPartners = [], exerciseIndex, lan
       </div>)}</div>
       <div className="manual-set-controls"><button onClick={() => changeSetCount(exerciseIndex, -1)} disabled={item.sets.length <= 1 || item.sets.at(-1).done}>− Serie</button><span>{item.sets.length} serie</span><button onClick={() => changeSetCount(exerciseIndex, 1)} disabled={item.sets.length >= 6}>+ Serie</button></div>
     </>}
-    <footer><span><Icon name="clock" size={16}/> {item.rest >= 60 ? `${Math.floor(item.rest / 60)}:${String(item.rest % 60).padStart(2, '0')}` : `${item.rest}s`} recupero{item.estimatedOneRepMax ? ` · e1RM ${Math.round(item.estimatedOneRepMax)} kg` : ''}</span>{currentCatalogExercise && <div className="exercise-actions"><button onClick={onGuide}><Icon name="guide" size={15}/> Guida</button><button onClick={onHistory}><Icon name="history" size={15}/> Storico</button><button onClick={onOptions} aria-label="Opzioni"><Icon name="more" size={15}/></button></div>}</footer>
+    <footer><span><Icon name="clock" size={16}/> {rest >= 60 ? formatClock(rest) : `${rest}s`} {supersetPartners.length ? 'recupero a fine giro' : 'recupero'}{item.estimatedOneRepMax ? ` · e1RM ${Math.round(item.estimatedOneRepMax)} kg` : ''}</span>{currentCatalogExercise && <div className="exercise-actions"><button onClick={onGuide}><Icon name="guide" size={15}/> Guida</button><button onClick={onHistory}><Icon name="history" size={15}/> Storico</button><button onClick={onOptions} aria-label="Opzioni"><Icon name="more" size={15}/></button></div>}</footer>
   </article>;
 }
 
@@ -1285,7 +1286,7 @@ function SupersetSheet({ workout, exerciseId, language, onChoose, onClose }) {
     <section className="similar-sheet" role="dialog" aria-modal="true" aria-label="Configura superserie">
       <button className="sheet-close" onClick={onClose} aria-label="Chiudi"><Icon name="close"/></button>
       <span className="eyebrow">SUPERSERIE MANUALE</span><h2>Quali esercizi vuoi alternare?</h2>
-      <p>{getExerciseName(getWorkoutExercise(item), language)} · recupero alla fine di ogni giro.</p>
+      <p>{getExerciseName(getWorkoutExercise(item), language)} · una serie per esercizio senza pause, poi recupero alla fine di ogni giro. La durata è il recupero più lungo tra gli esercizi della superserie, e resta uguale anche se un esercizio termina prima.</p>
       <div className="similar-list">{workout.exercises.filter((entry) => entry.exerciseId !== exerciseId).map((entry) => <button key={entry.exerciseId} onClick={() => onChoose(entry.exerciseId)}><div><strong>{getExerciseName(getWorkoutExercise(entry), language)}</strong><small>{item.supersetId && item.supersetId === entry.supersetId ? 'Già nella superserie' : 'Aggiungi alla superserie'}</small></div><Icon name="plus"/></button>)}</div>
       {item.supersetId && <button className="button light wide" onClick={() => onChoose(null)}>Rimuovi dalla superserie</button>}
     </section>

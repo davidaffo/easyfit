@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { exercises } from '../data/exercises.js';
 import { finalizeWorkoutPerformance, generateWorkout, getAvailableLoads, getExercisePrescription, getWorkoutCompletionInsights, getSimilarLoadReference, targetRirsForSetCount } from './generator.js';
-import { setSuperset, nextSupersetExercise } from './supersets.js';
+import { setSuperset, nextSupersetExercise, recoveryRest } from './supersets.js';
 
 const exercise = exercises.find((entry) => entry.loadType === 'external');
 const item = (reps, extra = {}) => ({ exerciseId: exercise.id, sets: reps.map((reps) => ({ done: true, reps, weight: 60, rir: 0, targetRir: 2 })), ...extra });
@@ -159,6 +159,21 @@ describe('observed completion performance', () => {
 });
 describe('manual supersets', () => {
   const workout = () => ({ exercises: ['a', 'b', 'c'].map((exerciseId) => ({ exerciseId, sets: [{ done: false }, { done: false }] })) });
+  it('uses the longest recovery whichever exercise closes a round', () => {
+    let current = workout();
+    current.exercises.forEach((item, index) => { item.rest = [120, 60, 46][index]; });
+    current = setSuperset(current, 'a', 'b');
+    expect(recoveryRest(current, current.exercises[0])).toBe(120);
+    expect(recoveryRest(current, current.exercises[1])).toBe(120);
+    expect(recoveryRest(current, current.exercises[2])).toBe(46);
+    current = setSuperset(current, 'c', 'a');
+    for (const item of current.exercises) expect(recoveryRest(current, item)).toBe(120);
+    current.exercises[0].sets.forEach((set) => { set.done = true; });
+    expect(recoveryRest(current, current.exercises[1])).toBe(120);
+    current = setSuperset(current, 'a');
+    expect(recoveryRest(current, current.exercises[0])).toBe(120);
+    expect(recoveryRest(current, current.exercises[1])).toBe(60);
+  });
   it('creates, extends and removes a group only when selected', () => {
     let current = workout();
     expect(current.exercises.every((entry) => !entry.supersetId)).toBe(true);
