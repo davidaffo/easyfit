@@ -205,6 +205,36 @@ describe('critical workout lifecycle', () => {
     expect(saved.exercises[0].underperformanceDecision).not.toBe('pending');
   });
 
+  test.each([null, 2])('increasing load and changing 13 reps to 8 then completing 10 does not ask about fatigue (RIR: %s)', async (rir) => {
+    const user = userEvent.setup();
+    const workout = readyWorkout();
+    const exercise = workout.exercises.find((item) => item.exerciseSnapshot.loadType === 'external');
+    workout.exercises = [{ ...exercise, sets: [{
+      ...exercise.sets[0], done: false, weight: 30, targetWeight: 30,
+      reps: 13, targetReps: 13, targetRir: 2, rir,
+    }] }];
+    saveState({ workout });
+    const { container } = await renderApp();
+    await user.click(screen.getByRole('button', { name: 'Riprendi allenamento' }));
+    const weight = screen.getByRole('textbox', { name: 'Peso set 1' });
+    const reps = screen.getByRole('textbox', { name: 'Ripetizioni set 1' });
+    await user.click(weight);
+    await user.type(weight, '35');
+    await user.tab();
+    await user.click(reps);
+    await user.type(reps, '8');
+    await user.tab();
+    await user.click(reps);
+    await user.type(reps, '10');
+    await user.tab();
+    await user.click(container.querySelector('.set-check'));
+    if (rir == null) await user.click(screen.getByRole('button', { name: /2.*Due/ }));
+    expect(screen.queryByRole('dialog', { name: 'Gestisci volume sotto target' })).toBeNull();
+    const saved = JSON.parse(await stored('easyfit-workout')).exercises[0];
+    expect(saved.sets[0]).toMatchObject({ done: true, weight: 35, reps: 10, targetWeight: 30, targetReps: 13 });
+    expect(saved.underperformanceDecision).not.toBe('pending');
+  });
+
   test('generation previews the workout and only the start button starts it', async () => {
     const user = userEvent.setup();
     saveState();

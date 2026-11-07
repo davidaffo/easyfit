@@ -210,8 +210,17 @@ export function isFinalSetBelowTarget(item, setIndex, setOverride = {}) {
   let targetVolume = 0;
   sets.forEach((recorded, index) => {
     const set = index === setIndex ? { ...recorded, ...setOverride } : recorded;
-    performedVolume += Math.max(0, Number(set.reps) || 0) * (usesWeight ? Math.max(0, Number(set.weight) || 0) : 1);
-    targetVolume += Math.max(0, Number(set.targetReps) || 0) * (usesWeight ? Math.max(0, Number(set.targetWeight ?? set.weight) || 0) : 1);
+    const reps = Math.max(0, Number(set.reps) || 0);
+    const weight = Math.max(0, Number(set.weight) || 0);
+    const targetWeight = Math.max(0, Number(set.targetWeight ?? set.weight) || 0);
+    const performed = reps * (usesWeight ? weight : 1);
+    const target = Math.max(0, Number(set.targetReps) || 0) * (usesWeight ? targetWeight : 1);
+    // A heavier working load changes the task: fewer reps and less tonnage
+    // alone do not demonstrate fatigue. Keep the original prescription for
+    // progression, but do not count this tradeoff as a volume deficit.
+    const increasedLoad = usesWeight && weight > targetWeight + .001 && reps > 0;
+    performedVolume += increasedLoad ? Math.max(performed, target) : performed;
+    targetVolume += target;
   });
   // This prompt concerns total volume. Per-set reps and RIR still determine
   // progression independently; a missed individual target need not interrupt.
