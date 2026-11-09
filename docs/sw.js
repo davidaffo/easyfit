@@ -1,5 +1,5 @@
 const BASE = new URL('./', self.location.href);
-const CACHE = `easyfit-${BASE.href}-5d6d4167ba436ba9`;
+const CACHE = `easyfit-${BASE.href}-e7b700887319603e`;
 const fromBase = (path) => new URL(path, BASE).href;
 const CORE = ['manifest.webmanifest', 'icon.svg', 'icon-192.png', 'icon-512.png'].map(fromBase);
 const IMAGE_INDEX = fromBase('exercise-images/index.json');

@@ -157,3 +157,14 @@ Si inserisce il normale indirizzo usato per aprire Nextcloud, per esempio `https
 - installazione PWA e uso offline.
 
 Profilo, storico e workout restano in IndexedDB sul dispositivo, con archiviazione atomica delle sessioni. Al primo avvio i dati presenti in `localStorage` vengono migrati automaticamente e rimossi dalla vecchia memoria solo dopo il salvataggio riuscito. L’app richiede inoltre al browser la persistenza dell’archivio, quando supportata. Vengono inviati fuori dal dispositivo soltanto quando l’utente preme esplicitamente **Carica / sovrascrivi**.
+
+
+## Dominio pubblico
+
+Sito: https://easyfit.davidaffo.com/
+
+GitHub Pages pubblica dal branch `master`, cartella `/docs`, con Custom domain `easyfit.davidaffo.com`. Il file `public/CNAME` conserva il dominio anche dopo una nuova build.
+
+Su Cloudflare usare un CNAME `easyfit` verso `davidaffo.github.io`, in modalità DNS only. Abilitare Enforce HTTPS su GitHub quando il certificato è disponibile. I percorsi relativi degli asset supportano la radice del nuovo dominio.
+
+Il nuovo sottodominio ha un archivio del browser separato. I dati del vecchio indirizzo non migrano automaticamente: esportare quelli ancora disponibili e importarli dalla nuova app, quando la funzione è disponibile. Per usare il nuovo indirizzo come PWA, installare l’app dal nuovo dominio.
