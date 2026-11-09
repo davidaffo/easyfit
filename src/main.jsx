@@ -217,9 +217,31 @@ function useExerciseDetails(wgerId, language = 'en') {
   return details;
 }
 
-function Onboarding({ onDone }) {
+function Onboarding({ onDone, onRestore, showToast }) {
   const [step, setStep] = useState(0);
   const [profile, setProfile] = useState(defaultProfile);
+  const [backupOpen, setBackupOpen] = useState(false);
+  const [restoreError, setRestoreError] = useState('');
+  const [restoring, setRestoring] = useState(false);
+
+  const importBackup = async (event) => {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+    if (!file) return;
+    setRestoreError('');
+    if (file.size > MAX_BACKUP_BYTES) return setRestoreError('Il file di backup è troppo grande');
+    setRestoring(true);
+    try {
+      const backup = parseBackup(await file.text());
+      if (!window.confirm(`Ripristinare il backup del ${formatBackupDate(backup.exportedAt)}?`)) return;
+      const result = await onRestore(backup);
+      showToast(result.skippedWorkout ? 'Backup importato; workout incompatibile ignorato' : 'Backup importato');
+    } catch (error) {
+      setRestoreError(error.message || 'Ripristino non riuscito');
+    } finally {
+      setRestoring(false);
+    }
+  };
 
   const toggleEquipment = (id) => {
     setProfile((current) => ({
@@ -247,7 +269,16 @@ function Onboarding({ onDone }) {
         <h1>Meno scelte.<br/><em>Più risultati.</em></h1>
         <p>Ogni volta che ti alleni, Easyfit decide cosa fare in base allo stimolo già accumulato e ai tuoi progressi.</p>
         <button className="button primary wide" onClick={() => setStep(1)}>Configura in 60 secondi <Icon name="chevron"/></button>
+        <section className="onboarding-restore" aria-label="Ripristina un backup">
+          <h2>Hai già un backup?</h2>
+          <div className="backup-options">
+            <label><input type="file" aria-label="Ripristina dal dispositivo" accept="application/json,.json" disabled={restoring || backupOpen} onChange={importBackup}/><span><Icon name="upload" size={18}/></span><div><strong>{restoring ? 'Ripristino…' : 'Ripristina dal dispositivo'}</strong><small>Scegli il file di backup JSON</small></div></label>
+            <button disabled={restoring} onClick={() => setBackupOpen(true)}><span><Icon name="cloud" size={18}/></span><div><strong>Ripristina da Nextcloud</strong><small>Recupera profilo, storico e workout dal cloud</small></div></button>
+          </div>
+          {restoreError && <p role="alert">{restoreError}</p>}
+        </section>
       </div>
+      {backupOpen && <BackupSheet profile={profile} history={[]} workout={null} onRestore={onRestore} showToast={showToast} restoreOnly onClose={() => setBackupOpen(false)}/>}
     </main>;
   }
 
@@ -423,6 +454,7 @@ function LoadedApp({ storage }) {
   const [view, setView] = useState('home');
   const [toast, setToast] = useState('');
   const [completedSummary, setCompletedSummary] = useState(null);
+  const [completionBackupOpen, setCompletionBackupOpen] = useState(false);
   const [installPrompt, setInstallPrompt] = useState(null);
   const historyHydrated = useRef(false);
 
@@ -472,8 +504,6 @@ function LoadedApp({ storage }) {
     setWorkout(generateWorkout(newProfile, []));
     setView('preview');
   };
-
-  if (!profile) return <><Onboarding onDone={finishOnboarding}/><AppUpdate/></>;
 
   const createWorkout = (duration = profile.duration) => {
     const generated = generateWorkout(profile, history, { duration, variation: Date.now() });
@@ -547,6 +577,8 @@ function LoadedApp({ storage }) {
     return { skippedWorkout: Boolean(backup.workout && !restoredWorkout) };
   };
 
+  if (!profile) return <><Onboarding onDone={finishOnboarding} onRestore={restoreBackup} showToast={showToast}/><AppUpdate/>{toast && <div className="toast" role="status">{toast}</div>}</>;
+
   return <div className="app-shell">
     <AppUpdate settings={view === 'profile'}/>
     {view === 'workout' && isWorkoutActive(workout)
@@ -579,7 +611,8 @@ function LoadedApp({ storage }) {
         <BottomNav view={view} setView={setView}/>
       </>}
     {toast && <div className="toast"><Icon name="check"/><span>{toast}</span></div>}
-    {completedSummary && <WorkoutComplete workout={completedSummary.workout} history={completedSummary.previousHistory} language={profile.exerciseLanguage} onClose={() => setCompletedSummary(null)}/>}
+    {completedSummary && <WorkoutComplete workout={completedSummary.workout} history={completedSummary.previousHistory} language={profile.exerciseLanguage} onClose={() => setCompletedSummary(null)} onBackup={() => { setCompletedSummary(null); setCompletionBackupOpen(true); }}/>}
+    {completionBackupOpen && <BackupSheet profile={profile} history={history} workout={workout} uploadOnly onSaveCloud={(cloud) => setProfile((current) => ({ ...current, cloud }))} showToast={showToast} onClose={() => setCompletionBackupOpen(false)}/>}
   </div>;
 }
 
@@ -1465,7 +1498,7 @@ function WorkoutLogSheet({ workout, language, onClose }) {
   </div>;
 }
 
-function WorkoutComplete({ workout, history, language, onClose }) {
+function WorkoutComplete({ workout, history, language, onClose, onBackup }) {
   const insights = useMemo(() => getWorkoutCompletionInsights(workout, history), [workout, history]);
   const { counts } = insights;
   const headline = counts.records
@@ -1514,7 +1547,12 @@ function WorkoutComplete({ workout, history, language, onClose }) {
         <aside><strong>{maximumLabel(item)}</strong><small>{item.weighted ? 'e1RM' : 'capacità'}{item.isRecord ? ' · RECORD' : ''}</small></aside>
       </article>)}
     </section>
-    <button className="button acid wide" onClick={onClose}>Continua</button>
+    <section className="completion-backup">
+      <h3>Vuoi fare un backup su Nextcloud?</h3>
+      <p>Il workout è già salvato sul dispositivo. Puoi aggiornare anche il backup di tutti i tuoi dati.</p>
+      <button className="button acid wide" onClick={onBackup}><Icon name="cloud" size={18}/>Sì, fai il backup</button>
+    </section>
+    <button className="button wide" onClick={onClose}>Continua</button>
   </div>;
 }
 
@@ -1690,7 +1728,7 @@ function formatBackupDate(value) {
     : 'data sconosciuta';
 }
 
-function BackupSheet({ profile, history, workout, onRestore, onSaveCloud, showToast, onClose }) {
+function BackupSheet({ profile, history, workout, onRestore, onSaveCloud, showToast, onClose, restoreOnly = false, uploadOnly = false }) {
   const [cloudUrl, setCloudUrl] = useState(() => {
     const savedUrl = profile.cloud?.webDavUrl || '';
     if (!savedUrl) return '';
@@ -1735,12 +1773,12 @@ function BackupSheet({ profile, history, workout, onRestore, onSaveCloud, showTo
     setBusy('download');
     setMessage('');
     try {
-      const normalizedUrl = saveConnection();
+      const normalizedUrl = normalizeNextcloudBaseUrl(cloudUrl);
       const serialized = await downloadWebDavBackup({ cloudUrl: normalizedUrl, username, password });
       const backup = parseBackup(serialized);
       backup.profile.cloud = { webDavUrl: normalizedUrl, webDavUsername: username.trim() };
       const date = formatBackupDate(backup.exportedAt);
-      if (!window.confirm(`Ripristinare il backup Nextcloud del ${date}? I dati locali attuali verranno sostituiti.`)) return;
+      if (!window.confirm(`Ripristinare il backup Nextcloud del ${date}?${restoreOnly ? '' : ' I dati locali attuali verranno sostituiti.'}`)) return;
       const result = await onRestore(backup);
       showToast(result.skippedWorkout ? 'Backup ripristinato; workout incompatibile ignorato' : 'Backup Nextcloud ripristinato');
     } catch (error) {
@@ -1755,17 +1793,17 @@ function BackupSheet({ profile, history, workout, onRestore, onSaveCloud, showTo
       <button className="sheet-close" onClick={onClose}><Icon name="close" size={19}/></button>
       <span className="eyebrow">BACKUP CLOUD</span>
       <h2>Nextcloud</h2>
-      <p>Inserisci il normale indirizzo con cui apri Nextcloud. Easyfit prepara automaticamente la cartella <strong>Easyfit</strong> e il file <strong>easyfit-backup.json</strong>.</p>
+      <p>Inserisci il normale indirizzo con cui apri Nextcloud. {restoreOnly ? <>Easyfit cerca il file <strong>Easyfit/easyfit-backup.json</strong> da ripristinare.</> : <>Easyfit prepara automaticamente la cartella <strong>Easyfit</strong> e il file <strong>easyfit-backup.json</strong>.</>}</p>
       <div className="cloud-fields">
         <label><span>INDIRIZZO NEXTCLOUD</span><input type="url" inputMode="url" value={cloudUrl} onChange={(event) => setCloudUrl(event.target.value)} placeholder="https://cloud.example.com"/></label>
         <label><span>NOME UTENTE NEXTCLOUD</span><input autoComplete="username" value={username} onChange={(event) => setUsername(event.target.value)} placeholder="utente"/></label>
         <label><span>APP PASSWORD</span><input type="password" autoComplete="current-password" value={password} onChange={(event) => setPassword(event.target.value)} placeholder="Password applicativa"/></label>
       </div>
-      <p className="cloud-security"><Icon name="check" size={15}/> Upload e ripristino avvengono solo quando premi il relativo pulsante. L’app password resta in memoria soltanto finché questo pannello è aperto.</p>
-      {message && <div className="cloud-message">{message}</div>}
+      <p className="cloud-security"><Icon name="check" size={15}/> {restoreOnly ? 'Il ripristino avviene solo quando premi il pulsante.' : uploadOnly ? 'Il backup viene caricato solo quando premi il pulsante.' : 'Upload e ripristino avvengono solo quando premi il relativo pulsante.'} L’app password resta in memoria soltanto finché questo pannello è aperto.</p>
+      {message && <div className="cloud-message" role="status">{message}</div>}
       <div className="cloud-actions">
-        <button className="button dark" disabled={!cloudUrl.trim() || !username.trim() || !password || busy} onClick={upload}><Icon name="upload" size={18}/>{busy === 'upload' ? 'Caricamento…' : 'Carica / sovrascrivi'}</button>
-        <button className="button cloud-restore" disabled={!cloudUrl.trim() || !username.trim() || !password || busy} onClick={restore}><Icon name="download" size={18}/>{busy === 'download' ? 'Download…' : 'Ripristina dal cloud'}</button>
+        {!restoreOnly && <button className="button dark" disabled={!cloudUrl.trim() || !username.trim() || !password || busy} onClick={upload}><Icon name="upload" size={18}/>{busy === 'upload' ? 'Caricamento…' : 'Carica / sovrascrivi'}</button>}
+        {!uploadOnly && <button className="button cloud-restore" disabled={!cloudUrl.trim() || !username.trim() || !password || busy} onClick={restore}><Icon name="download" size={18}/>{busy === 'download' ? 'Download…' : 'Ripristina dal cloud'}</button>}
       </div>
       <small className="cloud-help">Non serve cercare o incollare un indirizzo WebDAV. Usa l’indirizzo principale del tuo Storage Share/Nextcloud e una password applicativa revocabile.</small>
     </section>

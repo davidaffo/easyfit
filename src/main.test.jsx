@@ -8,6 +8,7 @@ import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 import { App, applyExercisePrescriptionLimits } from './main.jsx';
 import { ENGINE_VERSION, generateWorkout, getWorkoutCompletionInsights, startWorkout } from './engine/generator.js';
 import { exercises } from './data/exercises.js';
+import { serializeBackup } from './data/backup.js';
 
 const profile = {
   goal: 'muscle',
@@ -97,6 +98,64 @@ beforeEach(() => {
 });
 
 afterEach(cleanup);
+
+describe('restore during initial setup', () => {
+  test('imports a device backup and retains the restored session after reload', async () => {
+    const user = userEvent.setup();
+    vi.spyOn(window, 'confirm').mockReturnValue(true);
+    const workout = readyWorkout();
+    const completed = { ...readyWorkout(), id: 'previous-session', completedAt: Date.now() - 86400000 };
+    const serialized = serializeBackup({ profile, history: [completed], workout });
+    const file = new File([serialized], 'backup.json', { type: 'application/json' });
+    file.text = async () => serialized;
+    const app = await renderApp();
+    await user.upload(screen.getByLabelText('Ripristina dal dispositivo'), file);
+    await waitFor(() => expect(screen.queryByText('Hai già un backup?')).toBeNull());
+    expect(JSON.parse(await stored('easyfit-history'))[0].id).toBe('previous-session');
+    expect(JSON.parse(await stored('easyfit-workout')).id).toBe(workout.id);
+    app.unmount();
+    await renderApp();
+    expect(screen.queryByText('Configura in 60 secondi')).toBeNull();
+    expect(JSON.parse(await stored('easyfit-workout')).id).toBe(workout.id);
+  });
+
+  test('rejects an invalid device backup without creating a profile', async () => {
+    const user = userEvent.setup();
+    await renderApp();
+    const file = new File(['invalid'], 'backup.json', { type: 'application/json' });
+    file.text = async () => 'invalid';
+    await user.upload(screen.getByLabelText('Ripristina dal dispositivo'), file);
+    expect(screen.getByRole('alert').textContent).toContain('JSON valido');
+    expect(await stored('easyfit-profile')).toBeNull();
+    expect(screen.getByText('Configura in 60 secondi')).toBeTruthy();
+  });
+
+  test('cloud failures leave setup intact and a successful retry restores without uploading', async () => {
+    const user = userEvent.setup();
+    vi.spyOn(window, 'confirm').mockReturnValue(true);
+    const fetcher = vi.fn().mockResolvedValueOnce({ ok: false, status: 404 })
+      .mockResolvedValueOnce({ ok: true, text: async () => serializeBackup({ profile, history: [], workout: null }) });
+    vi.stubGlobal('fetch', fetcher);
+    await renderApp();
+    await user.click(screen.getByRole('button', { name: /Ripristina da Nextcloud/ }));
+    const dialog = screen.getByRole('dialog', { name: 'Backup Nextcloud' });
+    expect(within(dialog).queryByRole('button', { name: /Carica/ })).toBeNull();
+    await user.type(within(dialog).getByLabelText('INDIRIZZO NEXTCLOUD'), 'https://cloud.example.com');
+    await user.type(within(dialog).getByLabelText('NOME UTENTE NEXTCLOUD'), 'utente');
+    await user.type(within(dialog).getByLabelText('APP PASSWORD'), 'secret');
+    await user.click(within(dialog).getByRole('button', { name: 'Ripristina dal cloud' }));
+    expect(await screen.findByText('Nessun backup Easyfit trovato su Nextcloud.')).toBeTruthy();
+    expect(await stored('easyfit-profile')).toBeNull();
+    await user.click(within(dialog).getByRole('button', { name: 'Ripristina dal cloud' }));
+    await waitFor(() => expect(screen.queryByText('Hai già un backup?')).toBeNull());
+    const saved = JSON.parse(await stored('easyfit-profile'));
+    expect(saved.cloud).toEqual({ webDavUrl: 'https://cloud.example.com', webDavUsername: 'utente' });
+    expect(JSON.stringify(saved)).not.toContain('secret');
+    expect(fetcher).toHaveBeenCalledTimes(2);
+    expect(fetcher.mock.calls.every(([, options]) => options.method === 'GET')).toBe(true);
+    vi.unstubAllGlobals();
+  });
+});
 
 describe('critical workout lifecycle', () => {
   test.each([ENGINE_VERSION, ENGINE_VERSION - 1])('a saved preview from engine v%s is fully recalculated on reload and reopening', async (version) => {
@@ -386,6 +445,41 @@ describe('critical workout lifecycle', () => {
     expect(screen.getByRole('button', { name: /Termina workout/ })).toBeTruthy();
     expect(await stored('easyfit-workout')).not.toBeNull();
     expect(JSON.parse(await stored('easyfit-history'))).toHaveLength(0);
+  });
+
+  test('completion offers an optional Nextcloud backup containing the newly archived workout', async () => {
+    const user = userEvent.setup();
+    const workout = readyWorkout();
+    workout.exercises[0].sets[0] = { ...workout.exercises[0].sets[0], done: true, rir: 2 };
+    saveState({ workout, savedProfile: { ...profile, cloud: { webDavUrl: 'https://cloud.example.com', webDavUsername: 'utente' } } });
+    vi.spyOn(window, 'confirm').mockReturnValue(true);
+    const fetcher = vi.fn().mockResolvedValue({ ok: true });
+    vi.stubGlobal('fetch', fetcher);
+    try {
+      await renderApp();
+      await user.click(screen.getByRole('button', { name: 'Riprendi allenamento' }));
+      await user.click(screen.getByRole('button', { name: /Termina workout/ }));
+      const summary = await screen.findByRole('dialog', { name: 'Riepilogo workout completato' });
+      expect(within(summary).getByText('Vuoi fare un backup su Nextcloud?')).toBeTruthy();
+      expect(fetcher).not.toHaveBeenCalled();
+      await user.click(within(summary).getByRole('button', { name: 'Sì, fai il backup' }));
+      const dialog = screen.getByRole('dialog', { name: 'Backup Nextcloud' });
+      expect(within(dialog).getByLabelText('INDIRIZZO NEXTCLOUD').value).toBe('https://cloud.example.com');
+      expect(within(dialog).getByLabelText('NOME UTENTE NEXTCLOUD').value).toBe('utente');
+      expect(within(dialog).queryByRole('button', { name: 'Ripristina dal cloud' })).toBeNull();
+      expect(fetcher).not.toHaveBeenCalled();
+      await user.type(within(dialog).getByLabelText('APP PASSWORD'), 'secret');
+      await user.click(within(dialog).getByRole('button', { name: 'Carica / sovrascrivi' }));
+      await screen.findByText('Backup caricato su Nextcloud. Il file precedente è stato sostituito.');
+      const uploaded = JSON.parse(fetcher.mock.calls.find(([, options]) => options.method === 'PUT')[1].body);
+      expect(uploaded.payload.history).toHaveLength(1);
+      expect(uploaded.payload.history[0].id).toBe(workout.id);
+      expect(uploaded.payload.workout).toBeNull();
+      expect(uploaded.payload.profile.trainingAdaptation).toEqual(JSON.parse(await stored('easyfit-profile')).trainingAdaptation);
+      expect(JSON.stringify(uploaded)).not.toContain('secret');
+    } finally {
+      vi.unstubAllGlobals();
+    }
   });
 });
 
